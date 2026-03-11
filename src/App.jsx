@@ -43,12 +43,14 @@ function Layout({ children }) {
     { path: "/perbaikan", icon: Wrench, label: "Perbaikan" },
   ];
 
+  const mobileNavItems = navItems.filter((item) => item.path !== "/catatan");
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Header lebih kecil */}
       <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
         <div className="container mx-auto px-3 h-14 flex items-center justify-between">
-          <Link to="/" className="hover:text-blue-400 transition-colors">
+          <Link to="/catatan" className="hover:text-blue-400 transition-colors">
             <h1 className="text-lg font-bold">📘 Catatan</h1>
           </Link>
           <button
@@ -92,8 +94,8 @@ function Layout({ children }) {
 
       {/* Mobile Bottom Navigation - lebih kecil */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50">
-        <div className="grid grid-cols-7 h-14">
-          {navItems.map((item) => {
+        <div className="grid grid-cols-6 h-14">
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (

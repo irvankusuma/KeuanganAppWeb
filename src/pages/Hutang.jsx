@@ -561,6 +561,9 @@ export default function Hutang() {
                 onChange={(e) => setPayFormData({ ...payFormData, tanggal: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
               />
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm">
+                Simpan Pembayaran
+              </button>
               <textarea
                 value={payFormData.catatan}
                 onChange={(e) => setPayFormData({ ...payFormData, catatan: e.target.value })}
@@ -568,9 +571,6 @@ export default function Hutang() {
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                 rows="2"
               />
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm">
-                Simpan Pembayaran
-              </button>
             </form>
           </div>
         </div>
