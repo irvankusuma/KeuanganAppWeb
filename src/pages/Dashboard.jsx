@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { DollarSign, Coins, TrendingUp, TrendingDown } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import {
@@ -20,6 +21,7 @@ export default function Dashboard() {
     pengeluaran: [],
     pembayaranHutang: [],
     pembayaranPiutang: [],
+    catatan: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +42,7 @@ export default function Dashboard() {
       const pembayaranPiutang = LocalStorageService.readSheet(
         SHEETS.PEMBAYARAN_PIUTANG,
       );
+      const catatan = LocalStorageService.readSheet(SHEETS.CATATAN);
 
       setData({
         hutang,
@@ -48,6 +51,7 @@ export default function Dashboard() {
         pengeluaran,
         pembayaranHutang,
         pembayaranPiutang,
+        catatan,
       });
     } catch (error) {
       console.error("Error loading data:", error);
@@ -288,6 +292,15 @@ export default function Dashboard() {
             <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
             Ringkasan Cepat
           </h3>
+          <div className="mb-3 p-2 rounded-lg bg-slate-900/70 border border-slate-700 flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-gray-400">Catatan</div>
+              <div className="text-xs text-white">{data.catatan.length} catatan tersimpan</div>
+            </div>
+            <Link to="/catatan" className="text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 px-2 py-1 rounded-md">
+              Buka Catatan
+            </Link>
+          </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center py-1 border-b border-slate-700 text-xs">
               <span className="text-gray-400">Total Aset Lancar</span>

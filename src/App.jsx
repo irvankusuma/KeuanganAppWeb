@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Wrench,
   Download,
+  FileText,
 } from "lucide-react";
 
 // Pages
@@ -23,6 +24,7 @@ import Piutang from "./pages/Piutang";
 import Pemasukan from "./pages/Pemasukan";
 import Pengeluaran from "./pages/Pengeluaran";
 import Perbaikan from "./pages/Perbaikan";
+import Catatan from "./pages/catatan";
 
 // Components
 import ExportImportModal from "./components/ExportImportModal";
@@ -37,6 +39,7 @@ function Layout({ children }) {
     { path: "/piutang", icon: Coins, label: "Piutang" },
     { path: "/pemasukan", icon: TrendingUp, label: "Pemasukan" },
     { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
+    { path: "/catatan", icon: FileText, label: "Catatan" },
     { path: "/perbaikan", icon: Wrench, label: "Perbaikan" },
   ];
 
@@ -89,7 +92,7 @@ function Layout({ children }) {
 
       {/* Mobile Bottom Navigation - lebih kecil */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50">
-        <div className="grid grid-cols-6 h-14">
+        <div className="grid grid-cols-7 h-14">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -127,6 +130,7 @@ function App() {
           <Route path="/piutang" element={<Piutang />} />
           <Route path="/pemasukan" element={<Pemasukan />} />
           <Route path="/pengeluaran" element={<Pengeluaran />} />
+          <Route path="/catatan" element={<Catatan />} />
           <Route path="/perbaikan" element={<Perbaikan />} />
         </Routes>
       </Layout>
