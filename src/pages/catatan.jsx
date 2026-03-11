@@ -170,8 +170,9 @@ export default function Catatan() {
   const isBullet = selectedType === NOTE_TYPES.BULLET;
 
   return (
-    <div className="space-y-4 pb-24 md:pb-4">
-      <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+    <div className="space-y-4 pb-24 md:pb-6"> {/* 👈 Padding bottom untuk mobile */}
+      {/* Filter Section */}
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
           onClick={() => setShowFilters(!showFilters)}>
@@ -237,6 +238,7 @@ export default function Catatan() {
         )}
       </div>
 
+      {/* Search Bar */}
       <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-3">
         <input
           type="text"
@@ -247,7 +249,8 @@ export default function Catatan() {
         />
       </div>
 
-      <div className="space-y-3">
+      {/* Daftar Catatan */}
+      <div className="space-y-3 mb-16 md:mb-0"> {/* 👈 Margin bottom untuk mobile */}
         {filteredNotes.length > 0 ? (
           filteredNotes.map((item) => {
             const type = item.jenis || NOTE_TYPES.STANDARD;
@@ -305,13 +308,15 @@ export default function Catatan() {
         )}
       </div>
 
+      {/* Floating Action Button (FAB) */}
       <button
         onClick={() => setShowTypePicker(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40"
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40"
         aria-label="Tambah catatan">
         <Plus size={22} />
       </button>
 
+      {/* Modal Pilih Tipe Catatan */}
       {showTypePicker && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
@@ -346,6 +351,7 @@ export default function Catatan() {
         </div>
       )}
 
+      {/* Modal Tambah/Edit Catatan */}
       {showModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
