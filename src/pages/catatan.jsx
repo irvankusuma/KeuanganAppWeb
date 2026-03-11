@@ -5,7 +5,6 @@ import {
   Trash2,
   Save,
   X,
-  FileText,
   List,
   MessageSquare,
   Filter,
@@ -170,9 +169,8 @@ export default function Catatan() {
   const isBullet = selectedType === NOTE_TYPES.BULLET;
 
   return (
-    <div className="space-y-4 pb-24 md:pb-6"> {/* 👈 Padding bottom untuk mobile */}
-      {/* Filter Section */}
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+    <div className="space-y-4 pb-28 md:pb-6">
+      <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
           onClick={() => setShowFilters(!showFilters)}>
@@ -238,7 +236,6 @@ export default function Catatan() {
         )}
       </div>
 
-      {/* Search Bar */}
       <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-3">
         <input
           type="text"
@@ -249,8 +246,7 @@ export default function Catatan() {
         />
       </div>
 
-      {/* Daftar Catatan */}
-      <div className="space-y-3 mb-16 md:mb-0"> {/* 👈 Margin bottom untuk mobile */}
+      <div className="space-y-3">
         {filteredNotes.length > 0 ? (
           filteredNotes.map((item) => {
             const type = item.jenis || NOTE_TYPES.STANDARD;
@@ -308,18 +304,16 @@ export default function Catatan() {
         )}
       </div>
 
-      {/* Floating Action Button (FAB) */}
       <button
         onClick={() => setShowTypePicker(true)}
-        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40"
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40 md:z-40"
         aria-label="Tambah catatan">
         <Plus size={22} />
       </button>
 
-      {/* Modal Pilih Tipe Catatan */}
       {showTypePicker && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={() => setShowTypePicker(false)}>
           <div
             className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md border border-slate-700"
@@ -334,7 +328,7 @@ export default function Catatan() {
               <button
                 onClick={() => openType(NOTE_TYPES.STANDARD)}
                 className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2">
-                <FileText size={16} /> Judul + Catatan
+                <Plus size={16} /> Judul + Catatan
               </button>
               <button
                 onClick={() => openType(NOTE_TYPES.BULLET)}
@@ -351,13 +345,12 @@ export default function Catatan() {
         </div>
       )}
 
-      {/* Modal Tambah/Edit Catatan */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={resetForm}>
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-lg max-h-[90vh] overflow-auto"
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-lg max-h-[86vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold">
@@ -368,7 +361,7 @@ export default function Catatan() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-5">
+            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-8">
               {!isShort && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Judul</label>
