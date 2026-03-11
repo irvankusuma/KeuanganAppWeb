@@ -260,6 +260,46 @@ export default function Hutang() {
     loadData();
   };
 
+  const handleEditPembayaran = (historyItem) => {
+    const jumlahInput = prompt(
+      "Edit nominal pembayaran",
+      (parseFloat(historyItem.jumlah) || 0).toString(),
+    );
+    if (jumlahInput === null) return;
+
+    const jumlah = Number(jumlahInput.toString().replace(/[^\d]/g, ""));
+    if (!jumlah || jumlah <= 0) {
+      alert("Nominal pembayaran tidak valid.");
+      return;
+    }
+
+    const tanggalInput = prompt(
+      "Edit tanggal pembayaran (YYYY-MM-DD)",
+      historyItem.tanggal || new Date().toISOString().split("T")[0],
+    );
+    if (tanggalInput === null) return;
+
+    const catatanInput = prompt(
+      "Edit catatan pembayaran (opsional)",
+      historyItem.catatan || "",
+    );
+    if (catatanInput === null) return;
+
+    LocalStorageService.updateRow(SHEETS.PEMBAYARAN_HUTANG, historyItem.id, {
+      jumlah,
+      tanggal: tanggalInput,
+      catatan: catatanInput,
+    });
+    loadData();
+  };
+
+  const handleDeletePembayaran = (historyItem) => {
+    if (confirm(`Hapus riwayat pembayaran ${formatCurrency(historyItem.jumlah)}?`)) {
+      LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, historyItem.id);
+      loadData();
+    }
+  };
+
   // Mendapatkan label filter aktif
   const getActiveFilterLabel = () => {
     if (filterType === "all" && filterStatus === "all") return "Semua filter";
@@ -502,9 +542,23 @@ export default function Hutang() {
                     <div className="text-[11px] text-gray-300 font-medium">Riwayat Pembayaran</div>
                     {historyPembayaran.length > 0 ? (
                       historyPembayaran.map((history) => (
-                        <div key={history.id} className="text-[11px] text-gray-400 flex items-center justify-between gap-2 border-b border-slate-700 pb-1">
-                          <span>{history.tanggal || "-"}</span>
-                          <span className="text-emerald-300">{formatCurrency(history.jumlah)}</span>
+                        <div key={history.id} className="text-[11px] text-gray-400 border-b border-slate-700 pb-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{history.tanggal || "-"}</span>
+                            <span className="text-emerald-300">{formatCurrency(history.jumlah)}</span>
+                          </div>
+                          <div className="flex gap-1 mt-1">
+                            <button
+                              onClick={() => handleEditPembayaran(history)}
+                              className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 hover:bg-blue-600/40">
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeletePembayaran(history)}
+                              className="px-2 py-0.5 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40">
+                              Hapus
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -561,9 +615,6 @@ export default function Hutang() {
                 onChange={(e) => setPayFormData({ ...payFormData, tanggal: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
               />
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm">
-                Simpan Pembayaran
-              </button>
               <textarea
                 value={payFormData.catatan}
                 onChange={(e) => setPayFormData({ ...payFormData, catatan: e.target.value })}
@@ -571,6 +622,9 @@ export default function Hutang() {
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                 rows="2"
               />
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm">
+                Simpan Pembayaran
+              </button>
             </form>
           </div>
         </div>

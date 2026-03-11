@@ -88,7 +88,7 @@ function Layout({ children }) {
       </nav>
 
       {/* Main Content - padding lebih kecil */}
-      <main className="container mx-auto px-2 sm:px-3 py-4 pb-20 md:pb-4">
+      <main className="container mx-auto px-2 sm:px-3 py-4 pb-24 md:pb-4">
         {children}
       </main>
 

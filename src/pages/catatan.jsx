@@ -170,14 +170,7 @@ export default function Catatan() {
   const isBullet = selectedType === NOTE_TYPES.BULLET;
 
   return (
-    <div className="space-y-4">
-      <div className="bg-gradient-to-r from-sky-700/40 to-violet-700/40 border border-slate-700 rounded-xl p-4">
-        <div className="flex items-center gap-2 text-white">
-          <FileText size={18} className="text-blue-300" />
-          <h2 className="font-semibold">Catatan Pribadi</h2>
-        </div>
-      </div>
-
+    <div className="space-y-4 pb-24 md:pb-4">
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
