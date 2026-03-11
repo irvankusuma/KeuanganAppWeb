@@ -11,11 +11,14 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Wallet,
+  History,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 
 export default function Piutang() {
   const [piutang, setPiutang] = useState([]);
+  const [pembayaranPiutang, setPembayaranPiutang] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -30,6 +33,15 @@ export default function Piutang() {
   });
   const [calcInput, setCalcInput] = useState("");
   const [showCalc, setShowCalc] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [activeHistoryId, setActiveHistoryId] = useState(null);
+  const [payFormData, setPayFormData] = useState({
+    piutangId: "",
+    namaOrang: "",
+    jumlah: "",
+    tanggal: new Date().toISOString().split("T")[0],
+    catatan: "",
+  });
 
   useEffect(() => {
     loadData();
@@ -37,7 +49,9 @@ export default function Piutang() {
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.PIUTANG);
+    const pembayaran = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
     setPiutang(data);
+    setPembayaranPiutang(pembayaran);
   };
 
   const handleSubmit = (e) => {
@@ -166,6 +180,112 @@ export default function Piutang() {
 
   const resetFilter = () => setFilterStatus("all");
 
+
+  const totalPiutangKeseluruhan = piutang.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+  const totalDiterimaKeseluruhan = pembayaranPiutang.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+  const totalSisaKeseluruhan = Math.max(
+    totalPiutangKeseluruhan - totalDiterimaKeseluruhan,
+    0,
+  );
+
+  const getTotalDiterima = (piutangId) =>
+    pembayaranPiutang
+      .filter((item) => item.piutangId?.toString() === piutangId?.toString())
+      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+
+  const getHistoryPiutang = (piutangId) =>
+    pembayaranPiutang
+      .filter((item) => item.piutangId?.toString() === piutangId?.toString())
+      .sort((a, b) => new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0));
+
+  const openBayarModal = (item) => {
+    setPayFormData({
+      piutangId: item.id,
+      namaOrang: item.namaOrang,
+      jumlah: "",
+      tanggal: new Date().toISOString().split("T")[0],
+      catatan: "",
+    });
+    setShowPayModal(true);
+  };
+
+
+  const handlePayJumlahChange = (value) => {
+    const raw = value.replace(/[^\d]/g, "");
+    setPayFormData({ ...payFormData, jumlah: raw });
+  };
+
+  const getPayInputDisplay = () => {
+    if (!payFormData.jumlah) return "";
+    return `Rp ${Number(payFormData.jumlah).toLocaleString("id-ID")}`;
+  };
+
+  const handleSubmitBayar = (e) => {
+    e.preventDefault();
+    const nominal = parseFloat(payFormData.jumlah) || 0;
+    if (!payFormData.piutangId || nominal <= 0) {
+      alert("Data pembayaran belum valid.");
+      return;
+    }
+
+    LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
+      piutangId: payFormData.piutangId,
+      namaOrang: payFormData.namaOrang,
+      jumlah: nominal,
+      tanggal: payFormData.tanggal,
+      catatan: payFormData.catatan,
+    });
+
+    setShowPayModal(false);
+    loadData();
+  };
+
+  const handleEditPembayaran = (historyItem) => {
+    const jumlahInput = prompt(
+      "Edit nominal pembayaran",
+      (parseFloat(historyItem.jumlah) || 0).toString(),
+    );
+    if (jumlahInput === null) return;
+
+    const jumlah = Number(jumlahInput.toString().replace(/[^\d]/g, ""));
+    if (!jumlah || jumlah <= 0) {
+      alert("Nominal pembayaran tidak valid.");
+      return;
+    }
+
+    const tanggalInput = prompt(
+      "Edit tanggal pembayaran (YYYY-MM-DD)",
+      historyItem.tanggal || new Date().toISOString().split("T")[0],
+    );
+    if (tanggalInput === null) return;
+
+    const catatanInput = prompt(
+      "Edit catatan pembayaran (opsional)",
+      historyItem.catatan || "",
+    );
+    if (catatanInput === null) return;
+
+    LocalStorageService.updateRow(SHEETS.PEMBAYARAN_PIUTANG, historyItem.id, {
+      jumlah,
+      tanggal: tanggalInput,
+      catatan: catatanInput,
+    });
+    loadData();
+  };
+
+  const handleDeletePembayaran = (historyItem) => {
+    if (confirm(`Hapus riwayat pembayaran ${formatCurrency(historyItem.jumlah)}?`)) {
+      LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_PIUTANG, historyItem.id);
+      loadData();
+    }
+  };
+
   const countStatus = {
     all: piutang.length,
     upcoming: piutang.filter((i) => getDueStatus(i) === "upcoming").length,
@@ -187,6 +307,24 @@ export default function Piutang() {
 
   return (
     <div>
+      <div className="mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-emerald-100 mb-1">Total Piutang</div>
+            <div className="text-2xl font-bold text-white">
+              {formatCurrency(totalSisaKeseluruhan)}
+            </div>
+          </div>
+          <div className="text-xs text-emerald-100 text-right">
+            <div>{piutang.length} data</div>
+            <div>Total: {formatCurrency(totalPiutangKeseluruhan)}</div>
+          </div>
+        </div>
+        <div className="mt-1 text-xs text-emerald-100">
+          Diterima: {formatCurrency(totalDiterimaKeseluruhan)}
+        </div>
+      </div>
+
       {/* Filter Bar - Collapsible */}
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         {/* Header Filter */}
@@ -285,6 +423,9 @@ export default function Piutang() {
         {sortedData.length > 0 ? (
           sortedData.map((item, i) => {
             const total = parseFloat(item.jumlah) || 0;
+            const totalDiterima = getTotalDiterima(item.id);
+            const sisa = Math.max(total - totalDiterima, 0);
+            const historyPembayaran = getHistoryPiutang(item.id);
             const status = getDueStatus(item);
             let borderColor = "border-green-500";
             let statusIcon = null;
@@ -326,26 +467,71 @@ export default function Piutang() {
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-xs text-gray-500">{item.tanggal}</div>
                   <div className="text-sm font-bold text-green-500">
-                    {formatCurrency(total)}
+                    {formatCurrency(sisa)}
                   </div>
                 </div>
 
-                <div className="text-[10px] text-gray-500 mb-2">
+                <div className="text-[10px] text-gray-500 mb-1">
                   Jatuh Tempo: {item.jatuhTempo}
                 </div>
+                <div className="text-[10px] text-gray-400 mb-2">
+                  Total: {formatCurrency(total)} • Diterima: {formatCurrency(totalDiterima)}
+                </div>
 
-                <div className="flex gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button
+                    onClick={() => openBayarModal(item)}
+                    className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    <Wallet size={12} /> Bayar
+                  </button>
+                  <button
+                    onClick={() => setActiveHistoryId(activeHistoryId === item.id ? null : item.id)}
+                    className="bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    <History size={12} /> History
+                  </button>
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
+
+                {activeHistoryId === item.id && (
+                  <div className="mt-2 bg-slate-900/70 rounded-lg p-2 space-y-1.5">
+                    <div className="text-[11px] text-gray-300 font-medium">Riwayat Pembayaran</div>
+                    {historyPembayaran.length > 0 ? (
+                      historyPembayaran.map((history) => (
+                        <div key={history.id} className="text-[11px] text-gray-400 border-b border-slate-700 pb-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{history.tanggal || "-"}</span>
+                            <span className="text-emerald-300">{formatCurrency(history.jumlah)}</span>
+                          </div>
+                          <div className="flex gap-1 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditPembayaran(history)}
+                              className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 hover:bg-blue-600/40">
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePembayaran(history)}
+                              className="px-2 py-0.5 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40">
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[11px] text-gray-500">Belum ada pembayaran.</div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })
@@ -361,14 +547,59 @@ export default function Piutang() {
       {/* FAB - Ukuran lebih kecil */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40">
         <Plus size={22} />
       </button>
+
+      {showPayModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
+          onClick={() => setShowPayModal(false)}>
+          <div
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[86vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-slate-700 p-3 flex justify-between items-center">
+              <h2 className="text-lg font-bold">Bayar Piutang</h2>
+              <button onClick={() => setShowPayModal(false)} className="p-1.5 hover:bg-slate-700 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitBayar} className="p-3 space-y-3 pb-8">
+              <div className="text-sm text-gray-300">{payFormData.namaOrang}</div>
+              <input
+                type="text"
+                value={getPayInputDisplay()}
+                onChange={(e) => handlePayJumlahChange(e.target.value)}
+                placeholder="Rp 1.000"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                inputMode="numeric"
+                required
+              />
+              <input
+                type="date"
+                value={payFormData.tanggal}
+                onChange={(e) => setPayFormData({ ...payFormData, tanggal: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+              />
+              <textarea
+                value={payFormData.catatan}
+                onChange={(e) => setPayFormData({ ...payFormData, catatan: e.target.value })}
+                placeholder="Catatan pembayaran (opsional)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                rows="2"
+              />
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm">
+                Simpan Pembayaran
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal - Ukuran lebih kecil */}
       {modalVisible && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={resetForm}>
           <div
             className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
