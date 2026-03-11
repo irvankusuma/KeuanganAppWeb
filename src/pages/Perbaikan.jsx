@@ -525,17 +525,17 @@ export default function Perbaikan() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg z-40">
         <Plus size={22} />
       </button>
 
       {/* Modal */}
       {modalVisible && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={resetForm}>
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[86vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold">
@@ -548,7 +548,7 @@ export default function Perbaikan() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-20">
+            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-8">
               {/* Nama Item */}
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
