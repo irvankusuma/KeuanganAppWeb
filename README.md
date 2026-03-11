@@ -214,6 +214,14 @@ npm run build
 
 ---
 
-## 9) Ringkasan
+
+## 9) Dokumentasi Tampilan (Preview)
+
+Untuk penjelasan visual tampilan aplikasi per halaman (dengan diagram/denah UI + logika penggunaan), lihat file:
+- `PreviewApp.md`
+
+---
+
+## 10) Ringkasan
 
 KeuanganApp Web adalah alat pencatatan keuangan pribadi yang fokus pada kemudahan, kecepatan, dan kontrol data oleh pengguna. Dengan kombinasi dashboard, manajemen hutang/piutang, transaksi harian, dan catatan, aplikasi ini cocok untuk membantu kebiasaan finansial yang lebih tertib dan terukur.

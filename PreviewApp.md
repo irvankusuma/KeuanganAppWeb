@@ -1,198 +1,352 @@
-# 🖼️ PreviewApp - Dokumentasi Tampilan Aplikasi
+# 🖼️ PreviewApp - Peta Tampilan Aplikasi + Logika Penggunaan
 
-Dokumen ini menjelaskan tampilan setiap halaman utama KeuanganApp Web, komponen yang terlihat, dan kegunaan tiap bagian dari sudut pandang pengguna.
+Dokumen ini dibuat untuk menjelaskan **tampilan aplikasi seperti denah visual**, lengkap dengan:
+- tanda/bagian UI yang terlihat,
+- fungsi tiap area,
+- alur kerja pengguna,
+- logika data yang berjalan di belakang layar.
 
----
-
-## 1) Gambaran Umum Tampilan
-
-KeuanganApp Web menggunakan tema gelap (dark UI) dengan fokus:
-- teks dan angka finansial tetap mudah dibaca,
-- tombol aksi utama mudah dijangkau di layar mobile,
-- struktur halaman ringkas agar input cepat.
-
-Secara layout:
-- **Header atas**: identitas aplikasi + akses export/import.
-- **Area konten utama**: isi halaman aktif.
-- **Navigasi bawah (mobile)**: perpindahan menu cepat.
+> Catatan: Diagram ASCII di bawah adalah representasi tampilan aplikasi agar mudah dipahami, terutama untuk review fitur dan UX.
 
 ---
 
-## 2) Header Aplikasi (Bagian Atas)
+## 1) Struktur Umum Tampilan Aplikasi
 
-### Komponen
-- Judul aplikasi (Catatan/brand aplikasi).
-- Tombol ikon download untuk Export/Import.
+```text
+┌───────────────────────────────────────────────┐
+│ 📒 Catatan                           [⬇]     │ ← Header utama (judul + tombol export/import)
+├───────────────────────────────────────────────┤
+│ Beranda | Hutang | Piutang | ...             │ ← Navigasi Desktop (atas)
+├───────────────────────────────────────────────┤
+│                                               │
+│   (Konten halaman aktif: Dashboard/Hutang/...)│ ← Area kerja utama
+│                                               │
+└───────────────────────────────────────────────┘
+
+Mobile:
+┌───────────────────────────────────────────────┐
+│                 Konten halaman                │
+│                 (scrollable)                  │
+├───────────────────────────────────────────────┤
+│ Beranda | Hutang | Piutang | ...              │ ← Bottom navigation (mobile)
+└───────────────────────────────────────────────┘
+```
+
+### Penjelasan fungsi
+1. **Header**
+   - Menampilkan identitas aplikasi.
+   - Tombol download membuka modal Export/Import.
+2. **Navigasi**
+   - Memindahkan halaman utama tanpa reload data total.
+3. **Konten aktif**
+   - Isi halaman sesuai menu yang dipilih.
+4. **Bottom-nav mobile**
+   - Akses cepat menu dengan jempol.
+
+### Logika UI
+- Header dan navigasi bersifat global (muncul di semua halaman).
+- Konten tengah berubah berdasarkan route (`/`, `/hutang`, `/piutang`, dst).
+- Pada mobile, layout diberi jarak bawah supaya konten tidak tertutup navbar.
+
+---
+
+## 2) Preview Halaman Catatan (Sesuai Gaya yang Anda Minta)
+
+```text
+┌─────────────────────────────────┐
+│ 📒 Catatan           [Download] │ ← Header (atas)
+├─────────────────────────────────┤
+│ Beranda | Catatan | Hutang ... │ ← Menu navigasi
+├─────────────────────────────────┤
+│                                 │
+│  (Filter Ringkas)               │
+│  Kategori: [Semua] [Standar]    │
+│            [List] [Singkat]     │
+│  Urut: [Terbaru✓] [Terlama]     │
+│                                 │
+│  Search: [Cari judul/isi ... ]  │
+│                                 │
+│  ┌──────────────────────────┐   │
+│  │ Ide Bisnis     [Standar] │   │
+│  │ 📅 11 Mar 2026           │   │
+│  │ Isi catatan...           │   │
+│  │ [Edit]  [Hapus]          │   │
+│  └──────────────────────────┘   │
+│                                 │
+│  ┌──────────────────────────┐   │
+│  │ Belanja Bulanan   [List] │   │
+│  │ • Beras                  │   │
+│  │ • Gula                   │   │
+│  │ • Susu                   │   │
+│  │ [Edit]  [Hapus]          │   │
+│  └──────────────────────────┘   │
+│                                 │
+│                        [+]      │ ← Tambah catatan baru (FAB)
+└─────────────────────────────────┘
+```
+
+### Saat tombol `+` ditekan
+```text
+┌─────────────────────────────────┐
+│ Pilih Tipe Catatan              │
+├─────────────────────────────────┤
+│ [1] Judul + Catatan             │
+│ [2] Judul + Catatan Bertitik    │
+│ [3] Catatan Singkat (maks 100)  │
+└─────────────────────────────────┘
+```
+
+### Logika Catatan
+1. **Tipe Standar**
+   - Input: judul + isi.
+   - Dipakai untuk catatan bebas.
+2. **Tipe List**
+   - Input: judul + isi multiline.
+   - Tiap baris baru → ditampilkan sebagai bullet/poin.
+3. **Tipe Singkat**
+   - Input: isi tanpa judul.
+   - Batas karakter maksimum (100).
+4. **Filter + Search**
+   - Filter kategori dan urutan mengatur daftar tampil.
+   - Search memfilter judul/isi.
+
+### Kegunaan halaman Catatan
+- Menyimpan reminder pembayaran.
+- Menyimpan checklist belanja.
+- Menulis ide/agenda keuangan.
+
+---
+
+## 3) Preview Halaman Dashboard
+
+```text
+┌───────────────────────────────────────────────┐
+│            Saldo Bersih (kartu gradient)      │
+│            Rp x.xxx.xxx                        │
+├───────────────────────────────────────────────┤
+│ [Hutang]   [Piutang]   [Pemasukan] [Pengeluaran]
+├───────────────────────────────────────────────┤
+│ Ringkasan Cepat                               │
+│ - Total Aset Lancar                           │
+│ - Total Kewajiban                             │
+│ - Rasio Keuangan                              │
+├───────────────────────────────────────────────┤
+│ Catatan: N catatan               [Buka Catatan]
+├───────────────────────────────────────────────┤
+│ Grafik Tren Transaksi Bulanan                │
+└───────────────────────────────────────────────┘
+```
+
+### Logika Dashboard
+- Data diambil dari seluruh modul (hutang, piutang, pemasukan, pengeluaran, pembayaran).
+- Nilai “sisa hutang/piutang” dihitung dari total minus pembayaran.
+- Ringkasan dipakai untuk analisis cepat, bukan input data.
 
 ### Kegunaan
-- Memastikan pengguna selalu punya akses cepat backup/restore data.
-- Menjadi anchor visual yang konsisten di semua halaman.
+- Pusat pantauan kondisi keuangan.
+- Shortcut ke halaman catatan.
 
 ---
 
-## 3) Navigasi Aplikasi
+## 4) Preview Halaman Hutang
 
-## A. Navigasi Desktop
-- Berada di atas konten (horizontal tabs/menu).
-- Menampilkan menu: Beranda, Hutang, Piutang, Pemasukan, Pengeluaran, Catatan, Perbaikan.
+```text
+┌───────────────────────────────────────────────┐
+│ Filter: [Semua] [Akan Datang] [Hari Ini] ... │
+├───────────────────────────────────────────────┤
+│ Nama Hutang                        [Status]   │
+│ Tipe: Pribadi                                 │
+│ Periode: 12 bln • 2026-03-11                  │
+│ Total: Rp 2.000.000 • Dibayar: Rp 500.000     │
+│ Sisa: Rp 1.500.000                             │
+│ [Bayar] [History] [Edit] [Hapus]              │
+├───────────────────────────────────────────────┤
+│ Riwayat Pembayaran                             │
+│ 2026-03-12  Rp 250.000  [Edit] [Hapus]        │
+│ 2026-03-20  Rp 250.000  [Edit] [Hapus]        │
+└───────────────────────────────────────────────┘
+                          [+]
+```
 
-**Kegunaan:**
-- Mempermudah perpindahan fitur saat menggunakan layar lebar.
+### Modal Bayar Hutang
+```text
+┌───────────────────────────────────────────────┐
+│ Bayar Hutang                                  │
+├───────────────────────────────────────────────┤
+│ Nama Hutang                                   │
+│ Nominal pembayaran                            │
+│ Tanggal pembayaran                            │
+│ Catatan pembayaran (opsional)                 │
+│ [Simpan Pembayaran]                           │
+└───────────────────────────────────────────────┘
+```
 
-## B. Navigasi Mobile
-- Berada di bawah layar (bottom navigation).
-- Ikon + label menu untuk akses cepat.
-
-**Kegunaan:**
-- Akses menu utama dengan jempol.
-- Cepat berpindah modul tanpa scroll panjang.
-
----
-
-## 4) Preview Halaman Dashboard
-
-### Elemen Tampilan
-1. **Kartu Saldo Bersih**
-   - Menampilkan total kondisi keuangan saat ini.
-2. **Kartu Ringkasan**
-   - Hutang, Piutang, Pemasukan, Pengeluaran.
-3. **Ringkasan Cepat**
-   - Nilai aset/kewajiban/ringkasan rasio.
-4. **Tren Transaksi**
-   - Grafik per bulan untuk melihat pola.
-5. **Ringkasan Catatan**
-   - Jumlah catatan dan akses ke halaman Catatan.
-
-### Kegunaan Dashboard
-- Memberi pandangan cepat kondisi finansial tanpa membuka menu detail.
-
----
-
-## 5) Preview Halaman Hutang
-
-### Elemen Tampilan
-1. **Filter Hutang**
-   - Filter tipe dan status jatuh tempo.
-2. **Daftar Kartu Hutang**
-   - Nama, nominal, periode, status, total, dibayar, sisa.
-3. **Aksi Kartu**
-   - Bayar, History, Edit, Hapus.
-4. **Modal Bayar Hutang**
-   - Input nominal bayar, tanggal, catatan, tombol simpan.
-5. **Panel History Pembayaran**
-   - Riwayat nominal/tanggal + aksi edit/hapus riwayat.
+### Logika Hutang
+1. Tambah hutang baru → masuk daftar hutang.
+2. Saat bayar, data disimpan ke sheet pembayaran hutang.
+3. Sistem hitung:
+   - `totalDibayar = sum(history pembayaran hutangId)`
+   - `sisa = totalHutang - totalDibayar`
+4. Edit/hapus history langsung mempengaruhi nilai sisa.
 
 ### Kegunaan
-- Membantu kontrol hutang aktif dan cicilan bertahap.
+- Melacak cicilan secara rinci per hutang.
+- Mengurangi risiko salah hitung sisa kewajiban.
 
 ---
 
-## 6) Preview Halaman Piutang
+## 5) Preview Halaman Piutang
 
-### Elemen Tampilan
-1. **Filter Piutang**
-   - Filter status jatuh tempo.
-2. **Daftar Kartu Piutang**
-   - Nama orang, nominal, jatuh tempo, total, diterima, sisa.
-3. **Aksi Kartu**
-   - Bayar (terima), History, Edit, Hapus.
-4. **Modal Bayar Piutang**
-   - Input nominal diterima, tanggal, catatan, simpan.
-5. **Panel History Pembayaran**
-   - Daftar pembayaran masuk + edit/hapus riwayat.
+```text
+┌───────────────────────────────────────────────┐
+│ Filter: [Semua] [Akan Datang] [Hari Ini] ... │
+├───────────────────────────────────────────────┤
+│ Nama Orang                        [Status]    │
+│ Tanggal pinjam • Jatuh tempo                   │
+│ Total: Rp 3.000.000 • Diterima: Rp 1.000.000   │
+│ Sisa: Rp 2.000.000                              │
+│ [Bayar] [History] [Edit] [Hapus]               │
+├───────────────────────────────────────────────┤
+│ Riwayat Pembayaran                              │
+│ 2026-03-10  Rp 500.000  [Edit] [Hapus]         │
+│ 2026-03-18  Rp 500.000  [Edit] [Hapus]         │
+└───────────────────────────────────────────────┘
+                          [+]
+```
+
+### Logika Piutang
+1. Tambah data piutang (siapa + nominal + jatuh tempo).
+2. Saat ada pembayaran masuk, simpan ke history pembayaran piutang.
+3. Sistem hitung:
+   - `totalDiterima = sum(history pembayaran piutangId)`
+   - `sisa = totalPiutang - totalDiterima`
+4. Edit/hapus history untuk koreksi kesalahan input.
 
 ### Kegunaan
-- Mempermudah pelacakan piutang yang belum lunas.
+- Kontrol penerimaan piutang bertahap.
+- Memudahkan penagihan yang belum lunas.
 
 ---
 
-## 7) Preview Halaman Catatan
+## 6) Preview Halaman Pemasukan
 
-### Elemen Tampilan
-1. **Filter Catatan**
-   - Kategori tipe (standar/list/singkat) + urutan terbaru/terlama.
-2. **Search Bar**
-   - Cari berdasarkan judul atau isi.
-3. **Daftar Catatan**
-   - Judul, label tipe, waktu update, isi catatan.
-4. **Tombol Tambah (FAB)**
-   - Memunculkan pemilih tipe catatan.
-5. **Type Picker**
-   - Pilih format catatan sesuai kebutuhan.
-6. **Modal Form Catatan**
-   - Form sesuai tipe (standar/list/singkat), simpan perubahan.
+```text
+┌───────────────────────────────────────────────┐
+│ Daftar pemasukan                               │
+│ Sumber | Tanggal | Nominal                     │
+│ [Edit] [Hapus]                                 │
+└───────────────────────────────────────────────┘
+                          [+]
+```
+
+### Logika
+- Tiap transaksi pemasukan disimpan sebagai row.
+- Total pemasukan di dashboard mengambil agregasi dari modul ini.
 
 ### Kegunaan
-- Menyimpan reminder keuangan, daftar kebutuhan, atau catatan keputusan finansial.
+- Mengetahui sumber uang masuk per periode.
 
 ---
 
-## 8) Preview Halaman Pemasukan
+## 7) Preview Halaman Pengeluaran
 
-### Elemen Tampilan
-- Daftar transaksi pemasukan.
-- Form tambah/edit pemasukan.
-- Informasi nominal + kategori/sumber + tanggal.
+```text
+┌───────────────────────────────────────────────┐
+│ Daftar pengeluaran                             │
+│ Kategori | Tanggal | Nominal                   │
+│ [Edit] [Hapus]                                 │
+└───────────────────────────────────────────────┘
+                          [+]
+```
+
+### Logika
+- Tiap pengeluaran disimpan per row.
+- Total pengeluaran terhubung ke dashboard.
 
 ### Kegunaan
-- Melihat arus uang masuk secara terstruktur.
+- Memantau pola belanja dan menekan pemborosan.
 
 ---
 
-## 9) Preview Halaman Pengeluaran
+## 8) Preview Halaman Perbaikan
 
-### Elemen Tampilan
-- Daftar transaksi pengeluaran.
-- Form tambah/edit pengeluaran.
-- Kategori pengeluaran untuk analisis kebiasaan belanja.
+```text
+┌───────────────────────────────────────────────┐
+│ Daftar perbaikan                               │
+│ Nama item | Tanggal | Biaya                    │
+│ [Edit] [Hapus]                                 │
+└───────────────────────────────────────────────┘
+                          [+]
+```
 
 ### Kegunaan
-- Mengendalikan biaya rutin dan biaya tak terduga.
+- Mencatat biaya perbaikan agar tidak tercampur tanpa konteks.
 
 ---
 
-## 10) Preview Halaman Perbaikan
+## 9) Preview Modal Export / Import
 
-### Elemen Tampilan
-- Daftar item perbaikan.
-- Form pencatatan biaya perbaikan dan detail terkait.
+```text
+┌───────────────────────────────────────────────┐
+│ Export / Import                                │
+├───────────────────────────────────────────────┤
+│ [Tab Export] [Tab Import]                      │
+│ - Export: unduh JSON backup                    │
+│ - Import: unggah JSON restore                  │
+└───────────────────────────────────────────────┘
+```
+
+### Logika Data
+- Export membaca semua sheet localStorage.
+- Import menimpa data sheet dengan isi file JSON.
 
 ### Kegunaan
-- Memisahkan biaya perbaikan dari transaksi umum agar evaluasi lebih jelas.
+- Backup berkala.
+- Migrasi data antar perangkat.
 
 ---
 
-## 11) Preview Modal Export/Import
+## 10) Logika Besar Aplikasi (End-to-End)
 
-### Komponen
-- Tab/opsi export data JSON.
-- Tab/opsi import data JSON.
-
-### Kegunaan
-- Backup dan restore data aplikasi dengan cepat.
-
----
-
-## 12) Alur Interaksi Pengguna (Preview UX)
-
-1. Pengguna masuk ke Dashboard untuk melihat ringkasan.
-2. Pengguna pindah ke Hutang/Piutang bila ada update pembayaran.
-3. Pengguna menambah catatan penting di menu Catatan.
-4. Pengguna mencatat pemasukan/pengeluaran harian.
-5. Pengguna melakukan export data secara berkala.
+1. Pengguna input data di modul (hutang/piutang/pemasukan/pengeluaran/catatan).
+2. Data disimpan lokal di browser.
+3. Dashboard membaca semua modul lalu menghitung ringkasan.
+4. Riwayat pembayaran hutang/piutang mempengaruhi nilai sisa secara otomatis.
+5. Backup/restore menjaga data tetap aman saat ganti perangkat/browser.
 
 ---
 
-## 13) Nilai Guna Tampilan Aplikasi
+## 11) Cara Pakai yang Disarankan
 
-Desain aplikasi dibuat agar:
-- **fokus ke data penting** (nominal, tanggal, status),
-- **aksi utama jelas** (tambah, bayar, simpan, edit, hapus),
-- **mobile-friendly** untuk penggunaan harian,
-- **cepat dipahami** oleh pengguna non-teknis.
+### Harian
+- Catat pemasukan dan pengeluaran.
+- Catat pembayaran hutang/piutang bila ada transaksi.
+- Tulis catatan pengingat jika perlu.
+
+### Mingguan
+- Cek dashboard (saldo + tren).
+- Cek item yang mendekati jatuh tempo.
+- Koreksi data dengan edit/hapus jika ada salah input.
+
+### Bulanan
+- Review performa keuangan dari tren dan total.
+- Export backup JSON.
 
 ---
 
-## 14) Catatan Akhir
+## 12) Nilai Guna Desain
 
-Dokumen PreviewApp ini berfungsi sebagai referensi tampilan dan kegunaan per halaman. Untuk detail teknis instalasi/jalankan aplikasi, lihat `README.md`.
+Desain aplikasi fokus pada:
+- **kejelasan nominal dan status**,
+- **aksi cepat** (Bayar/Edit/Hapus/Simpan),
+- **penggunaan mobile-friendly**,
+- **navigasi sederhana**,
+- **konsistensi antar halaman**.
+
+Dengan begitu pengguna bisa cepat memahami “di mana lihat data”, “di mana input”, dan “di mana memperbaiki kesalahan”.
+
+---
+
+## 13) Penutup
+
+Dokumen ini adalah versi visual + logika dari aplikasi (preview terstruktur). Untuk panduan umum aplikasi, tujuan, dan instruksi menjalankan project, lihat `README.md`.
