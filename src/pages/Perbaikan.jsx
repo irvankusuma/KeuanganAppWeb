@@ -10,8 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
-  AlertCircle,
-  Clock,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 
@@ -242,52 +240,8 @@ export default function Perbaikan() {
     return `Status: ${statusLabel}`;
   };
 
-  // Alert untuk yang perlu segera (due)
-  const hasDueItems = perbaikan.some((item) => getStatus(item) === "due");
-  const hasOverdueItems = perbaikan.some(
-    (item) => getStatus(item) === "overdue",
-  );
-
   return (
     <div>
-      {/* Alert untuk peringatan */}
-      {(hasDueItems || hasOverdueItems) && (
-        <div className="mb-4">
-          {hasOverdueItems && (
-            <div className="bg-red-600/20 border border-red-500 rounded-xl p-3 mb-2 flex items-start gap-2">
-              <AlertCircle
-                size={18}
-                className="text-red-400 flex-shrink-0 mt-0.5"
-              />
-              <div>
-                <span className="text-sm text-red-300 font-medium">
-                  Perhatian!{" "}
-                </span>
-                <span className="text-xs text-gray-300">
-                  Ada perbaikan yang sudah terlewat dari jadwal.
-                </span>
-              </div>
-            </div>
-          )}
-          {hasDueItems && !hasOverdueItems && (
-            <div className="bg-yellow-600/20 border border-yellow-500 rounded-xl p-3 flex items-start gap-2">
-              <AlertCircle
-                size={18}
-                className="text-yellow-400 flex-shrink-0 mt-0.5"
-              />
-              <div>
-                <span className="text-sm text-yellow-300 font-medium">
-                  Pengingat!{" "}
-                </span>
-                <span className="text-xs text-gray-300">
-                  Ada perbaikan yang perlu segera dilakukan (sisa ≤500 km).
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Ringkasan Total */}
       <div className="mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 shadow-lg">
         <div className="flex items-center justify-between">
@@ -302,9 +256,9 @@ export default function Perbaikan() {
           </div>
         </div>
         <div className="mt-2 flex gap-3 text-xs text-purple-100">
-          <span>✓ {countStatus.upcoming} aman</span>
-          <span>⚠️ {countStatus.due} segera</span>
-          <span>❗ {countStatus.overdue} terlewat</span>
+          <span>Aman: {countStatus.upcoming}</span>
+          <span>Perlu Servis: {countStatus.due}</span>
+          <span>Lewat Target: {countStatus.overdue}</span>
         </div>
       </div>
 
@@ -353,7 +307,7 @@ export default function Perbaikan() {
                       ? "bg-green-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <Clock size={12} /> Masih Aman{" "}
+                  Masih Aman 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.upcoming}
                   </span>
@@ -365,7 +319,7 @@ export default function Perbaikan() {
                       ? "bg-yellow-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <AlertCircle size={12} /> Segera{" "}
+                  Segera 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.due}
                   </span>
@@ -377,7 +331,7 @@ export default function Perbaikan() {
                       ? "bg-red-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <AlertCircle size={12} /> Terlewat{" "}
+                  Terlewat 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.overdue}
                   </span>
@@ -405,36 +359,12 @@ export default function Perbaikan() {
             const status = getStatus(item);
             const estimasiHari = getEstimasiHari(item);
 
-            let borderColor = "border-green-500";
-            let statusBg = "bg-green-500/10 text-green-400";
-            let statusIcon = <Clock size={12} className="text-green-500" />;
-            let statusText = "Masih Aman";
-
-            if (status === "overdue") {
-              borderColor = "border-red-500";
-              statusBg = "bg-red-500/10 text-red-400";
-              statusIcon = <AlertCircle size={12} className="text-red-500" />;
-              statusText = "Terlewat";
-            } else if (status === "due") {
-              borderColor = "border-yellow-500";
-              statusBg = "bg-yellow-500/10 text-yellow-400";
-              statusIcon = (
-                <AlertCircle size={12} className="text-yellow-500" />
-              );
-              statusText = "Segera";
-            }
-
             return (
               <div
                 key={i}
-                className={`bg-slate-800 rounded-xl p-3 border-l-4 ${borderColor}`}>
+                className="bg-slate-800 rounded-xl p-3 border-l-4 border-purple-500">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="text-base font-bold">{item.nama}</h3>
-                  <div
-                    className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${statusBg}`}>
-                    {statusIcon}
-                    <span>{statusText}</span>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-2">
@@ -465,13 +395,7 @@ export default function Perbaikan() {
                   <div>
                     <div className="text-[10px] text-gray-500">Sisa KM</div>
                     <div
-                      className={`text-xs font-medium ${
-                        sisa <= 0
-                          ? "text-red-400"
-                          : sisa <= 500
-                            ? "text-yellow-400"
-                            : "text-green-400"
-                      }`}>
+                      className="text-xs font-medium text-blue-400">
                       {formatNumber(sisa)} km
                     </div>
                   </div>
@@ -594,7 +518,6 @@ export default function Perbaikan() {
                     onChange={(e) =>
                       setFormData({ ...formData, km_saat_ini: e.target.value })
                     }
-                    onFocus={() => openCalculator("km_saat_ini")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                     required
@@ -625,7 +548,6 @@ export default function Perbaikan() {
                         km_berikutnya: e.target.value,
                       })
                     }
-                    onFocus={() => openCalculator("km_berikutnya")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                     required
@@ -652,7 +574,6 @@ export default function Perbaikan() {
                     onChange={(e) =>
                       setFormData({ ...formData, biaya: e.target.value })
                     }
-                    onFocus={() => openCalculator("biaya")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                   />

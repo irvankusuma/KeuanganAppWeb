@@ -201,6 +201,17 @@ export default function Piutang() {
     setShowPayModal(true);
   };
 
+
+  const handlePayJumlahChange = (value) => {
+    const raw = value.replace(/[^\d]/g, "");
+    setPayFormData({ ...payFormData, jumlah: raw });
+  };
+
+  const getPayInputDisplay = () => {
+    if (!payFormData.jumlah) return "";
+    return `Rp ${Number(payFormData.jumlah).toLocaleString("id-ID")}`;
+  };
+
   const handleSubmitBayar = (e) => {
     e.preventDefault();
     const nominal = parseFloat(payFormData.jumlah) || 0;
@@ -524,12 +535,12 @@ export default function Piutang() {
             <form onSubmit={handleSubmitBayar} className="p-3 space-y-3 pb-8">
               <div className="text-sm text-gray-300">{payFormData.namaOrang}</div>
               <input
-                type="number"
-                value={payFormData.jumlah}
-                onChange={(e) => setPayFormData({ ...payFormData, jumlah: e.target.value })}
-                placeholder="Nominal pembayaran"
+                type="text"
+                value={getPayInputDisplay()}
+                onChange={(e) => handlePayJumlahChange(e.target.value)}
+                placeholder="Rp 1.000"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                min="1"
+                inputMode="numeric"
                 required
               />
               <input
