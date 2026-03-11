@@ -362,17 +362,17 @@ export default function Perbaikan() {
             return (
               <div
                 key={i}
-                className="bg-slate-800/95 rounded-2xl p-4 border border-slate-700 border-l-4 border-l-purple-500 shadow-lg">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-3xl leading-none font-bold tracking-wide text-white">
+                className="bg-slate-800/95 rounded-2xl p-3.5 border border-slate-700 border-l-4 border-l-purple-500 shadow-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-2xl leading-none font-bold tracking-wide text-white">
                     {item.nama}
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 mb-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-2 mb-2">
                   <div>
                     <div className="text-xs text-slate-400">Tanggal</div>
-                    <div className="text-base md:text-lg text-white leading-snug">
+                    <div className="text-sm md:text-base text-white leading-snug">
                       {new Date(item.tanggal).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
@@ -382,7 +382,7 @@ export default function Perbaikan() {
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">KM Saat Ini</div>
-                    <div className="text-base text-slate-100">
+                    <div className="text-sm md:text-base text-slate-100">
                       {formatNumber(item.km_saat_ini)} km
                     </div>
                   </div>
@@ -394,40 +394,40 @@ export default function Perbaikan() {
 
                   <div>
                     <div className="text-xs text-slate-400">KM Berikutnya</div>
-                    <div className="text-base text-blue-300 font-medium">
+                    <div className="text-sm md:text-base text-blue-300 font-medium">
                       {formatNumber(item.km_berikutnya)} km
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Sisa KM</div>
-                    <div className="text-base font-semibold text-sky-300">
+                    <div className="text-sm md:text-base font-semibold text-sky-300">
                       {formatNumber(sisa)} km
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400">Biaya:</div>
-                    <div className="text-xl md:text-2xl text-orange-300 font-bold">
+                    <div className="text-lg md:text-xl text-orange-300 font-bold">
                       {item.biaya > 0 ? formatCurrency(item.biaya) : "Rp. 0"}
                     </div>
                   </div>
                 </div>
 
                 {item.catatan && (
-                  <div className="text-xs text-slate-400 italic mb-3">
+                  <div className="text-xs text-slate-400 italic mb-2">
                     {item.catatan}
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="bg-blue-900/60 hover:bg-blue-800/70 text-blue-200 text-base py-2.5 rounded-xl flex items-center justify-center gap-1.5">
-                    <Pencil size={16} /> Edit
+                    className="bg-blue-900/60 hover:bg-blue-800/70 text-blue-200 text-sm py-2 rounded-xl flex items-center justify-center gap-1.5">
+                    <Pencil size={14} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="bg-red-900/40 hover:bg-red-800/60 text-red-300 text-base py-2.5 rounded-xl flex items-center justify-center gap-1.5">
-                    <Trash2 size={16} /> Hapus
+                    className="bg-red-900/40 hover:bg-red-800/60 text-red-300 text-sm py-2 rounded-xl flex items-center justify-center gap-1.5">
+                    <Trash2 size={14} /> Hapus
                   </button>
                 </div>
               </div>
