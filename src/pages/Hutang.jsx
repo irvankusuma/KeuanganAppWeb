@@ -216,6 +216,20 @@ export default function Hutang() {
     overdue: hutang.filter((i) => getStatus(i) === "overdue").length,
   };
 
+
+  const totalHutangKeseluruhan = hutang.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+  const totalDibayarKeseluruhan = pembayaranHutang.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+  const totalSisaKeseluruhan = Math.max(
+    totalHutangKeseluruhan - totalDibayarKeseluruhan,
+    0,
+  );
+
   const resetStatusFilter = () => setFilterStatus("all");
   const resetTypeFilter = () => setFilterType("all");
 
@@ -238,6 +252,17 @@ export default function Hutang() {
       catatan: "",
     });
     setShowPayModal(true);
+  };
+
+
+  const handlePayJumlahChange = (value) => {
+    const raw = value.replace(/[^\d]/g, "");
+    setPayFormData({ ...payFormData, jumlah: raw });
+  };
+
+  const getPayInputDisplay = () => {
+    if (!payFormData.jumlah) return "";
+    return `Rp ${Number(payFormData.jumlah).toLocaleString("id-ID")}`;
   };
 
   const handleSubmitBayar = (e) => {
@@ -320,6 +345,24 @@ export default function Hutang() {
 
   return (
     <div>
+      <div className="mb-4 bg-gradient-to-r from-red-600 to-rose-500 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-red-100 mb-1">Total Hutang</div>
+            <div className="text-2xl font-bold text-white">
+              {formatCurrency(totalSisaKeseluruhan)}
+            </div>
+          </div>
+          <div className="text-xs text-red-100 text-right">
+            <div>{hutang.length} data</div>
+            <div>Total: {formatCurrency(totalHutangKeseluruhan)}</div>
+          </div>
+        </div>
+        <div className="mt-1 text-xs text-red-100">
+          Dibayar: {formatCurrency(totalDibayarKeseluruhan)}
+        </div>
+      </div>
+
       {/* Filter Bar - Collapsible */}
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         {/* Header Filter - selalu terlihat */}
@@ -514,25 +557,25 @@ export default function Hutang() {
                   Total: {formatCurrency(total)} • Dibayar: {formatCurrency(totalDibayar)}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   <button
                     onClick={() => openBayarModal(item)}
-                    className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Wallet size={12} /> Bayar
                   </button>
                   <button
                     onClick={() => setActiveHistoryId(activeHistoryId === item.id ? null : item.id)}
-                    className="bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <History size={12} /> History
                   </button>
                   <button
                     onClick={() => handleEdit(item)}
-                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
@@ -603,12 +646,12 @@ export default function Hutang() {
             <form onSubmit={handleSubmitBayar} className="p-3 space-y-3 pb-8">
               <div className="text-sm text-gray-300">{payFormData.namaHutang}</div>
               <input
-                type="number"
-                value={payFormData.jumlah}
-                onChange={(e) => setPayFormData({ ...payFormData, jumlah: e.target.value })}
-                placeholder="Nominal pembayaran"
+                type="text"
+                value={getPayInputDisplay()}
+                onChange={(e) => handlePayJumlahChange(e.target.value)}
+                placeholder="Rp 1.000"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                min="1"
+                inputMode="numeric"
                 required
               />
               <input
