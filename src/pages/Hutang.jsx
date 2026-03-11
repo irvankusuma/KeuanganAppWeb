@@ -549,11 +549,13 @@ export default function Hutang() {
                           </div>
                           <div className="flex gap-1 mt-1">
                             <button
+                              type="button"
                               onClick={() => handleEditPembayaran(history)}
                               className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 hover:bg-blue-600/40">
                               Edit
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeletePembayaran(history)}
                               className="px-2 py-0.5 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40">
                               Hapus
@@ -581,16 +583,16 @@ export default function Hutang() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40">
         <Plus size={22} />
       </button>
 
       {showPayModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={() => setShowPayModal(false)}>
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md"
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[86vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-700 p-3 flex justify-between items-center">
               <h2 className="text-lg font-bold">Bayar Hutang</h2>
@@ -598,7 +600,7 @@ export default function Hutang() {
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleSubmitBayar} className="p-3 space-y-3">
+            <form onSubmit={handleSubmitBayar} className="p-3 space-y-3 pb-8">
               <div className="text-sm text-gray-300">{payFormData.namaHutang}</div>
               <input
                 type="number"
@@ -633,7 +635,7 @@ export default function Hutang() {
       {/* Modal - sama seperti sebelumnya, dengan ukuran yang lebih kecil */}
       {modalVisible && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={resetForm}>
           <div
             className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
