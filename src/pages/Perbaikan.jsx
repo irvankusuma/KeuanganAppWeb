@@ -120,7 +120,7 @@ export default function Perbaikan() {
 
   const formatCurrency = (num) => {
     if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
+    return "Rp. " + Number(num).toLocaleString("id-ID");
   };
 
   const formatNumber = (num) => {
@@ -515,9 +515,7 @@ export default function Perbaikan() {
                   <input
                     type="text"
                     value={formData.km_saat_ini}
-                    onChange={(e) =>
-                      setFormData({ ...formData, km_saat_ini: e.target.value })
-                    }
+                    onChange={(e) => handleInputChange("km_saat_ini", e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                     required
@@ -543,10 +541,7 @@ export default function Perbaikan() {
                     type="text"
                     value={formData.km_berikutnya}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        km_berikutnya: e.target.value,
-                      })
+                      handleInputChange("km_berikutnya", e.target.value)
                     }
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
@@ -571,9 +566,7 @@ export default function Perbaikan() {
                   <input
                     type="text"
                     value={formData.biaya}
-                    onChange={(e) =>
-                      setFormData({ ...formData, biaya: e.target.value })
-                    }
+                    onChange={(e) => handleInputChange("biaya", e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                   />
