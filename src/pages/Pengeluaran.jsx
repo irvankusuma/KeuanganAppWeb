@@ -1,0 +1,637 @@
+import { useState, useEffect } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Calculator,
+  TrendingDown,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Tag,
+  ShoppingBag,
+  Coffee,
+  Home,
+  Car,
+  Heart,
+  Film,
+} from "lucide-react";
+import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+
+export default function Pengeluaran() {
+  const [pengeluaran, setPengeluaran] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [filterKategori, setFilterKategori] = useState("all");
+  const [filterBulan, setFilterBulan] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [formData, setFormData] = useState({
+    nama: "",
+    kategori: "",
+    jumlah: "",
+    tanggal: new Date().toISOString().split("T")[0],
+    catatan: "",
+  });
+  const [calcInput, setCalcInput] = useState("");
+  const [showCalc, setShowCalc] = useState(false);
+
+  // Daftar kategori pengeluaran umum
+  const kategoriOptions = [
+    "Makanan & Minuman",
+    "Transportasi",
+    "Belanja",
+    "Hiburan",
+    "Tagihan",
+    "Kesehatan",
+    "Pendidikan",
+    "Investasi",
+    "Donasi",
+    "Lainnya",
+  ];
+
+  // Ikon untuk setiap kategori (untuk tampilan)
+  const getKategoriIcon = (kategori) => {
+    switch (kategori) {
+      case "Makanan & Minuman":
+        return <Coffee size={12} />;
+      case "Transportasi":
+        return <Car size={12} />;
+      case "Belanja":
+        return <ShoppingBag size={12} />;
+      case "Hiburan":
+        return <Film size={12} />;
+      case "Tagihan":
+        return <Home size={12} />;
+      case "Kesehatan":
+        return <Heart size={12} />;
+      default:
+        return <Tag size={12} />;
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
+    const data = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    setPengeluaran(data);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.nama || !formData.jumlah) {
+      alert("Nama dan jumlah harus diisi!");
+      return;
+    }
+    const dataToSave = {
+      ...formData,
+      kategori: formData.kategori || "Lainnya",
+    };
+    if (editMode && editId) {
+      LocalStorageService.updateRow(SHEETS.PENGELUARAN, editId, dataToSave);
+    } else {
+      LocalStorageService.appendRow(SHEETS.PENGELUARAN, dataToSave);
+    }
+    resetForm();
+    loadData();
+  };
+
+  const handleEdit = (item) => {
+    setEditMode(true);
+    setEditId(item.id);
+    setFormData({
+      nama: item.nama,
+      kategori: item.kategori,
+      jumlah: item.jumlah,
+      tanggal: item.tanggal,
+      catatan: item.catatan || "",
+    });
+    setCalcInput(formatNumber(item.jumlah));
+    setModalVisible(true);
+  };
+
+  const handleDelete = (item) => {
+    if (confirm(`Hapus pengeluaran "${item.nama}"?`)) {
+      LocalStorageService.deleteRow(SHEETS.PENGELUARAN, item.id);
+      loadData();
+    }
+  };
+
+  const resetForm = () => {
+    setModalVisible(false);
+    setEditMode(false);
+    setEditId(null);
+    setFormData({
+      nama: "",
+      kategori: "",
+      jumlah: "",
+      tanggal: new Date().toISOString().split("T")[0],
+      catatan: "",
+    });
+    setCalcInput("");
+    setShowCalc(false);
+  };
+
+  const formatCurrency = (num) => {
+    if (!num) return "Rp 0";
+    return "Rp " + Number(num).toLocaleString("id-ID");
+  };
+
+  const formatNumber = (num) => {
+    if (!num) return "";
+    return Number(num).toLocaleString("id-ID");
+  };
+
+  const parseLocaleNumber = (str) => {
+    if (!str) return 0;
+    return Number(str.replace(/\./g, ""));
+  };
+
+  const handleJumlahChange = (e) => {
+    const raw = e.target.value.replace(/[^\d]/g, "");
+    const num = raw ? parseInt(raw, 10) : 0;
+    setFormData({ ...formData, jumlah: num });
+    setCalcInput(num ? num.toLocaleString("id-ID") : "");
+  };
+
+  const handleCalcButton = (val) => {
+    if (val === "C") {
+      setCalcInput("");
+      setFormData({ ...formData, jumlah: 0 });
+    } else if (val === "←") {
+      const newInput = calcInput.slice(0, -1);
+      setCalcInput(newInput);
+      const num = parseLocaleNumber(newInput);
+      setFormData({ ...formData, jumlah: num });
+    } else if (val === "=") {
+      try {
+        const expr = calcInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+        // eslint-disable-next-line no-eval
+        const result = eval(expr);
+        if (!isNaN(result)) {
+          setCalcInput(result.toLocaleString("id-ID"));
+          setFormData({ ...formData, jumlah: result });
+        }
+      } catch (e) {
+        // ignore
+      }
+    } else {
+      const newInput = calcInput + val;
+      setCalcInput(newInput);
+      if (!isNaN(parseLocaleNumber(newInput))) {
+        const num = parseLocaleNumber(newInput);
+        setFormData({ ...formData, jumlah: num });
+      }
+    }
+  };
+
+  // Ambil bulan dari tanggal
+  const getMonthYear = (dateString) => {
+    const date = new Date(dateString);
+    return `${date.getMonth() + 1}-${date.getFullYear()}`;
+  };
+
+  // Filter berdasarkan kategori dan bulan
+  const filteredData = pengeluaran.filter((item) => {
+    if (filterKategori !== "all" && item.kategori !== filterKategori)
+      return false;
+    if (filterBulan !== "all") {
+      const itemMonthYear = getMonthYear(item.tanggal);
+      if (itemMonthYear !== filterBulan) return false;
+    }
+    return true;
+  });
+
+  // Urutkan berdasarkan tanggal terbaru
+  const sortedData = [...filteredData].sort((a, b) => {
+    return new Date(b.tanggal) - new Date(a.tanggal);
+  });
+
+  // Hitung total pengeluaran
+  const totalPengeluaran = filteredData.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+
+  // Ambil semua kategori unik
+  const uniqueKategori = [...new Set(pengeluaran.map((item) => item.kategori))];
+
+  // Ambil semua bulan unik
+  const uniqueBulan = [
+    ...new Set(pengeluaran.map((item) => getMonthYear(item.tanggal))),
+  ].sort((a, b) => {
+    const [monthA, yearA] = a.split("-").map(Number);
+    const [monthB, yearB] = b.split("-").map(Number);
+    if (yearA !== yearB) return yearB - yearA;
+    return monthB - monthA;
+  });
+
+  const resetKategoriFilter = () => setFilterKategori("all");
+  const resetBulanFilter = () => setFilterBulan("all");
+
+  // Mendapatkan label filter aktif
+  const getActiveFilterLabel = () => {
+    if (filterKategori === "all" && filterBulan === "all")
+      return "Semua filter";
+
+    const parts = [];
+    if (filterKategori !== "all") parts.push(`Kategori: ${filterKategori}`);
+    if (filterBulan !== "all") {
+      const [month, year] = filterBulan.split("-");
+      const date = new Date(year, month - 1);
+      const monthName = date.toLocaleDateString("id-ID", { month: "long" });
+      parts.push(`Bulan: ${monthName} ${year}`);
+    }
+    return parts.join(" • ");
+  };
+
+  // Pengeluaran terbesar untuk insight
+  const pengeluaranTerbesar =
+    filteredData.length > 0
+      ? Math.max(...filteredData.map((item) => parseFloat(item.jumlah) || 0))
+      : 0;
+
+  return (
+    <div>
+      {/* Ringkasan Total Pengeluaran */}
+      <div className="mb-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-orange-100 mb-1">
+              Total Pengeluaran
+            </div>
+            <div className="text-2xl font-bold text-white">
+              {formatCurrency(totalPengeluaran)}
+            </div>
+          </div>
+          <div className="bg-white/20 p-2 rounded-full">
+            <TrendingDown size={24} className="text-white" />
+          </div>
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-orange-100">
+          <span>{filteredData.length} transaksi</span>
+          {pengeluaranTerbesar > 0 && (
+            <span>Terbesar: {formatCurrency(pengeluaranTerbesar)}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Filter Bar - Collapsible */}
+      <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+        <div
+          className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
+          onClick={() => setShowFilters(!showFilters)}>
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-orange-400" />
+            <span className="text-sm font-medium text-white">Filter</span>
+            {filterKategori !== "all" || filterBulan !== "all" ? (
+              <span className="text-xs bg-orange-600/30 text-orange-300 px-2 py-0.5 rounded-full">
+                {getActiveFilterLabel()}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-500">Semua pengeluaran</span>
+            )}
+          </div>
+          <button className="p-1 text-gray-400 hover:text-white">
+            {showFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="p-4 pt-0 border-t border-slate-700 space-y-4">
+            {/* Filter Kategori */}
+            <div>
+              <span className="text-xs text-gray-400 block mb-2 flex items-center gap-1">
+                <Tag size={12} /> Kategori:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={resetKategoriFilter}
+                  className={`px-2.5 py-1 text-xs rounded-full ${
+                    filterKategori === "all"
+                      ? "bg-orange-600 text-white"
+                      : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                  }`}>
+                  Semua
+                </button>
+                {uniqueKategori.map((kategori) => (
+                  <button
+                    key={kategori}
+                    onClick={() => setFilterKategori(kategori)}
+                    className={`px-2.5 py-1 text-xs rounded-full flex items-center gap-1 ${
+                      filterKategori === kategori
+                        ? "bg-orange-600 text-white"
+                        : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                    }`}>
+                    {getKategoriIcon(kategori)}
+                    {kategori}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filter Bulan */}
+            {uniqueBulan.length > 0 && (
+              <div>
+                <span className="text-xs text-gray-400 block mb-2 flex items-center gap-1">
+                  <Calendar size={12} /> Bulan:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={resetBulanFilter}
+                    className={`px-2.5 py-1 text-xs rounded-full ${
+                      filterBulan === "all"
+                        ? "bg-orange-600 text-white"
+                        : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                    }`}>
+                    Semua
+                  </button>
+                  {uniqueBulan.map((bulan) => {
+                    const [month, year] = bulan.split("-");
+                    const date = new Date(year, month - 1);
+                    const monthName = date.toLocaleDateString("id-ID", {
+                      month: "short",
+                    });
+                    return (
+                      <button
+                        key={bulan}
+                        onClick={() => setFilterBulan(bulan)}
+                        className={`px-2.5 py-1 text-xs rounded-full ${
+                          filterBulan === bulan
+                            ? "bg-orange-600 text-white"
+                            : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                        }`}>
+                        {monthName} {year}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tombol Reset */}
+            {(filterKategori !== "all" || filterBulan !== "all") && (
+              <button
+                onClick={() => {
+                  resetKategoriFilter();
+                  resetBulanFilter();
+                }}
+                className="w-full mt-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1">
+                <X size={14} /> Reset Semua Filter
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Daftar Pengeluaran */}
+      <div className="space-y-3">
+        {sortedData.length > 0 ? (
+          sortedData.map((item, i) => {
+            const total = parseFloat(item.jumlah) || 0;
+            return (
+              <div
+                key={i}
+                className="bg-slate-800 rounded-xl p-3 border-l-4 border-orange-500">
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="text-base font-bold">{item.nama}</h3>
+                  <div className="flex items-center gap-1 text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded-full">
+                    {getKategoriIcon(item.kategori)}
+                    <span>{item.kategori || "Lainnya"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs text-gray-500">
+                    {new Date(item.tanggal).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                  <div className="text-sm font-bold text-orange-500">
+                    {formatCurrency(total)}
+                  </div>
+                </div>
+
+                {item.catatan && (
+                  <div className="text-[10px] text-gray-500 mb-2 italic">
+                    {item.catatan}
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    <Pencil size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item)}
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    <Trash2 size={12} /> Hapus
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 text-gray-400 text-sm">
+            {filterKategori !== "all" || filterBulan !== "all"
+              ? "Tidak ada pengeluaran dengan kriteria ini"
+              : "Belum ada pengeluaran"}
+          </div>
+        )}
+      </div>
+
+      {/* FAB */}
+      <button
+        onClick={() => setModalVisible(true)}
+        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        <Plus size={22} />
+      </button>
+
+      {/* Modal */}
+      {modalVisible && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          onClick={resetForm}>
+          <div
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
+              <h2 className="text-lg font-bold">
+                {editMode ? "Edit" : "Tambah"} Pengeluaran
+              </h2>
+              <button
+                onClick={resetForm}
+                className="p-1.5 hover:bg-slate-700 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-20">
+              {/* Nama Pengeluaran */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Nama Pengeluaran
+                </label>
+                <input
+                  type="text"
+                  value={formData.nama}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nama: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                  placeholder="Contoh: Makan Siang"
+                  required
+                />
+              </div>
+
+              {/* Kategori */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Kategori
+                </label>
+                <input
+                  type="text"
+                  value={formData.kategori}
+                  onChange={(e) =>
+                    setFormData({ ...formData, kategori: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                  placeholder="Contoh: Makanan, Transportasi, dll"
+                  list="kategori-options"
+                />
+                <datalist id="kategori-options">
+                  {kategoriOptions.map((opt) => (
+                    <option key={opt} value={opt} />
+                  ))}
+                </datalist>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {kategoriOptions.map((kat) => (
+                    <button
+                      key={kat}
+                      type="button"
+                      onClick={() =>
+                        setFormData({ ...formData, kategori: kat })
+                      }
+                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full flex items-center gap-1">
+                      {getKategoriIcon(kat)}
+                      {kat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Jumlah dengan kalkulator */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Jumlah (Rp)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={calcInput}
+                    onChange={handleJumlahChange}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
+                    placeholder="0"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCalc(!showCalc)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    <Calculator size={16} />
+                  </button>
+                </div>
+
+                {showCalc && (
+                  <div className="mt-2 p-2 bg-slate-900 rounded-lg grid grid-cols-4 gap-1">
+                    {[
+                      "7",
+                      "8",
+                      "9",
+                      "C",
+                      "4",
+                      "5",
+                      "6",
+                      "←",
+                      "1",
+                      "2",
+                      "3",
+                      "+",
+                      "0",
+                      "00",
+                      "-",
+                      "*",
+                      "/",
+                      "=",
+                    ].map((btn) => (
+                      <button
+                        key={btn}
+                        type="button"
+                        onClick={() => handleCalcButton(btn)}
+                        className={`p-1.5 rounded text-xs font-bold ${
+                          btn === "C"
+                            ? "bg-red-600/20 text-red-400"
+                            : btn === "="
+                              ? "bg-green-600/20 text-green-400"
+                              : "bg-slate-800 hover:bg-slate-700"
+                        }`}>
+                        {btn}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="text-[10px] text-gray-500 mt-1">
+                  {formatCurrency(formData.jumlah)}
+                </div>
+              </div>
+
+              {/* Tanggal */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={formData.tanggal}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tanggal: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                />
+              </div>
+
+              {/* Catatan */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Catatan
+                </label>
+                <textarea
+                  value={formData.catatan}
+                  onChange={(e) =>
+                    setFormData({ ...formData, catatan: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                  rows="2"
+                  placeholder="Opsional"></textarea>
+              </div>
+
+              {/* Tombol Simpan */}
+              <button
+                type="submit"
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2">
+                {editMode ? "Update" : "Simpan"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
