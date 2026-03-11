@@ -367,10 +367,10 @@ export default function Perbaikan() {
                   <h3 className="text-base font-bold">{item.nama}</h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
                   <div>
-                    <div className="text-[10px] text-gray-500">Tanggal</div>
-                    <div className="text-xs text-white">
+                    <div className="text-[9px] text-gray-500">Tanggal</div>
+                    <div className="text-[11px] text-white">
                       {new Date(item.tanggal).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
@@ -379,36 +379,36 @@ export default function Perbaikan() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">KM Saat Ini</div>
-                    <div className="text-xs text-white">
+                    <div className="text-[9px] text-gray-500">KM Saat Ini</div>
+                    <div className="text-[11px] text-white">
                       {formatNumber(item.km_saat_ini)} km
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">
+                    <div className="text-[9px] text-gray-500">
                       KM Berikutnya
                     </div>
-                    <div className="text-xs text-blue-400">
+                    <div className="text-[11px] text-blue-400">
                       {formatNumber(item.km_berikutnya)} km
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">Sisa KM</div>
+                    <div className="text-[9px] text-gray-500">Sisa KM</div>
                     <div
-                      className="text-xs font-medium text-blue-400">
+                      className="text-[11px] font-medium text-blue-400">
                       {formatNumber(sisa)} km
                     </div>
                   </div>
                 </div>
 
                 {estimasiHari > 0 && status !== "overdue" && (
-                  <div className="text-[10px] text-gray-500 mb-2">
+                  <div className="text-[9px] text-gray-500 mb-2">
                     Estimasi: {estimasiHari} hari lagi (50km/hari)
                   </div>
                 )}
 
                 {item.biaya > 0 && (
-                  <div className="flex items-center justify-between text-xs mb-2">
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
                     <span className="text-gray-500">Biaya:</span>
                     <span className="text-orange-400 font-medium">
                       {formatCurrency(item.biaya)}
@@ -417,20 +417,20 @@ export default function Perbaikan() {
                 )}
 
                 {item.catatan && (
-                  <div className="text-[10px] text-gray-500 italic mb-2">
+                  <div className="text-[9px] text-gray-500 italic mb-2">
                     {item.catatan}
                   </div>
                 )}
 
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-1.5 mt-1.5">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
@@ -527,7 +527,7 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Contoh: 15.000</p>
+                <p className="text-[9px] text-gray-500 mt-1">Contoh: 15.000</p>
               </div>
 
               {/* KM Berikutnya */}
@@ -554,7 +554,7 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Contoh: 20.000</p>
+                <p className="text-[9px] text-gray-500 mt-1">Contoh: 20.000</p>
               </div>
 
               {/* Biaya */}
@@ -577,7 +577,7 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">
+                <p className="text-[9px] text-gray-500 mt-1">
                   Otomatis tercatat di Pengeluaran
                 </p>
               </div>

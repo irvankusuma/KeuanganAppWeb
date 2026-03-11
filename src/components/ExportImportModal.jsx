@@ -22,6 +22,8 @@ export default function ExportImportModal({ visible, onClose }) {
   const [filterType, setFilterType] = useState("all");
   const [filterMonth, setFilterMonth] = useState("all");
   const [filterYear, setFilterYear] = useState("all");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   const [exportFormat, setExportFormat] = useState("json");
 
   const [availableMonths, setAvailableMonths] = useState([]);
@@ -35,7 +37,7 @@ export default function ExportImportModal({ visible, onClose }) {
 
   useEffect(() => {
     filterHistoryData();
-  }, [history, filterType, filterMonth, filterYear]);
+  }, [history, filterType, filterMonth, filterYear, filterStartDate, filterEndDate]);
 
   const loadHistory = () => {
     const data = LocalStorageService.getAllHistory();
@@ -84,6 +86,25 @@ export default function ExportImportModal({ visible, onClose }) {
       });
     }
 
+    if (filterStartDate) {
+      const start = new Date(filterStartDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((item) => {
+        const date = new Date(item.date);
+        date.setHours(0, 0, 0, 0);
+        return date >= start;
+      });
+    }
+
+    if (filterEndDate) {
+      const end = new Date(filterEndDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((item) => {
+        const date = new Date(item.date);
+        return date <= end;
+      });
+    }
+
     setFilteredHistory(filtered);
   };
 
@@ -91,6 +112,8 @@ export default function ExportImportModal({ visible, onClose }) {
     setFilterType("all");
     setFilterMonth("all");
     setFilterYear("all");
+    setFilterStartDate("");
+    setFilterEndDate("");
   };
 
   // ==================== EXPORT ====================
@@ -333,6 +356,11 @@ export default function ExportImportModal({ visible, onClose }) {
     });
   };
 
+  const historyTotalAmount = filteredHistory.reduce(
+    (sum, item) => sum + (parseFloat(item.amount) || 0),
+    0,
+  );
+
   if (!visible) return null;
 
   return (
@@ -480,7 +508,9 @@ export default function ExportImportModal({ visible, onClose }) {
                     </span>
                     {(filterType !== "all" ||
                       filterMonth !== "all" ||
-                      filterYear !== "all") && (
+                      filterYear !== "all" ||
+                      filterStartDate ||
+                      filterEndDate) && (
                       <span className="text-[10px] bg-blue-600/30 text-blue-300 px-1.5 py-0.5 rounded-full">
                         Aktif
                       </span>
@@ -552,10 +582,38 @@ export default function ExportImportModal({ visible, onClose }) {
                       </div>
                     </div>
 
+                    {/* Filter Rentang Tanggal */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-400 block mb-1">
+                          Dari Tanggal:
+                        </label>
+                        <input
+                          type="date"
+                          value={filterStartDate}
+                          onChange={(e) => setFilterStartDate(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-400 block mb-1">
+                          Sampai Tanggal:
+                        </label>
+                        <input
+                          type="date"
+                          value={filterEndDate}
+                          onChange={(e) => setFilterEndDate(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+
                     {/* Tombol Reset */}
                     {(filterType !== "all" ||
                       filterMonth !== "all" ||
-                      filterYear !== "all") && (
+                      filterYear !== "all" ||
+                      filterStartDate ||
+                      filterEndDate) && (
                       <button
                         onClick={resetFilters}
                         className="w-full px-2 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1">
@@ -564,6 +622,19 @@ export default function ExportImportModal({ visible, onClose }) {
                     )}
                   </div>
                 )}
+              </div>
+
+              <div className="mb-3 bg-slate-800/60 border border-slate-700 rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-gray-400">Total Riwayat</div>
+                    <div className="text-white font-semibold">{filteredHistory.length} data</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gray-400">Total Nominal</div>
+                    <div className="text-blue-300 font-semibold">{formatCurrency(historyTotalAmount)}</div>
+                  </div>
+                </div>
               </div>
 
               {/* Daftar History */}
