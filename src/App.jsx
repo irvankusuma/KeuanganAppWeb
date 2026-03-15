@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Wrench,
   Download,
+  FileText,
 } from "lucide-react";
 
 // Pages
@@ -23,6 +24,7 @@ import Piutang from "./pages/Piutang";
 import Pemasukan from "./pages/Pemasukan";
 import Pengeluaran from "./pages/Pengeluaran";
 import Perbaikan from "./pages/Perbaikan";
+import Catatan from "./pages/catatan";
 
 // Components
 import ExportImportModal from "./components/ExportImportModal";
@@ -37,15 +39,17 @@ function Layout({ children }) {
     { path: "/piutang", icon: Coins, label: "Piutang" },
     { path: "/pemasukan", icon: TrendingUp, label: "Pemasukan" },
     { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
+    { path: "/catatan", icon: FileText, label: "Catatan" },
     { path: "/perbaikan", icon: Wrench, label: "Perbaikan" },
   ];
 
+  const mobileNavItems = navItems.filter((item) => item.path !== "/catatan");
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Header lebih kecil */}
       <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
         <div className="container mx-auto px-3 h-14 flex items-center justify-between">
-          <Link to="/" className="hover:text-blue-400 transition-colors">
+          <Link to="/catatan" className="hover:text-blue-400 transition-colors">
             <h1 className="text-lg font-bold">📘 Catatan</h1>
           </Link>
           <button
@@ -60,7 +64,7 @@ function Layout({ children }) {
       {/* Desktop Navigation - lebih kecil */}
       <nav className="hidden md:block bg-slate-800 border-b border-slate-700">
         <div className="container mx-auto px-3">
-          <div className="flex gap-1">
+          <div className="flex gap-1 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -83,14 +87,14 @@ function Layout({ children }) {
       </nav>
 
       {/* Main Content - padding lebih kecil */}
-      <main className="container mx-auto px-2 sm:px-3 py-4 pb-20 md:pb-4">
+      <main className="container mx-auto px-2 sm:px-3 py-4 pb-28 md:pb-4">
         {children}
       </main>
 
       {/* Mobile Bottom Navigation - lebih kecil */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-40">
         <div className="grid grid-cols-6 h-14">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
@@ -127,6 +131,7 @@ function App() {
           <Route path="/piutang" element={<Piutang />} />
           <Route path="/pemasukan" element={<Pemasukan />} />
           <Route path="/pengeluaran" element={<Pengeluaran />} />
+          <Route path="/catatan" element={<Catatan />} />
           <Route path="/perbaikan" element={<Perbaikan />} />
         </Routes>
       </Layout>

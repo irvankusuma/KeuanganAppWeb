@@ -1,261 +1,129 @@
-# 💰 KeuanganApp - Web Version
+# 📘 KeuanganApp Web
 
-Aplikasi Keuangan Pribadi berbasis Web - React + Vite + Tailwind CSS
-
-✅ **Deploy ke GitHub Pages / Vercel**
-✅ **Data tersimpan di Browser (localStorage)**
-✅ **Progressive Web App (PWA) - Bisa di-install ke HP**
-✅ **Tanpa Database Cloud - 100% Gratis!**
+KeuanganApp Web adalah aplikasi manajemen keuangan pribadi berbasis browser yang dirancang untuk memberikan kendali penuh kepada pengguna atas kesehatan finansial mereka. Aplikasi ini berfokus pada kesederhanaan, kecepatan akses, dan privasi data tanpa memerlukan akun atau koneksi internet (offline-first).
 
 ---
 
-## 🚀 Quick Start
+## 🚀 1) Tujuan & Filosofi Aplikasi
 
-### 1. Install Dependencies
-```bash
-npm install
-```
+Aplikasi ini dibangun dengan beberapa prinsip utama:
 
-### 2. Run Development Server
-```bash
-npm run dev
-```
+1. **Privasi Mutlak**: Data Anda adalah milik Anda. Semua informasi disimpan secara lokal di browser menggunakan `localStorage`. Tidak ada data yang dikirim ke server luar.
+2. **Tanpa Hambatan (Barrier-Free)**: Tidak perlu registrasi, login, atau pengaturan yang rumit. Buka aplikasi dan langsung catat.
+3. **Sentralisasi Data**: Menyatukan pencatatan hutang, piutang, pemasukan, pengeluaran, dan catatan pengingat dalam satu antarmuka yang kohesif.
+4. **Kontrol Arus Kas**: Memandu pengguna untuk memahami pola pengeluaran dan memastikan kewajiban (hutang/piutang) terkelola dengan baik.
 
-Buka browser: `http://localhost:5173`
+---
 
-### 3. Build for Production
+## ✨ 2) Fitur Utama Per Halaman
+
+Setiap halaman di KeuanganApp Web dirancang dengan logika khusus untuk mendukung manajemen keuangan yang efektif.
+
+### A. Dashboard (`/`) - Pusat Komando
+
+- **Visualisasi Saldo**: Menampilkan "Saldo Bersih" yang dihitung secara dinamis dari (Total Pemasukan + Pembayaran Piutang) - (Total Pengeluaran + Pembayaran Hutang).
+- **Kartu Statistik**: Ringkasan cepat untuk Hutang, Piutang, Pemasukan, dan Pengeluaran.
+- **Analisis Rasio**: Memberikan gambaran kesehatan keuangan berdasarkan perbandingan aset dan kewajiban.
+- **Grafik Interaktif**: Tren transaksi bulanan menggunakan Recharts untuk melihat fluktuasi keuangan secara visual.
+- **Akses Cepat**: Tombol pintas ke modul lain dan ringkasan jumlah catatan tersimpan.
+- _Lihat detail visual di:_ [PreviewApp.md - Dashboard](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md#--2-detail-halaman-dashboard)
+
+### B. Hutang (`/hutang`) - Manajemen Kewajiban
+
+- **Pencatatan Terstruktur**: Simpan data pemberi pinjaman, nominal total, tanggal pinjam, dan jatuh tempo.
+- **Sistem Pembayaran Bertahap**: Fitur "Bayar" memungkinkan Anda mencatat cicilan. Nilai "Sisa Hutang" akan terupdate secara otomatis.
+- **Riwayat Transaksi**: Lihat setiap pembayaran yang pernah dilakukan untuk satu item hutang melalui tombol "History".
+- _Lihat detail visual di:_ [PreviewApp.md - Hutang & Piutang](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md#--3-detail-halaman-hutang--piutang)
+
+### C. Piutang (`/piutang`) - Manajemen Aset
+
+- **Pelacakan Penagihan**: Catat siapa yang meminjam uang, kapan harus dikembalikan, dan status kelunasannya.
+- **Penerimaan Cicilan**: Catat setiap kali Anda menerima pembayaran dari piutang tersebut.
+- **Filter Jatuh Tempo**: Identifikasi dengan cepat siapa yang sudah melewati batas waktu pembayaran.
+- _Lihat detail visual di:_ [PreviewApp.md - Hutang & Piutang](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md#--3-detail-halaman-hutang--piutang)
+
+### D. Pemasukan & Pengeluaran (`/pemasukan`, `/pengeluaran`)
+
+- **Pencatatan Harian**: Catat setiap nominal uang masuk atau keluar beserta kategori dan sumbernya.
+- **Manajemen Arus Kas**: Memberikan basis data untuk perhitungan saldo di Dashboard.
+- _Lihat detail visual di:_ [PreviewApp.md - Alur Data](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md#--6-relasi-antar-data-data-connection)
+
+### E. Catatan (`/catatan`) - Reminder & Ide
+
+- **Multi-Format**: Mendukung catatan Standar, List (bullet points), dan Singkat (maks 100 karakter).
+- **Pengorganisasian**: Dilengkapi fitur pencarian (search) dan filter berdasarkan tipe catatan.
+- _Lihat detail visual di:_ [PreviewApp.md - Catatan](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md#--4-detail-halaman-catatan-notes)
+
+### F. Perbaikan (`/perbaikan`) - Biaya Maintenance
+
+- **Spesifik**: Dikhususkan untuk mencatat biaya-biaya perbaikan (kendaraan, rumah, alat elektronik) agar Anda tahu berapa banyak yang dihabiskan untuk pemeliharaan aset.
+
+---
+
+## 🛠️ 3) Teknologi yang Digunakan
+
+Aplikasi ini dibangun menggunakan stack modern untuk kinerja optimal di browser:
+
+- **Framework**: [React](https://reactjs.org/) - Logika UI yang reaktif.
+- **Build Tool**: [Vite](https://vitejs.dev/) - Pengembangan cepat dan build ringan.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) - Desain responsif dan modern.
+- **Iconography**: [Lucide React](https://lucide.dev/) - Ikon yang bersih dan konsisten.
+- **Charts**: [Recharts](https://recharts.org/) - Visualisasi data keuangan.
+- **Storage**: Browser LocalStorage API - Penyimpanan data lokal yang persisten.
+
+---
+
+## 📖 4) Panduan Penggunaan
+
+### A. Alur Kerja Standar
+
+1.  **Pencatatan**: Masukkan setiap transaksi begitu terjadi (real-time).
+2.  **Pemantauan**: Gunakan Dashboard untuk melihat apakah pengeluaran melebihi pemasukan.
+3.  **Evaluasi**: Periksa daftar hutang/piutang secara rutin untuk memastikan tidak ada yang terlewat.
+4.  **Optimasi**: Gunakan fitur Catatan untuk merencanakan alokasi dana di masa depan.
+
+### B. Keamanan Data (Penting!)
+
+Karena data Anda hanya disimpan di perangkat saat ini, sangat disarankan untuk:
+
+- **Export Berkala**: Gunakan tombol Export (ikon download di header) untuk mengunduh file `.json` sebagai cadangan.
+- **Import untuk Pindah Perangkat**: Jika ingin melanjutkan pencatatan di browser lain, cukup upload file cadangan tersebut melalui fitur Import.
+
+---
+
+## ⚙️ 5) Cara Menjalankan Project
+
+### Prasyarat
+
+- Node.js (versi 16 atau terbaru)
+- npm atau yarn
+
+### Instalasi & Pengembangan
+
+1.  Clone repository ini (jika menggunakan git).
+2.  Buka terminal di folder project.
+3.  Jalankan perintah:
+    ```bash
+    npm install
+    npm run dev
+    ```
+4.  Buka `http://localhost:5173` di browser Anda.
+
+### Build untuk Produksi
+
 ```bash
 npm run build
 ```
 
-Output di folder `dist/`
+---
+
+## 📂 6) Dokumentasi Teknis & UI Detail
+
+Untuk penjelasan lebih mendalam mengenai arsitektur visual, diagram ASCII tampilan per halaman, dan logika data "di balik layar", silakan merujuk ke file:
+👉 **[PreviewApp.md](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/PreviewApp.md)**
 
 ---
 
-## 📦 Deploy ke Vercel (RECOMMENDED)
+## 📝 7) Ringkasan
 
-### Option 1: Via Vercel CLI
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel
-```
-
-### Option 2: Via Vercel Dashboard
-1. Push code ke GitHub
-2. Import project di https://vercel.com
-3. Deploy otomatis!
-
-**Live URL:** `https://your-project.vercel.app`
-
----
-
-## 🐙 Deploy ke GitHub Pages
-
-### 1. Update `vite.config.js`
-```javascript
-export default defineConfig({
-  plugins: [react()],
-  base: '/keuangan-app-web/', // Ganti dengan nama repo Anda
-})
-```
-
-### 2. Build & Deploy
-```bash
-npm run build
-
-# Install gh-pages
-npm install --save-dev gh-pages
-
-# Add to package.json scripts:
-"predeploy": "npm run build",
-"deploy": "gh-pages -d dist"
-
-# Deploy
-npm run deploy
-```
-
-### 3. GitHub Settings
-- Repo Settings > Pages
-- Source: `gh-pages` branch
-- Save
-
-**Live URL:** `https://username.github.io/keuangan-app-web/`
-
----
-
-## 💾 Data Storage
-
-### Browser localStorage
-- Data tersimpan di browser
-- Tidak perlu database
-- 100% private
-- **WAJIB BACKUP via Export!**
-
-### Export/Import
-1. Klik icon Download (header kanan atas)
-2. Tab "Export" → Download JSON
-3. Simpan file di Google Drive / Cloud Storage
-4. Restore via Tab "Import"
-
----
-
-## 📱 Install sebagai PWA
-
-### Android (Chrome/Edge):
-1. Buka website
-2. Menu (⋮) > "Add to Home screen"
-3. Icon muncul di home screen
-4. Buka seperti app native!
-
-### iOS (Safari):
-1. Buka website
-2. Tap tombol Share
-3. "Add to Home Screen"
-4. Done!
-
-### Desktop (Chrome/Edge):
-1. Buka website
-2. Address bar: icon "Install" (+)
-3. Install
-4. App muncul di desktop!
-
----
-
-## 🎨 Features
-
-✅ **Dashboard** - Saldo bersih, summary cards
-✅ **Hutang** - Full CRUD, Filter, Sort (Terbaru, Terlama, Terbesar, Terkecil)
-✅ **Piutang** - Full CRUD, Sort
-✅ **Pemasukan** - Coming soon
-✅ **Pengeluaran** - Coming soon
-✅ **Perbaikan** - Coming soon
-✅ **Export/Import** - Backup & restore data
-✅ **History** - Timeline semua aktivitas
-✅ **Dark Mode** - Default (lebih hemat baterai)
-✅ **Responsive** - Desktop & Mobile optimized
-✅ **PWA** - Install ke HP/Desktop
-
----
-
-## 🛠️ Tech Stack
-
-- **React 18** - UI Framework
-- **Vite** - Build tool (super fast!)
-- **Tailwind CSS** - Styling
-- **React Router** - Navigation
-- **lucide-react** - Icons
-- **localStorage** - Data persistence
-
----
-
-## 📂 Project Structure
-
-```
-keuangan-app-web/
-├── public/
-│   └── manifest.json          # PWA manifest
-├── src/
-│   ├── main.jsx               # Entry point
-│   ├── App.jsx                # Main app + router
-│   ├── index.css              # Global styles (Tailwind)
-│   ├── services/
-│   │   └── LocalStorageService.js  # localStorage API
-│   ├── components/
-│   │   └── ExportImportModal.jsx   # Export/Import/History
-│   └── pages/
-│       ├── Dashboard.jsx      # Dashboard
-│       ├── Hutang.jsx         # Hutang (FULL features)
-│       ├── Piutang.jsx        # Piutang (FULL features)
-│       ├── Pemasukan.jsx      # Pemasukan (WIP)
-│       ├── Pengeluaran.jsx    # Pengeluaran (WIP)
-│       └── Perbaikan.jsx      # Perbaikan (WIP)
-├── package.json
-├── vite.config.js
-├── tailwind.config.js
-└── vercel.json                # Vercel config (optional)
-```
-
----
-
-## ⚡ Performance
-
-- **Lighthouse Score:** 95+ (Production build)
-- **First Load:** < 1s
-- **Bundle Size:** ~ 150KB (gzipped)
-- **Offline Support:** Via PWA
-
----
-
-## 🔒 Privacy & Security
-
-✅ **Data hanya di browser Anda** - Tidak tersimpan di server manapun
-✅ **No tracking** - 100% private
-✅ **No login** - Tidak perlu account
-✅ **Offline** - Berfungsi tanpa internet
-✅ **Export/Import** - Full control atas data Anda
-
-**⚠️ PENTING:**
-- Data hilang jika clear browser data
-- WAJIB export backup secara rutin!
-- Simpan file backup di cloud (Google Drive, etc)
-
----
-
-## 🐛 Troubleshooting
-
-### Data hilang setelah reload?
-- Cek apakah browser dalam mode Incognito/Private
-- Pastikan localStorage tidak disabled
-- Cek browser settings: Allow cookies & site data
-
-### Deploy ke Vercel error?
-- Pastikan `vercel.json` ada
-- Check build command: `vite build`
-- Output directory: `dist`
-
-### PWA tidak bisa di-install?
-- Harus HTTPS (Vercel/GitHub Pages sudah HTTPS)
-- Check `manifest.json` valid
-- Service worker registered (check DevTools)
-
----
-
-## 📝 License
-
-MIT License - Free to use & modify
-
----
-
-## 🙏 Credits
-
-Built with ❤️ using:
-- React
-- Vite
-- Tailwind CSS
-- localStorage API
-
----
-
-## 🎯 Roadmap
-
-- [x] Dashboard
-- [x] Hutang (Full features)
-- [x] Piutang (Full features)
-- [x] Export/Import
-- [x] History
-- [ ] Pemasukan (Full features)
-- [ ] Pengeluaran (Full features)
-- [ ] Perbaikan (Full features)
-- [ ] Charts & Graphs
-- [ ] Budget Planning
-- [ ] Multi-currency
-- [ ] Dark/Light theme toggle
-
----
-
-**Happy managing your finances! 💰**
-
-**Don't forget to BACKUP regularly!** 💾
+Aplikasi ini adalah solusi bagi siapa saja yang menginginkan pencatatan keuangan yang privat, cepat, dan tanpa biaya langganan. Dengan fokus pada manajemen hutang/piutang yang detail dan dashboard yang informatif, KeuanganApp Web membantu Anda mencapai kejelasan finansial setiap hari.

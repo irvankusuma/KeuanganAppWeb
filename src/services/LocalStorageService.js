@@ -9,6 +9,7 @@ const SHEETS = {
   PEMASUKAN: 'Pemasukan',
   PENGELUARAN: 'Pengeluaran',
   PERBAIKAN: 'Perbaikan',
+  CATATAN: 'Catatan',
 };
 
 class LocalStorageService {

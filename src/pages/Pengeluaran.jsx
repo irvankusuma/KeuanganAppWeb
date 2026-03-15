@@ -22,6 +22,7 @@ import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
+  const [pemasukan, setPemasukan] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -78,7 +79,9 @@ export default function Pengeluaran() {
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const dataPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
     setPengeluaran(data);
+    setPemasukan(dataPemasukan);
   };
 
   const handleSubmit = (e) => {
@@ -158,6 +161,18 @@ export default function Pengeluaran() {
     setCalcInput(num ? num.toLocaleString("id-ID") : "");
   };
 
+  const safeEvaluate = (input) => {
+    try {
+      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+      if (!expr) return 0;
+      // eslint-disable-next-line no-new-func
+      const result = new Function(`return ${expr}`)();
+      return isNaN(result) ? 0 : result;
+    } catch (e) {
+      return 0;
+    }
+  };
+
   const handleCalcButton = (val) => {
     if (val === "C") {
       setCalcInput("");
@@ -168,23 +183,15 @@ export default function Pengeluaran() {
       const num = parseLocaleNumber(newInput);
       setFormData({ ...formData, jumlah: num });
     } else if (val === "=") {
-      try {
-        const expr = calcInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-        // eslint-disable-next-line no-eval
-        const result = eval(expr);
-        if (!isNaN(result)) {
-          setCalcInput(result.toLocaleString("id-ID"));
-          setFormData({ ...formData, jumlah: result });
-        }
-      } catch (e) {
-        // ignore
-      }
+      const result = safeEvaluate(calcInput);
+      setCalcInput(result.toLocaleString("id-ID"));
+      setFormData({ ...formData, jumlah: result });
     } else {
       const newInput = calcInput + val;
       setCalcInput(newInput);
-      if (!isNaN(parseLocaleNumber(newInput))) {
-        const num = parseLocaleNumber(newInput);
-        setFormData({ ...formData, jumlah: num });
+      const expr = newInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+      if (!isNaN(Number(expr))) {
+        setFormData({ ...formData, jumlah: Number(expr) });
       }
     }
   };
@@ -216,6 +223,14 @@ export default function Pengeluaran() {
     (sum, item) => sum + (parseFloat(item.jumlah) || 0),
     0,
   );
+
+  // Hitung total pemasukan untuk perbandingan
+  const totalPemasukan = pemasukan.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+
+  const sisaSaldo = totalPemasukan - totalPengeluaran;
 
   // Ambil semua kategori unik
   const uniqueKategori = [...new Set(pengeluaran.map((item) => item.kategori))];
@@ -258,25 +273,35 @@ export default function Pengeluaran() {
   return (
     <div>
       {/* Ringkasan Total Pengeluaran */}
-      <div className="mb-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-4 shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="mb-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-4 shadow-lg text-white">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs text-orange-100 mb-1">
               Total Pengeluaran
             </div>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold">
               {formatCurrency(totalPengeluaran)}
             </div>
           </div>
           <div className="bg-white/20 p-2 rounded-full">
-            <TrendingDown size={24} className="text-white" />
+            <TrendingDown size={24} />
           </div>
         </div>
-        <div className="mt-2 flex justify-between text-xs text-orange-100">
-          <span>{filteredData.length} transaksi</span>
-          {pengeluaranTerbesar > 0 && (
-            <span>Terbesar: {formatCurrency(pengeluaranTerbesar)}</span>
-          )}
+        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/20">
+          <div>
+            <div className="text-[10px] text-orange-100">Total Pemasukan</div>
+            <div className="text-sm font-semibold">
+              {formatCurrency(totalPemasukan)}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] text-orange-100">Sisa Saldo</div>
+            <div
+              className={`text-sm font-semibold ${sisaSaldo < 0 ? "text-red-200" : "text-green-200"}`}
+            >
+              {formatCurrency(sisaSaldo)}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -284,7 +309,8 @@ export default function Pengeluaran() {
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
-          onClick={() => setShowFilters(!showFilters)}>
+          onClick={() => setShowFilters(!showFilters)}
+        >
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-orange-400" />
             <span className="text-sm font-medium text-white">Filter</span>
@@ -315,7 +341,8 @@ export default function Pengeluaran() {
                     filterKategori === "all"
                       ? "bg-orange-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                  }`}>
+                  }`}
+                >
                   Semua
                 </button>
                 {uniqueKategori.map((kategori) => (
@@ -326,7 +353,8 @@ export default function Pengeluaran() {
                       filterKategori === kategori
                         ? "bg-orange-600 text-white"
                         : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                    }`}>
+                    }`}
+                  >
                     {getKategoriIcon(kategori)}
                     {kategori}
                   </button>
@@ -347,7 +375,8 @@ export default function Pengeluaran() {
                       filterBulan === "all"
                         ? "bg-orange-600 text-white"
                         : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                    }`}>
+                    }`}
+                  >
                     Semua
                   </button>
                   {uniqueBulan.map((bulan) => {
@@ -364,7 +393,8 @@ export default function Pengeluaran() {
                           filterBulan === bulan
                             ? "bg-orange-600 text-white"
                             : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}>
+                        }`}
+                      >
                         {monthName} {year}
                       </button>
                     );
@@ -380,7 +410,8 @@ export default function Pengeluaran() {
                   resetKategoriFilter();
                   resetBulanFilter();
                 }}
-                className="w-full mt-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1">
+                className="w-full mt-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1"
+              >
                 <X size={14} /> Reset Semua Filter
               </button>
             )}
@@ -396,7 +427,8 @@ export default function Pengeluaran() {
             return (
               <div
                 key={i}
-                className="bg-slate-800 rounded-xl p-3 border-l-4 border-orange-500">
+                className="bg-slate-800 rounded-xl p-3 border-l-4 border-orange-500"
+              >
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="text-base font-bold">{item.nama}</h3>
                   <div className="flex items-center gap-1 text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded-full">
@@ -427,12 +459,14 @@ export default function Pengeluaran() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                  >
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                  >
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
@@ -451,7 +485,8 @@ export default function Pengeluaran() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-700 rounded-full flex items-center justify-center shadow-lg z-40"
+      >
         <Plus size={22} />
       </button>
 
@@ -459,17 +494,20 @@ export default function Pengeluaran() {
       {modalVisible && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
-          onClick={resetForm}>
+          onClick={resetForm}
+        >
           <div
             className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold">
                 {editMode ? "Edit" : "Tambah"} Pengeluaran
               </h2>
               <button
                 onClick={resetForm}
-                className="p-1.5 hover:bg-slate-700 rounded-lg">
+                className="p-1.5 hover:bg-slate-700 rounded-lg"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -520,7 +558,8 @@ export default function Pengeluaran() {
                       onClick={() =>
                         setFormData({ ...formData, kategori: kat })
                       }
-                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full flex items-center gap-1">
+                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full flex items-center gap-1"
+                    >
                       {getKategoriIcon(kat)}
                       {kat}
                     </button>
@@ -544,7 +583,8 @@ export default function Pengeluaran() {
                   <button
                     type="button"
                     onClick={() => setShowCalc(!showCalc)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white"
+                  >
                     <Calculator size={16} />
                   </button>
                 </div>
@@ -581,7 +621,8 @@ export default function Pengeluaran() {
                             : btn === "="
                               ? "bg-green-600/20 text-green-400"
                               : "bg-slate-800 hover:bg-slate-700"
-                        }`}>
+                        }`}
+                      >
                         {btn}
                       </button>
                     ))}
@@ -619,13 +660,15 @@ export default function Pengeluaran() {
                   }
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                   rows="2"
-                  placeholder="Opsional"></textarea>
+                  placeholder="Opsional"
+                ></textarea>
               </div>
 
               {/* Tombol Simpan */}
               <button
                 type="submit"
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2">
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2"
+              >
                 {editMode ? "Update" : "Simpan"}
               </button>
             </form>

@@ -10,8 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
-  AlertCircle,
-  Clock,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 
@@ -30,9 +28,16 @@ export default function Perbaikan() {
     biaya: "",
     catatan: "",
   });
-  const [calcInput, setCalcInput] = useState("");
-  const [showCalc, setShowCalc] = useState(false);
-  const [calcField, setCalcField] = useState(""); // untuk mengetahui field mana yang menggunakan kalkulator
+  const [showCalc, setShowCalc] = useState({
+    km_saat_ini: false,
+    km_berikutnya: false,
+    biaya: false,
+  });
+  const [calcInput, setCalcInput] = useState({
+    km_saat_ini: "",
+    km_berikutnya: "",
+    biaya: "",
+  });
 
   useEffect(() => {
     loadData();
@@ -85,13 +90,19 @@ export default function Perbaikan() {
   const handleEdit = (item) => {
     setEditMode(true);
     setEditId(item.id);
-    setFormData({
+    const initialData = {
       nama: item.nama,
       tanggal: item.tanggal,
       km_saat_ini: formatNumber(item.km_saat_ini),
       km_berikutnya: formatNumber(item.km_berikutnya),
       biaya: item.biaya ? formatNumber(item.biaya) : "",
       catatan: item.catatan || "",
+    };
+    setFormData(initialData);
+    setCalcInput({
+      km_saat_ini: initialData.km_saat_ini,
+      km_berikutnya: initialData.km_berikutnya,
+      biaya: initialData.biaya,
     });
     setModalVisible(true);
   };
@@ -115,14 +126,21 @@ export default function Perbaikan() {
       biaya: "",
       catatan: "",
     });
-    setCalcInput("");
-    setShowCalc(false);
-    setCalcField("");
+    setCalcInput({
+      km_saat_ini: "",
+      km_berikutnya: "",
+      biaya: "",
+    });
+    setShowCalc({
+      km_saat_ini: false,
+      km_berikutnya: false,
+      biaya: false,
+    });
   };
 
   const formatCurrency = (num) => {
     if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
+    return "Rp. " + Number(num).toLocaleString("id-ID");
   };
 
   const formatNumber = (num) => {
@@ -139,54 +157,80 @@ export default function Perbaikan() {
   const handleInputChange = (field, value) => {
     const raw = value.replace(/[^\d]/g, "");
     const num = raw ? parseInt(raw, 10) : 0;
+    const formatted = num ? num.toLocaleString("id-ID") : "";
     setFormData({
       ...formData,
-      [field]: num ? num.toLocaleString("id-ID") : "",
+      [field]: formatted,
     });
+    // Update calcInput to match
+    setCalcInput(prev => ({ ...prev, [field]: formatted }));
   };
 
   // Kalkulator
-  const handleCalcButton = (val) => {
-    if (val === "C") {
-      setCalcInput("");
-      if (calcField) {
-        setFormData({ ...formData, [calcField]: "" });
-      }
-    } else if (val === "←") {
-      const newInput = calcInput.slice(0, -1);
-      setCalcInput(newInput);
-      if (calcField) {
-        setFormData({ ...formData, [calcField]: newInput });
-      }
-    } else if (val === "=") {
-      try {
-        const expr = calcInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-        // eslint-disable-next-line no-eval
-        const result = eval(expr);
-        if (!isNaN(result)) {
-          const formatted = result.toLocaleString("id-ID");
-          setCalcInput(formatted);
-          if (calcField) {
-            setFormData({ ...formData, [calcField]: formatted });
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    } else {
-      const newInput = calcInput + val;
-      setCalcInput(newInput);
-      if (calcField) {
-        setFormData({ ...formData, [calcField]: newInput });
-      }
+  const safeEvaluate = (input) => {
+    try {
+      // Remove dots and sanitize expression (allow numbers and basic operators)
+      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+      if (!expr) return 0;
+      // eslint-disable-next-line no-new-func
+      const result = new Function(`return ${expr}`)();
+      return isNaN(result) ? 0 : result;
+    } catch (e) {
+      return 0;
     }
   };
 
-  const openCalculator = (field) => {
-    setCalcField(field);
-    setCalcInput(formData[field] || "");
-    setShowCalc(true);
+  const handleCalcButton = (field, val) => {
+    const currentInput = calcInput[field];
+    let newInput = currentInput;
+
+    if (val === "C") {
+      newInput = "";
+    } else if (val === "←") {
+      newInput = currentInput.slice(0, -1);
+    } else if (val === "=") {
+      const result = safeEvaluate(currentInput);
+      newInput = result ? result.toLocaleString("id-ID") : "";
+    } else {
+      newInput = currentInput + val;
+    }
+
+    setCalcInput(prev => ({ ...prev, [field]: newInput }));
+    setFormData(prev => ({ ...prev, [field]: newInput }));
   };
+
+  const toggleCalculator = (field) => {
+    setShowCalc(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const renderInlineCalc = (field) => (
+    <div className="mt-2 p-2 bg-slate-900 rounded-lg grid grid-cols-4 gap-1 border border-slate-700 shadow-inner">
+      {[
+        "7", "8", "9", "C",
+        "4", "5", "6", "←",
+        "1", "2", "3", "+",
+        "0", "00", "-", "*",
+        "/", "="
+      ].map((btn) => (
+        <button
+          key={btn}
+          type="button"
+          onClick={() => handleCalcButton(field, btn)}
+          className={`p-1.5 rounded text-xs font-bold ${
+            btn === "C"
+              ? "bg-red-600/20 text-red-400"
+              : btn === "="
+                ? "bg-green-600/20 text-green-400"
+                : "bg-slate-800 hover:bg-slate-700 text-gray-300"
+          }`}>
+          {btn}
+        </button>
+      ))}
+    </div>
+  );
 
   // Hitung sisa KM
   const getSisaKM = (item) => {
@@ -242,52 +286,8 @@ export default function Perbaikan() {
     return `Status: ${statusLabel}`;
   };
 
-  // Alert untuk yang perlu segera (due)
-  const hasDueItems = perbaikan.some((item) => getStatus(item) === "due");
-  const hasOverdueItems = perbaikan.some(
-    (item) => getStatus(item) === "overdue",
-  );
-
   return (
     <div>
-      {/* Alert untuk peringatan */}
-      {(hasDueItems || hasOverdueItems) && (
-        <div className="mb-4">
-          {hasOverdueItems && (
-            <div className="bg-red-600/20 border border-red-500 rounded-xl p-3 mb-2 flex items-start gap-2">
-              <AlertCircle
-                size={18}
-                className="text-red-400 flex-shrink-0 mt-0.5"
-              />
-              <div>
-                <span className="text-sm text-red-300 font-medium">
-                  Perhatian!{" "}
-                </span>
-                <span className="text-xs text-gray-300">
-                  Ada perbaikan yang sudah terlewat dari jadwal.
-                </span>
-              </div>
-            </div>
-          )}
-          {hasDueItems && !hasOverdueItems && (
-            <div className="bg-yellow-600/20 border border-yellow-500 rounded-xl p-3 flex items-start gap-2">
-              <AlertCircle
-                size={18}
-                className="text-yellow-400 flex-shrink-0 mt-0.5"
-              />
-              <div>
-                <span className="text-sm text-yellow-300 font-medium">
-                  Pengingat!{" "}
-                </span>
-                <span className="text-xs text-gray-300">
-                  Ada perbaikan yang perlu segera dilakukan (sisa ≤500 km).
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Ringkasan Total */}
       <div className="mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 shadow-lg">
         <div className="flex items-center justify-between">
@@ -302,9 +302,9 @@ export default function Perbaikan() {
           </div>
         </div>
         <div className="mt-2 flex gap-3 text-xs text-purple-100">
-          <span>✓ {countStatus.upcoming} aman</span>
-          <span>⚠️ {countStatus.due} segera</span>
-          <span>❗ {countStatus.overdue} terlewat</span>
+          <span>Aman: {countStatus.upcoming}</span>
+          <span>Perlu Servis: {countStatus.due}</span>
+          <span>Lewat Target: {countStatus.overdue}</span>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ export default function Perbaikan() {
                       ? "bg-green-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <Clock size={12} /> Masih Aman{" "}
+                  Masih Aman 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.upcoming}
                   </span>
@@ -365,7 +365,7 @@ export default function Perbaikan() {
                       ? "bg-yellow-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <AlertCircle size={12} /> Segera{" "}
+                  Segera 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.due}
                   </span>
@@ -377,7 +377,7 @@ export default function Perbaikan() {
                       ? "bg-red-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
                   }`}>
-                  <AlertCircle size={12} /> Terlewat{" "}
+                  Terlewat 
                   <span className="text-[10px] bg-white/20 px-1 rounded-full">
                     {countStatus.overdue}
                   </span>
@@ -405,42 +405,18 @@ export default function Perbaikan() {
             const status = getStatus(item);
             const estimasiHari = getEstimasiHari(item);
 
-            let borderColor = "border-green-500";
-            let statusBg = "bg-green-500/10 text-green-400";
-            let statusIcon = <Clock size={12} className="text-green-500" />;
-            let statusText = "Masih Aman";
-
-            if (status === "overdue") {
-              borderColor = "border-red-500";
-              statusBg = "bg-red-500/10 text-red-400";
-              statusIcon = <AlertCircle size={12} className="text-red-500" />;
-              statusText = "Terlewat";
-            } else if (status === "due") {
-              borderColor = "border-yellow-500";
-              statusBg = "bg-yellow-500/10 text-yellow-400";
-              statusIcon = (
-                <AlertCircle size={12} className="text-yellow-500" />
-              );
-              statusText = "Segera";
-            }
-
             return (
               <div
                 key={i}
-                className={`bg-slate-800 rounded-xl p-3 border-l-4 ${borderColor}`}>
+                className="bg-slate-800 rounded-xl p-3 border-l-4 border-purple-500">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="text-base font-bold">{item.nama}</h3>
-                  <div
-                    className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${statusBg}`}>
-                    {statusIcon}
-                    <span>{statusText}</span>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="grid grid-cols-2 gap-1.5 mb-1.5">
                   <div>
-                    <div className="text-[10px] text-gray-500">Tanggal</div>
-                    <div className="text-xs text-white">
+                    <div className="text-[9px] text-gray-500">Tanggal</div>
+                    <div className="text-[11px] text-white">
                       {new Date(item.tanggal).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
@@ -449,42 +425,36 @@ export default function Perbaikan() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">KM Saat Ini</div>
-                    <div className="text-xs text-white">
+                    <div className="text-[9px] text-gray-500">KM Saat Ini</div>
+                    <div className="text-[11px] text-white">
                       {formatNumber(item.km_saat_ini)} km
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">
+                    <div className="text-[9px] text-gray-500">
                       KM Berikutnya
                     </div>
-                    <div className="text-xs text-blue-400">
+                    <div className="text-[11px] text-blue-400">
                       {formatNumber(item.km_berikutnya)} km
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-500">Sisa KM</div>
+                    <div className="text-[9px] text-gray-500">Sisa KM</div>
                     <div
-                      className={`text-xs font-medium ${
-                        sisa <= 0
-                          ? "text-red-400"
-                          : sisa <= 500
-                            ? "text-yellow-400"
-                            : "text-green-400"
-                      }`}>
+                      className="text-[11px] font-medium text-blue-400">
                       {formatNumber(sisa)} km
                     </div>
                   </div>
                 </div>
 
                 {estimasiHari > 0 && status !== "overdue" && (
-                  <div className="text-[10px] text-gray-500 mb-2">
+                  <div className="text-[9px] text-gray-500 mb-2">
                     Estimasi: {estimasiHari} hari lagi (50km/hari)
                   </div>
                 )}
 
                 {item.biaya > 0 && (
-                  <div className="flex items-center justify-between text-xs mb-2">
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
                     <span className="text-gray-500">Biaya:</span>
                     <span className="text-orange-400 font-medium">
                       {formatCurrency(item.biaya)}
@@ -493,20 +463,20 @@ export default function Perbaikan() {
                 )}
 
                 {item.catatan && (
-                  <div className="text-[10px] text-gray-500 italic mb-2">
+                  <div className="text-[9px] text-gray-500 italic mb-2">
                     {item.catatan}
                   </div>
                 )}
 
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-1.5 mt-1.5">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[11px] py-1.5 rounded-lg flex items-center justify-center gap-1">
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
@@ -525,17 +495,17 @@ export default function Perbaikan() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg z-40">
         <Plus size={22} />
       </button>
 
       {/* Modal */}
       {modalVisible && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
+          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
           onClick={resetForm}>
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
+            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[86vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold">
@@ -548,7 +518,7 @@ export default function Perbaikan() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-20">
+            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-8">
               {/* Nama Item */}
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
@@ -591,28 +561,26 @@ export default function Perbaikan() {
                   <input
                     type="text"
                     value={formData.km_saat_ini}
-                    onChange={(e) =>
-                      setFormData({ ...formData, km_saat_ini: e.target.value })
-                    }
-                    onFocus={() => openCalculator("km_saat_ini")}
+                    onChange={(e) => handleInputChange("km_saat_ini", e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => openCalculator("km_saat_ini")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    onClick={() => toggleCalculator("km_saat_ini")}
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${showCalc.km_saat_ini ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white'}`}>
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Contoh: 15.000</p>
+                {showCalc.km_saat_ini && renderInlineCalc("km_saat_ini")}
+                <p className="text-[9px] text-gray-500 mt-1">Contoh: 15.000</p>
               </div>
 
               {/* KM Berikutnya */}
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
-                  KM Berikutnya (Rekomendasi){" "}
+                  KM Berikutnya (Rekomendasi Servis){" "}
                   <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -620,24 +588,21 @@ export default function Perbaikan() {
                     type="text"
                     value={formData.km_berikutnya}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        km_berikutnya: e.target.value,
-                      })
+                      handleInputChange("km_berikutnya", e.target.value)
                     }
-                    onFocus={() => openCalculator("km_berikutnya")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => openCalculator("km_berikutnya")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    onClick={() => toggleCalculator("km_berikutnya")}
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${showCalc.km_berikutnya ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white'}`}>
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">Contoh: 20.000</p>
+                {showCalc.km_berikutnya && renderInlineCalc("km_berikutnya")}
+                <p className="text-[9px] text-gray-500 mt-1">Contoh: 20.000</p>
               </div>
 
               {/* Biaya */}
@@ -649,21 +614,19 @@ export default function Perbaikan() {
                   <input
                     type="text"
                     value={formData.biaya}
-                    onChange={(e) =>
-                      setFormData({ ...formData, biaya: e.target.value })
-                    }
-                    onFocus={() => openCalculator("biaya")}
+                    onChange={(e) => handleInputChange("biaya", e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
                     placeholder="0"
                   />
                   <button
                     type="button"
-                    onClick={() => openCalculator("biaya")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    onClick={() => toggleCalculator("biaya")}
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors ${showCalc.biaya ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white'}`}>
                     <Calculator size={16} />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">
+                {showCalc.biaya && renderInlineCalc("biaya")}
+                <p className="text-[9px] text-gray-500 mt-1">
                   Otomatis tercatat di Pengeluaran
                 </p>
               </div>
@@ -684,61 +647,6 @@ export default function Perbaikan() {
                 />
               </div>
 
-              {/* Kalkulator Popup */}
-              {showCalc && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-                  <div className="bg-slate-800 rounded-xl w-full max-w-xs p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm font-medium">Kalkulator</h3>
-                      <button
-                        type="button"
-                        onClick={() => setShowCalc(false)}
-                        className="p-1 hover:bg-slate-700 rounded">
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <div className="mb-3 p-2 bg-slate-900 rounded-lg text-right text-xl font-mono">
-                      {calcInput || "0"}
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        "7",
-                        "8",
-                        "9",
-                        "C",
-                        "4",
-                        "5",
-                        "6",
-                        "←",
-                        "1",
-                        "2",
-                        "3",
-                        "+",
-                        "0",
-                        "00",
-                        "-",
-                        "*",
-                        "/",
-                        "=",
-                      ].map((btn) => (
-                        <button
-                          key={btn}
-                          type="button"
-                          onClick={() => handleCalcButton(btn)}
-                          className={`p-3 rounded-lg text-center font-bold text-sm ${
-                            btn === "C"
-                              ? "bg-red-600/20 text-red-400"
-                              : btn === "="
-                                ? "bg-green-600/20 text-green-400 col-span-2"
-                                : "bg-slate-700 hover:bg-slate-600"
-                          }`}>
-                          {btn}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Tombol Simpan */}
               <button

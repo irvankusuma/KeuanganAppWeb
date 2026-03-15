@@ -16,6 +16,7 @@ import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
+  const [pengeluaran, setPengeluaran] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -48,7 +49,9 @@ export default function Pemasukan() {
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const dataPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
     setPemasukan(data);
+    setPengeluaran(dataPengeluaran);
   };
 
   const handleSubmit = (e) => {
@@ -128,6 +131,18 @@ export default function Pemasukan() {
     setCalcInput(num ? num.toLocaleString("id-ID") : "");
   };
 
+  const safeEvaluate = (input) => {
+    try {
+      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+      if (!expr) return 0;
+      // eslint-disable-next-line no-new-func
+      const result = new Function(`return ${expr}`)();
+      return isNaN(result) ? 0 : result;
+    } catch (e) {
+      return 0;
+    }
+  };
+
   const handleCalcButton = (val) => {
     if (val === "C") {
       setCalcInput("");
@@ -138,23 +153,15 @@ export default function Pemasukan() {
       const num = parseLocaleNumber(newInput);
       setFormData({ ...formData, jumlah: num });
     } else if (val === "=") {
-      try {
-        const expr = calcInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-        // eslint-disable-next-line no-eval
-        const result = eval(expr);
-        if (!isNaN(result)) {
-          setCalcInput(result.toLocaleString("id-ID"));
-          setFormData({ ...formData, jumlah: result });
-        }
-      } catch (e) {
-        // ignore
-      }
+      const result = safeEvaluate(calcInput);
+      setCalcInput(result.toLocaleString("id-ID"));
+      setFormData({ ...formData, jumlah: result });
     } else {
       const newInput = calcInput + val;
       setCalcInput(newInput);
-      if (!isNaN(parseLocaleNumber(newInput))) {
-        const num = parseLocaleNumber(newInput);
-        setFormData({ ...formData, jumlah: num });
+      const expr = newInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
+      if (!isNaN(Number(expr))) {
+         setFormData({ ...formData, jumlah: Number(expr) });
       }
     }
   };
@@ -192,6 +199,14 @@ export default function Pemasukan() {
     0,
   );
 
+  // Hitung total pengeluaran untuk perbandingan
+  const totalPengeluaran = pengeluaran.reduce(
+    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+    0,
+  );
+
+  const sisaSaldo = totalPemasukan - totalPengeluaran;
+
   // Ambil semua kategori unik
   const uniqueKategori = [...new Set(pemasukan.map((item) => item.kategori))];
 
@@ -227,23 +242,27 @@ export default function Pemasukan() {
   return (
     <div>
       {/* Ringkasan Total Pemasukan */}
-      <div className="mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-4 shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-4 shadow-lg text-white">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs text-emerald-100 mb-1">Total Pemasukan</div>
-            <div className="text-2xl font-bold text-white">
-              {formatCurrency(totalPemasukan)}
-            </div>
+            <div className="text-2xl font-bold">{formatCurrency(totalPemasukan)}</div>
           </div>
           <div className="bg-white/20 p-2 rounded-full">
-            <TrendingUp size={24} className="text-white" />
+            <TrendingUp size={24} />
           </div>
         </div>
-        <div className="mt-2 text-xs text-emerald-100">
-          {filteredData.length} transaksi •{" "}
-          {filteredData.length > 0
-            ? `Rata-rata ${formatCurrency(totalPemasukan / filteredData.length)}`
-            : "Belum ada transaksi"}
+        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/20">
+          <div>
+            <div className="text-[10px] text-emerald-100">Total Pengeluaran</div>
+            <div className="text-sm font-semibold">{formatCurrency(totalPengeluaran)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] text-emerald-100">Sisa Saldo</div>
+            <div className={`text-sm font-semibold ${sisaSaldo < 0 ? 'text-red-200' : 'text-green-200'}`}>
+              {formatCurrency(sisaSaldo)}
+            </div>
+          </div>
         </div>
       </div>
 
