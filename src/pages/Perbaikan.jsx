@@ -573,7 +573,10 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
+<<<<<<< HEAD
                 {showCalc.km_saat_ini && renderInlineCalc("km_saat_ini")}
+=======
+>>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <p className="text-[9px] text-gray-500 mt-1">Contoh: 15.000</p>
               </div>
 
@@ -601,7 +604,10 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
+<<<<<<< HEAD
                 {showCalc.km_berikutnya && renderInlineCalc("km_berikutnya")}
+=======
+>>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <p className="text-[9px] text-gray-500 mt-1">Contoh: 20.000</p>
               </div>
 
@@ -625,7 +631,10 @@ export default function Perbaikan() {
                     <Calculator size={16} />
                   </button>
                 </div>
+<<<<<<< HEAD
                 {showCalc.biaya && renderInlineCalc("biaya")}
+=======
+>>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <p className="text-[9px] text-gray-500 mt-1">
                   Otomatis tercatat di Pengeluaran
                 </p>
