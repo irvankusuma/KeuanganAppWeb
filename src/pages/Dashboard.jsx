@@ -38,17 +38,8 @@ export default function Dashboard() {
       const piutang = LocalStorageService.readSheet(SHEETS.PIUTANG);
       const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
       const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
-<<<<<<< HEAD
       const pembayaranHutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
       const pembayaranPiutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
-=======
-      const pembayaranHutang = LocalStorageService.readSheet(
-        SHEETS.PEMBAYARAN_HUTANG,
-      );
-      const pembayaranPiutang = LocalStorageService.readSheet(
-        SHEETS.PEMBAYARAN_PIUTANG,
-      );
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
       const catatan = LocalStorageService.readSheet(SHEETS.CATATAN);
 
       setData({

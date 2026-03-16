@@ -42,7 +42,6 @@ export default function Piutang() {
     tanggal: new Date().toISOString().split("T")[0],
     catatan: "",
   });
-<<<<<<< HEAD
   const [showEditPayModal, setShowEditPayModal] = useState(false);
   const [editPayData, setEditPayData] = useState({
     id: "",
@@ -52,8 +51,6 @@ export default function Piutang() {
     tanggal: new Date().toISOString().split("T")[0],
     catatan: "",
   });
-=======
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
 
   useEffect(() => {
     loadData();
@@ -239,11 +236,7 @@ export default function Piutang() {
 
   const getPayInputDisplay = () => {
     if (!payFormData.jumlah) return "";
-<<<<<<< HEAD
     return Number(payFormData.jumlah).toLocaleString("id-ID");
-=======
-    return `Rp ${Number(payFormData.jumlah).toLocaleString("id-ID")}`;
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
   };
 
   const handleSubmitBayar = (e) => {
@@ -267,7 +260,6 @@ export default function Piutang() {
   };
 
   const handleEditPembayaran = (historyItem) => {
-<<<<<<< HEAD
     setEditPayData({
       id: historyItem.id,
       piutangId: historyItem.piutangId,
@@ -294,37 +286,6 @@ export default function Piutang() {
     });
 
     setShowEditPayModal(false);
-=======
-    const jumlahInput = prompt(
-      "Edit nominal pembayaran",
-      (parseFloat(historyItem.jumlah) || 0).toString(),
-    );
-    if (jumlahInput === null) return;
-
-    const jumlah = Number(jumlahInput.toString().replace(/[^\d]/g, ""));
-    if (!jumlah || jumlah <= 0) {
-      alert("Nominal pembayaran tidak valid.");
-      return;
-    }
-
-    const tanggalInput = prompt(
-      "Edit tanggal pembayaran (YYYY-MM-DD)",
-      historyItem.tanggal || new Date().toISOString().split("T")[0],
-    );
-    if (tanggalInput === null) return;
-
-    const catatanInput = prompt(
-      "Edit catatan pembayaran (opsional)",
-      historyItem.catatan || "",
-    );
-    if (catatanInput === null) return;
-
-    LocalStorageService.updateRow(SHEETS.PEMBAYARAN_PIUTANG, historyItem.id, {
-      jumlah,
-      tanggal: tanggalInput,
-      catatan: catatanInput,
-    });
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
     loadData();
   };
 
@@ -357,20 +318,13 @@ export default function Piutang() {
   return (
     <div>
       <div className="mb-4 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-xl p-4 shadow-lg">
-<<<<<<< HEAD
         <div className="flex items-center justify-between mb-3">
           <div className="text-left">
             <div className="text-xs text-emerald-100 tracking-wider">Sisa Piutang</div>
-=======
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-emerald-100 mb-1">Total Piutang</div>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
             <div className="text-2xl font-bold text-white">
               {formatCurrency(totalSisaKeseluruhan)}
             </div>
           </div>
-<<<<<<< HEAD
           <div className="text-right">
             <div className="text-sm font-bold text-white leading-tight">
               {piutang.length} Data
@@ -392,15 +346,6 @@ export default function Piutang() {
               {formatCurrency(totalDiterimaKeseluruhan)}
             </div>
           </div>
-=======
-          <div className="text-xs text-emerald-100 text-right">
-            <div>{piutang.length} data</div>
-            <div>Total: {formatCurrency(totalPiutangKeseluruhan)}</div>
-          </div>
-        </div>
-        <div className="mt-1 text-xs text-emerald-100">
-          Diterima: {formatCurrency(totalDiterimaKeseluruhan)}
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
         </div>
       </div>
 
@@ -659,7 +604,6 @@ export default function Piutang() {
             </div>
             <form onSubmit={handleSubmitBayar} className="p-3 space-y-3 pb-8">
               <div className="text-sm text-gray-300">{payFormData.namaOrang}</div>
-<<<<<<< HEAD
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">Rp</span>
                 <input
@@ -672,17 +616,6 @@ export default function Piutang() {
                   required
                 />
               </div>
-=======
-              <input
-                type="text"
-                value={getPayInputDisplay()}
-                onChange={(e) => handlePayJumlahChange(e.target.value)}
-                placeholder="Rp 1.000"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                inputMode="numeric"
-                required
-              />
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
               <input
                 type="date"
                 value={payFormData.tanggal}
@@ -704,7 +637,6 @@ export default function Piutang() {
         </div>
       )}
 
-<<<<<<< HEAD
       {showEditPayModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
@@ -763,10 +695,6 @@ export default function Piutang() {
           </div>
         </div>
       )}
-
-
-=======
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
       {/* Modal - Ukuran lebih kecil */}
       {modalVisible && (
         <div

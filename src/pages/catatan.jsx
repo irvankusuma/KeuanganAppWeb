@@ -50,14 +50,10 @@ export default function Catatan() {
 
     return [...catatan]
       .filter((item) => {
-<<<<<<< HEAD
         if (
           filterType !== "all" &&
           (item.jenis || NOTE_TYPES.STANDARD) !== filterType
         ) {
-=======
-        if (filterType !== "all" && (item.jenis || NOTE_TYPES.STANDARD) !== filterType) {
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
           return false;
         }
 
@@ -161,12 +157,8 @@ export default function Catatan() {
 
   const getActiveFilterLabel = () => {
     const sortLabel = filterSort === "newest" ? "Terbaru" : "Terlama";
-<<<<<<< HEAD
     const typeLabel =
       filterType === "all" ? "Semua tipe" : getTypeLabel(filterType);
-=======
-    const typeLabel = filterType === "all" ? "Semua tipe" : getTypeLabel(filterType);
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
     return `${typeLabel} • ${sortLabel}`;
   };
 
@@ -185,7 +177,6 @@ export default function Catatan() {
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
-<<<<<<< HEAD
           onClick={() => setShowFilters(!showFilters)}
         >
           <div className="flex items-center gap-2">
@@ -194,13 +185,6 @@ export default function Catatan() {
             <span className="text-xs text-gray-400">
               {getActiveFilterLabel()}
             </span>
-=======
-          onClick={() => setShowFilters(!showFilters)}>
-          <div className="flex items-center gap-2">
-            <Filter size={18} className="text-blue-400" />
-            <span className="text-sm font-medium text-white">Filter</span>
-            <span className="text-xs text-gray-400">{getActiveFilterLabel()}</span>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
           </div>
           <button className="p-1 text-gray-400 hover:text-white">
             {showFilters ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -210,13 +194,9 @@ export default function Catatan() {
         {showFilters && (
           <div className="p-4 pt-0 border-t border-slate-700 space-y-3">
             <div>
-<<<<<<< HEAD
               <span className="text-xs text-gray-400 block mb-2">
                 Kategori:
               </span>
-=======
-              <span className="text-xs text-gray-400 block mb-2">Kategori:</span>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { value: "all", label: "Semua" },
@@ -231,12 +211,8 @@ export default function Catatan() {
                       filterType === item.value
                         ? "bg-blue-600 text-white"
                         : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-<<<<<<< HEAD
                     }`}
                   >
-=======
-                    }`}>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                     {item.label}
                   </button>
                 ))}
@@ -252,12 +228,8 @@ export default function Catatan() {
                     filterSort === "newest"
                       ? "bg-blue-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-<<<<<<< HEAD
                   }`}
                 >
-=======
-                  }`}>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                   Terbaru
                 </button>
                 <button
@@ -266,12 +238,8 @@ export default function Catatan() {
                     filterSort === "oldest"
                       ? "bg-blue-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-<<<<<<< HEAD
                   }`}
                 >
-=======
-                  }`}>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                   Terlama
                 </button>
               </div>
@@ -295,14 +263,10 @@ export default function Catatan() {
           filteredNotes.map((item) => {
             const type = item.jenis || NOTE_TYPES.STANDARD;
             return (
-<<<<<<< HEAD
               <div
                 key={item.id}
                 className="bg-slate-800 border border-slate-700 rounded-xl p-3"
               >
-=======
-              <div key={item.id} className="bg-slate-800 border border-slate-700 rounded-xl p-3">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -321,23 +285,15 @@ export default function Catatan() {
                     <button
                       onClick={() => handleEdit(item)}
                       className="p-1.5 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40"
-<<<<<<< HEAD
                       aria-label="Edit catatan"
                     >
-=======
-                      aria-label="Edit catatan">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(item)}
                       className="p-1.5 rounded-md bg-red-600/20 text-red-300 hover:bg-red-600/40"
-<<<<<<< HEAD
                       aria-label="Hapus catatan"
                     >
-=======
-                      aria-label="Hapus catatan">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -353,26 +309,18 @@ export default function Catatan() {
                     ))}
                   </ul>
                 ) : (
-<<<<<<< HEAD
                   <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">
                     {item.isi}
                   </p>
-=======
-                  <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">{item.isi}</p>
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 )}
               </div>
             );
           })
         ) : (
           <div className="text-center text-sm text-slate-400 py-14 bg-slate-800/60 border border-slate-700 rounded-xl">
-<<<<<<< HEAD
             {search
               ? "Catatan tidak ditemukan."
               : "Belum ada catatan. Tambah catatan dari tombol +."}
-=======
-            {search ? "Catatan tidak ditemukan." : "Belum ada catatan. Tambah catatan dari tombol +."}
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
           </div>
         )}
       </div>
@@ -380,19 +328,14 @@ export default function Catatan() {
       <button
         onClick={() => setShowTypePicker(true)}
         className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40 md:z-40"
-<<<<<<< HEAD
         aria-label="Tambah catatan"
       >
-=======
-        aria-label="Tambah catatan">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
         <Plus size={22} />
       </button>
 
       {showTypePicker && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
-<<<<<<< HEAD
           onClick={() => setShowTypePicker(false)}
         >
           <div
@@ -405,47 +348,26 @@ export default function Catatan() {
                 onClick={() => setShowTypePicker(false)}
                 className="p-1.5 hover:bg-slate-700 rounded-lg"
               >
-=======
-          onClick={() => setShowTypePicker(false)}>
-          <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md border border-slate-700"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="p-3 border-b border-slate-700 flex justify-between items-center">
-              <h2 className="font-semibold">Pilih Tipe Catatan</h2>
-              <button onClick={() => setShowTypePicker(false)} className="p-1.5 hover:bg-slate-700 rounded-lg">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <X size={18} />
               </button>
             </div>
             <div className="p-3 space-y-2">
               <button
                 onClick={() => openType(NOTE_TYPES.STANDARD)}
-<<<<<<< HEAD
                 className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
               >
-=======
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <Plus size={16} /> Judul + Catatan
               </button>
               <button
                 onClick={() => openType(NOTE_TYPES.BULLET)}
-<<<<<<< HEAD
                 className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
               >
-=======
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <List size={16} /> Judul + Catatan Bertitik
               </button>
               <button
                 onClick={() => openType(NOTE_TYPES.SHORT)}
-<<<<<<< HEAD
                 className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
               >
-=======
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <MessageSquare size={16} /> Catatan Singkat (maks 100 karakter)
               </button>
             </div>
@@ -456,7 +378,6 @@ export default function Catatan() {
       {showModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
-<<<<<<< HEAD
           onClick={resetForm}
         >
           <div
@@ -472,17 +393,6 @@ export default function Catatan() {
                 onClick={resetForm}
                 className="p-1.5 hover:bg-slate-700 rounded-lg"
               >
-=======
-          onClick={resetForm}>
-          <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-lg max-h-[86vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
-              <h2 className="text-lg font-bold">
-                {editId ? "Edit Catatan" : "Tambah Catatan"} ({getTypeLabel(selectedType)})
-              </h2>
-              <button onClick={resetForm} className="p-1.5 hover:bg-slate-700 rounded-lg">
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                 <X size={18} />
               </button>
             </div>
@@ -490,7 +400,6 @@ export default function Catatan() {
             <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-8">
               {!isShort && (
                 <div>
-<<<<<<< HEAD
                   <label className="block text-xs text-gray-400 mb-1">
                     Judul
                   </label>
@@ -500,13 +409,6 @@ export default function Catatan() {
                     onChange={(e) =>
                       setFormData({ ...formData, judul: e.target.value })
                     }
-=======
-                  <label className="block text-xs text-gray-400 mb-1">Judul</label>
-                  <input
-                    type="text"
-                    value={formData.judul}
-                    onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                     placeholder="Contoh: Belanja bulanan"
                     required
@@ -516,7 +418,6 @@ export default function Catatan() {
 
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
-<<<<<<< HEAD
                   {isBullet
                     ? "Catatan (tekan Enter untuk poin baru)"
                     : "Isi Catatan"}
@@ -526,23 +427,12 @@ export default function Catatan() {
                   onChange={(e) =>
                     setFormData({ ...formData, isi: e.target.value })
                   }
-=======
-                  {isBullet ? "Catatan (tekan Enter untuk poin baru)" : "Isi Catatan"}
-                </label>
-                <textarea
-                  value={formData.isi}
-                  onChange={(e) => setFormData({ ...formData, isi: e.target.value })}
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                   rows={isShort ? 3 : 8}
                   maxLength={isShort ? 100 : undefined}
                   placeholder={
                     isBullet
-<<<<<<< HEAD
                       ? "Contoh 1\nContoh 2\nContoh 3"
-=======
-                      ? "Mentega\nGaram\nSusu\nGula"
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
                       : isShort
                         ? "Tulis catatan singkat..."
                         : "Tulis catatan di sini..."
@@ -558,15 +448,10 @@ export default function Catatan() {
 
               <button
                 type="submit"
-<<<<<<< HEAD
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2 flex items-center justify-center gap-2"
               >
                 <Save size={16} />{" "}
                 {editId ? "Simpan Perubahan" : "Simpan Catatan"}
-=======
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2 flex items-center justify-center gap-2">
-                <Save size={16} /> {editId ? "Simpan Perubahan" : "Simpan Catatan"}
->>>>>>> 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
               </button>
             </form>
           </div>
