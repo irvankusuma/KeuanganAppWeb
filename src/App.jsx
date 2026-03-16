@@ -14,7 +14,6 @@ import {
   TrendingDown,
   Wrench,
   Download,
-  FileText,
 } from "lucide-react";
 
 // Pages
@@ -39,11 +38,10 @@ function Layout({ children }) {
     { path: "/piutang", icon: Coins, label: "Piutang" },
     { path: "/pemasukan", icon: TrendingUp, label: "Pemasukan" },
     { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
-    { path: "/catatan", icon: FileText, label: "Catatan" },
     { path: "/perbaikan", icon: Wrench, label: "Perbaikan" },
   ];
 
-  const mobileNavItems = navItems.filter((item) => item.path !== "/catatan");
+  const mobileNavItems = navItems;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">

@@ -25,6 +25,7 @@ export default function ExportImportModal({ visible, onClose }) {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [exportFormat, setExportFormat] = useState("json");
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   const [availableMonths, setAvailableMonths] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
@@ -37,7 +38,14 @@ export default function ExportImportModal({ visible, onClose }) {
 
   useEffect(() => {
     filterHistoryData();
-  }, [history, filterType, filterMonth, filterYear, filterStartDate, filterEndDate]);
+  }, [
+    history,
+    filterType,
+    filterMonth,
+    filterYear,
+    filterStartDate,
+    filterEndDate,
+  ]);
 
   const loadHistory = () => {
     const data = LocalStorageService.getAllHistory();
@@ -149,7 +157,7 @@ export default function ExportImportModal({ visible, onClose }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `KeuanganApp_${new Date().toISOString().split("T")[0]}.json`;
+    a.download = getFileName("json");
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -173,10 +181,7 @@ export default function ExportImportModal({ visible, onClose }) {
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
-    XLSX.writeFile(
-      wb,
-      `KeuanganApp_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
+    XLSX.writeFile(wb, getFileName("xlsx"));
   };
 
   const exportTXT = (sheets) => {
@@ -212,7 +217,7 @@ export default function ExportImportModal({ visible, onClose }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `KeuanganApp_${new Date().toISOString().split("T")[0]}.txt`;
+    a.download = getFileName("txt");
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -282,45 +287,65 @@ export default function ExportImportModal({ visible, onClose }) {
     input.click();
   };
 
-  // Parsing file TXT hasil ekspor
-  const parseTXT = (text) => {
-    try {
-      const lines = text.split("\n");
-      let currentSheet = null;
-      const sheets = {};
+  // ==================== DOWNLOAD FILTERED ====================
 
-      for (let line of lines) {
-        line = line.trim();
-        if (line.startsWith("===") && line.endsWith("===")) {
-          const sheetName = line.replace(/=/g, "").trim();
-          currentSheet = sheetName;
-          sheets[sheetName] = [];
-        } else if (currentSheet && line.match(/^\d+\./)) {
-          const item = {};
-          const withoutNumber = line.replace(/^\d+\.\s*/, "");
-          const parts = withoutNumber.split(",").map((p) => p.trim());
-          parts.forEach((part) => {
-            const colonIndex = part.indexOf(":");
-            if (colonIndex !== -1) {
-              const key = part.substring(0, colonIndex).trim();
-              let value = part.substring(colonIndex + 1).trim();
-              if (!isNaN(value) && value !== "") {
-                value = Number(value);
-              }
-              item[key] = value;
-            }
-          });
-          sheets[currentSheet].push(item);
-        }
-      }
-      return { data: sheets };
-    } catch (error) {
-      console.error("Parse TXT error:", error);
-      return null;
-    }
+  const downloadFilteredExcel = () => {
+    const wb = XLSX.utils.book_new();
+    const data = filteredHistory.map((item, index) => ({
+      No: index + 1,
+      Nama: item.title,
+      Tipe: getTypeLabel(item.type),
+      Nominal: item.amount,
+      Tanggal: formatDate(item.date),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "Riwayat Terfilter");
+    XLSX.writeFile(wb, getFileName("xlsx", "History"));
+    setShowDownloadMenu(false);
+  };
+
+  const downloadFilteredTXT = () => {
+    let text = `LAPORAN RIWAYAT KEUANGAN (TERFILTER) - KEUANGANAPP\n`;
+    text += `Tanggal Export: ${new Date().toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })}\n`;
+    text += `====================================================\n\n`;
+
+    filteredHistory.forEach((item, index) => {
+      text += `${index + 1}. Nama: ${item.title}\n`;
+      text += `   Tipe: ${getTypeLabel(item.type)}\n`;
+      text += `   Nominal: ${formatCurrency(item.amount)}\n`;
+      text += `   Tanggal: ${formatDate(item.date)}\n`;
+      text += `----------------------------------------------------\n`;
+    });
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = getFileName("txt", "History");
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowDownloadMenu(false);
   };
 
   // ==================== HELPER ====================
+  const getFileName = (ext, prefix = "") => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    const hour = String(now.getHours()).padStart(2, "0");
+    const minute = String(now.getMinutes()).padStart(2, "0");
+    const baseName = `KeuanganApp ${day}-${month}-${year} ${hour}${minute}`;
+    return prefix ? `${prefix} ${baseName}.${ext}` : `${baseName}.${ext}`;
+  };
+
   const formatCurrency = (n) => "Rp " + n.toLocaleString("id-ID");
 
   const getTypeLabel = (type) => {
@@ -366,16 +391,19 @@ export default function ExportImportModal({ visible, onClose }) {
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3"
-      onClick={onClose}>
+      onClick={onClose}
+    >
       <div
         className="bg-slate-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}>
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-3 border-b border-slate-700 flex justify-between items-center">
           <h2 className="text-base font-bold">Kelola Data</h2>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-700 rounded-lg">
+            className="p-1.5 hover:bg-slate-700 rounded-lg"
+          >
             <X size={18} />
           </button>
         </div>
@@ -394,7 +422,8 @@ export default function ExportImportModal({ visible, onClose }) {
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-500"
                   : "border-transparent text-gray-400 hover:text-gray-300"
-              }`}>
+              }`}
+            >
               <tab.icon size={16} />
               <span className="font-medium">{tab.label}</span>
             </button>
@@ -442,7 +471,8 @@ export default function ExportImportModal({ visible, onClose }) {
                         exportFormat === format.id
                           ? `border-${format.color}-500 bg-${format.color}-500/10`
                           : "border-slate-700 bg-slate-700/30"
-                      }`}>
+                      }`}
+                    >
                       <format.icon
                         size={20}
                         className={`text-${format.color}-400`}
@@ -456,7 +486,8 @@ export default function ExportImportModal({ visible, onClose }) {
               {/* Tombol Export */}
               <button
                 onClick={handleExport}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+              >
                 <Download size={16} />
                 Ekspor Data
               </button>
@@ -486,7 +517,8 @@ export default function ExportImportModal({ visible, onClose }) {
               {/* Tombol Import */}
               <button
                 onClick={handleImport}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+              >
                 <Upload size={16} />
                 Pilih File untuk Impor
               </button>
@@ -500,7 +532,8 @@ export default function ExportImportModal({ visible, onClose }) {
               <div className="bg-slate-700/30 rounded-lg border border-slate-700 overflow-hidden">
                 <div
                   className="p-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-700/50"
-                  onClick={() => setShowFilters(!showFilters)}>
+                  onClick={() => setShowFilters(!showFilters)}
+                >
                   <div className="flex items-center gap-2">
                     <Filter size={14} className="text-blue-400" />
                     <span className="text-xs font-medium text-white">
@@ -523,6 +556,44 @@ export default function ExportImportModal({ visible, onClose }) {
                   )}
                 </div>
 
+                {/* Filter Header for Download Icon */}
+                <div className="flex items-center justify-between p-2 border-t border-slate-700 bg-slate-800/50">
+                  <div className="text-[10px] text-gray-500 font-medium ml-1">
+                    OPSI FILTER
+                  </div>
+                  <div className="relative">
+                    <button
+                      disabled={filteredHistory.length === 0}
+                      onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        filteredHistory.length === 0
+                          ? "text-gray-600 cursor-not-allowed"
+                          : "text-blue-400 hover:bg-slate-700"
+                      }`}
+                      title="Unduh Riwayat Terfilter"
+                    >
+                      <Download size={16} />
+                    </button>
+
+                    {showDownloadMenu && (
+                      <div className="absolute right-0 mt-1 w-28 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                        {[
+                          { label: "Excel", action: downloadFilteredExcel },
+                          { label: "TXT", action: downloadFilteredTXT },
+                        ].map((opt) => (
+                          <button
+                            key={opt.label}
+                            onClick={opt.action}
+                            className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:bg-slate-800 transition-colors border-b border-slate-700 last:border-0"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {showFilters && (
                   <div className="p-3 pt-0 border-t border-slate-700 space-y-3">
                     {/* Filter Tipe */}
@@ -533,7 +604,8 @@ export default function ExportImportModal({ visible, onClose }) {
                       <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                      >
                         <option value="all">Semua Tipe</option>
                         <option value="hutang">Hutang</option>
                         <option value="piutang">Piutang</option>
@@ -552,7 +624,8 @@ export default function ExportImportModal({ visible, onClose }) {
                         <select
                           value={filterMonth}
                           onChange={(e) => setFilterMonth(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                        >
                           <option value="all">Semua Bulan</option>
                           {availableMonths.map((month) => (
                             <option key={month} value={month}>
@@ -571,7 +644,8 @@ export default function ExportImportModal({ visible, onClose }) {
                         <select
                           value={filterYear}
                           onChange={(e) => setFilterYear(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                        >
                           <option value="all">Semua Tahun</option>
                           {availableYears.map((year) => (
                             <option key={year} value={year}>
@@ -616,7 +690,8 @@ export default function ExportImportModal({ visible, onClose }) {
                       filterEndDate) && (
                       <button
                         onClick={resetFilters}
-                        className="w-full px-2 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1">
+                        className="w-full px-2 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1"
+                      >
                         <X size={12} /> Reset Filter
                       </button>
                     )}
@@ -628,11 +703,15 @@ export default function ExportImportModal({ visible, onClose }) {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <div className="text-gray-400">Total Riwayat</div>
-                    <div className="text-white font-semibold">{filteredHistory.length} data</div>
+                    <div className="text-white font-semibold">
+                      {filteredHistory.length} data
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-gray-400">Total Nominal</div>
-                    <div className="text-blue-300 font-semibold">{formatCurrency(historyTotalAmount)}</div>
+                    <div className="text-blue-300 font-semibold">
+                      {formatCurrency(historyTotalAmount)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -648,13 +727,15 @@ export default function ExportImportModal({ visible, onClose }) {
                             {item.title}
                           </div>
                           <div
-                            className={`text-[10px] ${getTypeColor(item.type)}`}>
+                            className={`text-[10px] ${getTypeColor(item.type)}`}
+                          >
                             {getTypeLabel(item.type)}
                           </div>
                         </div>
                         {item.amount > 0 && (
                           <div
-                            className={`text-xs font-bold ${getTypeColor(item.type)}`}>
+                            className={`text-xs font-bold ${getTypeColor(item.type)}`}
+                          >
                             {formatCurrency(item.amount)}
                           </div>
                         )}

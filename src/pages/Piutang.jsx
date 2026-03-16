@@ -568,18 +568,6 @@ export default function Piutang() {
         )}
       </div>
 
-      {/* Summary Footer */}
-      <div className="mt-6 mb-20 bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-400">Sisa Piutang Bersih</span>
-          <span className="text-lg font-bold text-green-500">
-            {formatCurrency(totalSisaKeseluruhan)}
-          </span>
-        </div>
-        <div className="mt-1 text-[10px] text-gray-500 text-right italic">
-          * Total Piutang − Total Diterima
-        </div>
-      </div>
 
 
       {/* FAB - Ukuran lebih kecil */}
