@@ -12,6 +12,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import ConfirmModal from "../components/ConfirmModal";
+
 
 const NOTE_TYPES = {
   STANDARD: "standard",
@@ -35,6 +37,13 @@ export default function Catatan() {
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [filterSort, setFilterSort] = useState("newest");
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
 
   useEffect(() => {
     loadData();
@@ -131,11 +140,18 @@ export default function Catatan() {
   };
 
   const handleDelete = (item) => {
-    if (confirm(`Hapus catatan \"${item.judul || "Catatan Singkat"}\"?`)) {
-      LocalStorageService.deleteRow(SHEETS.CATATAN, item.id);
-      loadData();
-    }
+    setConfirmModal({
+      visible: true,
+      title: "Hapus Catatan",
+      message: `Apakah catatan "${item.judul || "Catatan Singkat"}" mau dihapus?`,
+      onConfirm: () => {
+        LocalStorageService.deleteRow(SHEETS.CATATAN, item.id);
+        loadData();
+        setConfirmModal({ ...confirmModal, visible: false });
+      },
+    });
   };
+
 
   const formatDateTime = (item) => {
     const raw = item.updatedAt || item.createdAt;
@@ -457,6 +473,14 @@ export default function Catatan() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
     </div>
   );
 }

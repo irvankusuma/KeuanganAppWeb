@@ -19,6 +19,7 @@ import {
   Film,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import ConfirmModal from "../components/ConfirmModal";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -38,6 +39,12 @@ export default function Pengeluaran() {
   });
   const [calcInput, setCalcInput] = useState("");
   const [showCalc, setShowCalc] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
   // Daftar kategori pengeluaran umum
   const kategoriOptions = [
@@ -118,10 +125,16 @@ export default function Pengeluaran() {
   };
 
   const handleDelete = (item) => {
-    if (confirm(`Hapus pengeluaran "${item.nama}"?`)) {
-      LocalStorageService.deleteRow(SHEETS.PENGELUARAN, item.id);
-      loadData();
-    }
+    setConfirmModal({
+      visible: true,
+      title: "Hapus Pengeluaran",
+      message: `Apakah "${item.nama}" mau dihapus?`,
+      onConfirm: () => {
+        LocalStorageService.deleteRow(SHEETS.PENGELUARAN, item.id);
+        loadData();
+        setConfirmModal({ ...confirmModal, visible: false });
+      },
+    });
   };
 
   const resetForm = () => {
@@ -675,6 +688,14 @@ export default function Pengeluaran() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
     </div>
   );
 }

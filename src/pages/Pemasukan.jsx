@@ -13,6 +13,7 @@ import {
   Tag,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import ConfirmModal from "../components/ConfirmModal";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -32,6 +33,12 @@ export default function Pemasukan() {
   });
   const [calcInput, setCalcInput] = useState("");
   const [showCalc, setShowCalc] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
   // Daftar kategori default
   const kategoriOptions = [
@@ -88,10 +95,16 @@ export default function Pemasukan() {
   };
 
   const handleDelete = (item) => {
-    if (confirm(`Hapus pemasukan "${item.nama}"?`)) {
-      LocalStorageService.deleteRow(SHEETS.PEMASUKAN, item.id);
-      loadData();
-    }
+    setConfirmModal({
+      visible: true,
+      title: "Hapus Pemasukan",
+      message: `Apakah "${item.nama}" mau dihapus?`,
+      onConfirm: () => {
+        LocalStorageService.deleteRow(SHEETS.PEMASUKAN, item.id);
+        loadData();
+        setConfirmModal({ ...confirmModal, visible: false });
+      },
+    });
   };
 
   const resetForm = () => {
@@ -616,6 +629,14 @@ export default function Pemasukan() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
     </div>
   );
 }
