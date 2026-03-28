@@ -174,7 +174,7 @@ export default function Pemasukan() {
       setCalcInput(newInput);
       const expr = newInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
       if (!isNaN(Number(expr))) {
-         setFormData({ ...formData, jumlah: Number(expr) });
+        setFormData({ ...formData, jumlah: Number(expr) });
       }
     }
   };
@@ -259,7 +259,9 @@ export default function Pemasukan() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs text-emerald-100 mb-1">Total Pemasukan</div>
-            <div className="text-2xl font-bold">{formatCurrency(totalPemasukan)}</div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalPemasukan)}
+            </div>
           </div>
           <div className="bg-white/20 p-2 rounded-full">
             <TrendingUp size={24} />
@@ -267,12 +269,18 @@ export default function Pemasukan() {
         </div>
         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/20">
           <div>
-            <div className="text-[10px] text-emerald-100">Total Pengeluaran</div>
-            <div className="text-sm font-semibold">{formatCurrency(totalPengeluaran)}</div>
+            <div className="text-[10px] text-emerald-100">
+              Total Pengeluaran
+            </div>
+            <div className="text-sm font-semibold">
+              {formatCurrency(totalPengeluaran)}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-[10px] text-emerald-100">Sisa Saldo</div>
-            <div className={`text-sm font-semibold ${sisaSaldo < 0 ? 'text-red-200' : 'text-green-200'}`}>
+            <div
+              className={`text-sm font-semibold ${sisaSaldo < 0 ? "text-red-200" : "text-green-200"}`}
+            >
               {formatCurrency(sisaSaldo)}
             </div>
           </div>
@@ -283,7 +291,8 @@ export default function Pemasukan() {
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
-          onClick={() => setShowFilters(!showFilters)}>
+          onClick={() => setShowFilters(!showFilters)}
+        >
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-emerald-400" />
             <span className="text-sm font-medium text-white">Filter</span>
@@ -314,7 +323,8 @@ export default function Pemasukan() {
                     filterKategori === "all"
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                  }`}>
+                  }`}
+                >
                   Semua
                 </button>
                 {uniqueKategori.map((kategori) => (
@@ -325,7 +335,8 @@ export default function Pemasukan() {
                       filterKategori === kategori
                         ? "bg-emerald-600 text-white"
                         : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                    }`}>
+                    }`}
+                  >
                     {kategori}
                   </button>
                 ))}
@@ -345,7 +356,8 @@ export default function Pemasukan() {
                       filterBulan === "all"
                         ? "bg-emerald-600 text-white"
                         : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                    }`}>
+                    }`}
+                  >
                     Semua
                   </button>
                   {uniqueBulan.map((bulan) => {
@@ -362,7 +374,8 @@ export default function Pemasukan() {
                           filterBulan === bulan
                             ? "bg-emerald-600 text-white"
                             : "bg-slate-700 text-gray-300 hover:bg-slate-600"
-                        }`}>
+                        }`}
+                      >
                         {monthName} {year}
                       </button>
                     );
@@ -378,7 +391,8 @@ export default function Pemasukan() {
                   resetKategoriFilter();
                   resetBulanFilter();
                 }}
-                className="w-full mt-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1">
+                className="w-full mt-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-xs text-gray-300 rounded-lg flex items-center justify-center gap-1"
+              >
                 <X size={14} /> Reset Semua Filter
               </button>
             )}
@@ -394,7 +408,8 @@ export default function Pemasukan() {
             return (
               <div
                 key={i}
-                className="bg-slate-800 rounded-xl p-3 border-l-4 border-emerald-500">
+                className="bg-slate-800 rounded-xl p-3 border-l-4 border-emerald-500"
+              >
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="text-base font-bold">{item.nama}</h3>
                   <div className="flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-full">
@@ -425,12 +440,14 @@ export default function Pemasukan() {
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                  >
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1">
+                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                  >
                     <Trash2 size={12} /> Hapus
                   </button>
                 </div>
@@ -449,7 +466,8 @@ export default function Pemasukan() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-700 rounded-full flex items-center justify-center shadow-lg z-40">
+        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-700 rounded-full flex items-center justify-center shadow-lg z-40"
+      >
         <Plus size={22} />
       </button>
 
@@ -457,17 +475,20 @@ export default function Pemasukan() {
       {modalVisible && (
         <div
           className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-3"
-          onClick={resetForm}>
+          onClick={resetForm}
+        >
           <div
             className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold">
                 {editMode ? "Edit" : "Tambah"} Pemasukan
               </h2>
               <button
                 onClick={resetForm}
-                className="p-1.5 hover:bg-slate-700 rounded-lg">
+                className="p-1.5 hover:bg-slate-700 rounded-lg"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -518,7 +539,8 @@ export default function Pemasukan() {
                       onClick={() =>
                         setFormData({ ...formData, kategori: kat })
                       }
-                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full">
+                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full"
+                    >
                       {kat}
                     </button>
                   ))}
@@ -541,7 +563,8 @@ export default function Pemasukan() {
                   <button
                     type="button"
                     onClick={() => setShowCalc(!showCalc)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white">
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white"
+                  >
                     <Calculator size={16} />
                   </button>
                 </div>
@@ -578,7 +601,8 @@ export default function Pemasukan() {
                             : btn === "="
                               ? "bg-green-600/20 text-green-400"
                               : "bg-slate-800 hover:bg-slate-700"
-                        }`}>
+                        }`}
+                      >
                         {btn}
                       </button>
                     ))}
@@ -616,13 +640,15 @@ export default function Pemasukan() {
                   }
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                   rows="2"
-                  placeholder="Opsional"></textarea>
+                  placeholder="Opsional"
+                ></textarea>
               </div>
 
               {/* Tombol Simpan */}
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2">
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2"
+              >
                 {editMode ? "Update" : "Simpan"}
               </button>
             </form>
