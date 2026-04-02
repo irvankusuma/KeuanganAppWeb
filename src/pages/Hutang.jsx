@@ -115,8 +115,23 @@ export default function Hutang() {
     setConfirmModal({
       visible: true,
       title: "Hapus Hutang",
-      message: `Apakah "${item.nama}" mau dihapus?`,
+      message: `Apakah "${item.nama}" mau dihapus? Semua riwayat juga akan dihapus.`,
       onConfirm: () => {
+        // Hapus history dan sync data
+        const historyHutang = pembayaranHutang.filter(p => p.hutangId?.toString() === item.id?.toString());
+        historyHutang.forEach(hist => {
+          LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, hist.id);
+          if (hist.type === "tambah") {
+            const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+            const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_tambah");
+            if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+          } else {
+            const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+            const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_bayar");
+            if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+          }
+        });
+
         LocalStorageService.deleteRow(SHEETS.HUTANG, item.id);
         loadData();
         setConfirmModal({ ...confirmModal, visible: false });
@@ -214,7 +229,32 @@ export default function Hutang() {
     });
   };
 
+  const getTotalDibayar = (hutangId) =>
+    pembayaranHutang
+      .filter(
+        (item) =>
+          item.hutangId?.toString() === hutangId?.toString() &&
+          (!item.type || item.type === "bayar"),
+      )
+      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const getTotalPenambahan = (hutangId) =>
+    pembayaranHutang
+      .filter(
+        (item) =>
+          item.hutangId?.toString() === hutangId?.toString() &&
+          item.type === "tambah",
+      )
+      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+
+  const getSisa = (item) => {
+    const t = parseFloat(item.jumlah) || 0;
+    const p = getTotalPenambahan(item.id);
+    const d = getTotalDibayar(item.id);
+    return Math.max(t + p - d, 0);
+  };
+
   const getStatus = (item) => {
+    if (getSisa(item) <= 0) return "lunas";
     const jatuhTempo = getJatuhTempoDate(item);
     if (!jatuhTempo) return "upcoming";
     const today = new Date();
@@ -247,41 +287,24 @@ export default function Hutang() {
     upcoming: hutang.filter((i) => getStatus(i) === "upcoming").length,
     due: hutang.filter((i) => getStatus(i) === "due").length,
     overdue: hutang.filter((i) => getStatus(i) === "overdue").length,
+    lunas: hutang.filter((i) => getStatus(i) === "lunas").length,
   };
 
-  const totalHutangKeseluruhan = hutang.reduce(
-    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
-    0,
-  );
-  const totalPenambahanKeseluruhan = pembayaranHutang
-    .filter((item) => item.type === "tambah")
-    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalDibayarKeseluruhan = pembayaranHutang
-    .filter((item) => !item.type || item.type === "bayar")
-    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalSisaKeseluruhan = Math.max(
-    totalHutangKeseluruhan +
-      totalPenambahanKeseluruhan -
-      totalDibayarKeseluruhan,
-    0,
-  );
+  const hitunganPerItem = hutang.map(item => {
+    const t = parseFloat(item.jumlah) || 0;
+    const penambahan = getTotalPenambahan(item.id);
+    const dibayar = getTotalDibayar(item.id);
+    const sisa = Math.max(t + penambahan - dibayar, 0);
+    return { id: item.id, total: t, penambahan, dibayar, sisa };
+  });
 
-  const getTotalDibayar = (hutangId) =>
-    pembayaranHutang
-      .filter(
-        (item) =>
-          item.hutangId?.toString() === hutangId?.toString() &&
-          (!item.type || item.type === "bayar"),
-      )
-      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const getTotalPenambahan = (hutangId) =>
-    pembayaranHutang
-      .filter(
-        (item) =>
-          item.hutangId?.toString() === hutangId?.toString() &&
-          item.type === "tambah",
-      )
-      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const hutangAktifUntukHitungan = hitunganPerItem.filter(h => h.sisa > 0);
+
+  const totalHutangKeseluruhan = hitunganPerItem.reduce((sum, h) => sum + h.total, 0);
+  const totalPenambahanKeseluruhan = hitunganPerItem.reduce((sum, h) => sum + h.penambahan, 0);
+  const totalDibayarKeseluruhan = hitunganPerItem.reduce((sum, h) => sum + h.dibayar, 0);
+  const totalSisaKeseluruhan = hitunganPerItem.reduce((sum, h) => sum + h.sisa, 0);
+  const jumlahDataAktif = hutangAktifUntukHitungan.length;
   const getHistoryHutang = (hutangId) =>
     pembayaranHutang
       .filter((item) => item.hutangId?.toString() === hutangId?.toString())
@@ -319,7 +342,7 @@ export default function Hutang() {
       alert("Data pembayaran belum valid.");
       return;
     }
-    LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
+    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
       hutangId: payFormData.hutangId,
       namaHutang: payFormData.namaHutang,
       jumlah: nominal,
@@ -327,6 +350,18 @@ export default function Hutang() {
       catatan: payFormData.catatan,
       type: "bayar",
     });
+    
+    // Masuk ke pengeluaran
+    LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+      nama: `Bayar Hutang: ${payFormData.namaHutang}`,
+      kategori: "Bayar Hutang",
+      jumlah: nominal,
+      tanggal: payFormData.tanggal,
+      catatan: payFormData.catatan || "",
+      sourceRef: saved.id,
+      sourceType: "hutang_bayar"
+    });
+
     setShowPayModal(false);
     loadData();
   };
@@ -355,6 +390,35 @@ export default function Hutang() {
       tanggal: editPayData.tanggal,
       catatan: editPayData.catatan,
     });
+
+    // Update synced Pemasukan/Pengeluaran
+    const historyItem = pembayaranHutang.find(p => p.id === editPayData.id);
+    if (historyItem) {
+      if (historyItem.type === "tambah") {
+        const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "hutang_tambah");
+        if (pExisting) {
+          LocalStorageService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
+            nama: `Penambahan Hutang: ${editPayData.namaHutang}`,
+            jumlah: nominal,
+            tanggal: editPayData.tanggal,
+            catatan: editPayData.catatan || ""
+          });
+        }
+      } else {
+        const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "hutang_bayar");
+        if (pExisting) {
+          LocalStorageService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
+            nama: `Bayar Hutang: ${editPayData.namaHutang}`,
+            jumlah: nominal,
+            tanggal: editPayData.tanggal,
+            catatan: editPayData.catatan || ""
+          });
+        }
+      }
+    }
+
     setShowEditPayModal(false);
     loadData();
   };
@@ -366,6 +430,17 @@ export default function Hutang() {
       message: `Hapus riwayat ${historyItem.type === "tambah" ? "penambahan" : "pembayaran"} ${formatCurrency(historyItem.jumlah)}?`,
       onConfirm: () => {
         LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, historyItem.id);
+
+        if (historyItem.type === "tambah") {
+          const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+          const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "hutang_tambah");
+          if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+        } else {
+          const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+          const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "hutang_bayar");
+          if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+        }
+
         loadData();
         setConfirmModal({ ...confirmModal, visible: false });
       },
@@ -390,7 +465,7 @@ export default function Hutang() {
       alert("Data penambahan belum valid.");
       return;
     }
-    LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
+    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
       hutangId: addFormData.hutangId,
       namaHutang: addFormData.namaHutang,
       jumlah: nominal,
@@ -398,6 +473,17 @@ export default function Hutang() {
       catatan: addFormData.catatan,
       type: "tambah",
     });
+
+    // Masuk ke pemasukan
+    LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+      nama: `Penambahan Hutang: ${addFormData.namaHutang}`,
+      jumlah: nominal,
+      tanggal: addFormData.tanggal,
+      catatan: addFormData.catatan || "",
+      sourceRef: saved.id,
+      sourceType: "hutang_tambah"
+    });
+
     setShowAddModal(false);
     loadData();
   };
@@ -422,7 +508,9 @@ export default function Hutang() {
           ? "Akan Datang"
           : filterStatus === "due"
             ? "Jatuh Tempo Hari Ini"
-            : "Terlambat";
+            : filterStatus === "lunas"
+              ? "Lunas"
+              : "Terlambat";
       parts.push(`Status: ${statusLabel}`);
     }
     return parts.join(" • ");
@@ -442,10 +530,10 @@ export default function Hutang() {
           </div>
           <div className="text-right">
             <div className="text-sm font-bold text-white leading-tight">
-              {hutang.length} Data
+              {jumlahDataAktif} Data
             </div>
             <div className="text-[10px] text-red-100 opacity-80 tracking-wider">
-              Aktif
+              Aktif Belum Lunas
             </div>
           </div>
         </div>
@@ -523,6 +611,13 @@ export default function Hutang() {
                     color: "red",
                     count: countStatus.overdue,
                   },
+                  {
+                    id: "lunas",
+                    label: "Lunas",
+                    icon: CheckCircle,
+                    color: "emerald",
+                    count: countStatus.lunas,
+                  },
                 ].map((s) => (
                   <button
                     key={s.id}
@@ -580,7 +675,12 @@ export default function Hutang() {
             let statusText = "Akan Datang";
             let statusBg = "bg-red-500/10 text-red-400";
 
-            if (status === "overdue") {
+            if (status === "lunas") {
+              borderColor = "border-l-emerald-500";
+              statusIcon = <CheckCircle size={12} className="text-emerald-500" />;
+              statusText = "Lunas";
+              statusBg = "bg-emerald-500/10 text-emerald-400";
+            } else if (status === "overdue") {
               borderColor = "border-l-rose-600";
               statusIcon = <AlertCircle size={12} className="text-rose-500" />;
               statusText = "Terlambat";
@@ -647,7 +747,7 @@ export default function Hutang() {
                     },
                     {
                       icon: History,
-                      label: "Histori",
+                      label: `Histori${historyPembayaran.length > 0 ? ` (${historyPembayaran.length})` : ""}`,
                       color: "violet",
                       onClick: () =>
                         setActiveHistoryId(

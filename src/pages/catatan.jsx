@@ -15,7 +15,6 @@ import {
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 
-
 const NOTE_TYPES = {
   STANDARD: "standard",
   BULLET: "bullet",
@@ -45,7 +44,6 @@ export default function Catatan() {
     message: "",
     onConfirm: null,
   });
-
 
   useEffect(() => {
     loadData();
@@ -91,7 +89,7 @@ export default function Catatan() {
     let initialIsi = "";
     if (type === NOTE_TYPES.BULLET) initialIsi = "• ";
     if (type === NOTE_TYPES.CHECKBOX) initialIsi = "[ ] ";
-    
+
     setFormData({ ...initialForm, jenis: type, isi: initialIsi });
     setEditId(null);
     setShowTypePicker(false);
@@ -105,48 +103,106 @@ export default function Catatan() {
     const { selectionStart, value } = e.target;
     const isBulletType = formData.jenis === NOTE_TYPES.BULLET;
     const isCheckboxType = formData.jenis === NOTE_TYPES.CHECKBOX;
-    const prefixLen = isBulletType ? 2 : 4; // "• " or "[ ] "
-    
+
     if (e.key === "Enter") {
       if (isBulletType || isCheckboxType) {
+        const linesBefore = value.substring(0, selectionStart).split("\n");
+        const currentLineText = linesBefore[linesBefore.length - 1];
+        const prefix = isBulletType
+          ? "• "
+          : currentLineText.toLowerCase().startsWith("[x] ")
+            ? "[x] "
+            : "[ ] ";
+
+        // CASE: DOUBLE ENTER (pressing enter on empty list item ends it)
+        if (currentLineText.trim() === prefix.trim()) {
+          e.preventDefault();
+          if (linesBefore.length > 1) {
+            const removeLen = currentLineText.length + 1;
+            const newValue =
+              value.substring(0, selectionStart - removeLen) +
+              "\n" +
+              value.substring(selectionStart);
+            const newPos = selectionStart - (removeLen - 1);
+            setFormData({ ...formData, isi: newValue });
+            setTimeout(() => {
+              if (e.target) {
+                e.target.selectionStart = newPos;
+                e.target.selectionEnd = newPos;
+              }
+            }, 10);
+          } else {
+            // First line empty on enter -> clear it
+            setFormData({ ...formData, isi: "" });
+          }
+          return;
+        }
+
         e.preventDefault();
-        const prefix = isBulletType ? "\n• " : "\n[ ] ";
-        const newValue = value.substring(0, selectionStart) + prefix + value.substring(selectionStart);
-        
+        const newlinePrefix = isBulletType ? "\n• " : "\n[ ] ";
+        const newValue =
+          value.substring(0, selectionStart) +
+          newlinePrefix +
+          value.substring(selectionStart);
+
         setFormData({ ...formData, isi: newValue });
-        
+
         setTimeout(() => {
           if (e.target) {
-            e.target.selectionStart = selectionStart + prefix.length;
-            e.target.selectionEnd = selectionStart + prefix.length;
+            e.target.selectionStart = selectionStart + newlinePrefix.length;
+            e.target.selectionEnd = selectionStart + newlinePrefix.length;
           }
         }, 10);
       }
     } else if (e.key === "Backspace") {
-      const prefix = isBulletType ? "• " : "[ ] ";
-      const prefixLen = prefix.length;
-      
+      if (!isBulletType && !isCheckboxType) return;
+
       const linesBefore = value.substring(0, selectionStart).split("\n");
       const currentLineText = linesBefore[linesBefore.length - 1];
-      
-      // If we are deleting a line that is empty except for the prefix
-      if ((isBulletType || isCheckboxType) && currentLineText.length <= prefixLen) {
-        if (linesBefore.length > 1) {
+
+      let prefix = isBulletType ? "• " : "[ ] ";
+      if (isCheckboxType && currentLineText.toLowerCase().startsWith("[x] ")) {
+        prefix = currentLineText.substring(0, 4);
+      }
+
+      const prefixLen = prefix.length;
+
+      // If cursor is at or before the end of the prefix
+      if (
+        selectionStart <=
+        linesBefore
+          .join("\n")
+          .substring(
+            0,
+            linesBefore.join("\n").length -
+              (currentLineText.length - prefixLen),
+          ).length
+      ) {
+        // Check if there is text after the prefix
+        if (currentLineText.length > prefixLen) {
+          // PROTECTED: Text exists, cannot delete prefix manually
           e.preventDefault();
-          // Find the total length of characters to remove including preceding newline
-          const removeLen = currentLineText.length + 1;
-          const newValue = value.substring(0, selectionStart - removeLen) + value.substring(selectionStart);
-          const newPos = selectionStart - removeLen;
-          
-          setFormData({ ...formData, isi: newValue });
-          setTimeout(() => {
-            if (e.target) {
-              e.target.selectionStart = newPos;
-              e.target.selectionEnd = newPos;
-            }
-          }, 10);
-        } else if (currentLineText === prefix) {
-          // Optional: don't delete first line's prefix entirely or do nothing
+        } else {
+          // AUTOMATIC: Line is empty except for prefix, allow standard deletion to merge up
+          if (linesBefore.length > 1) {
+            e.preventDefault();
+            const removeLen = currentLineText.length + 1;
+            const newValue =
+              value.substring(0, selectionStart - removeLen) +
+              value.substring(selectionStart);
+            const newPos = selectionStart - removeLen;
+            setFormData({ ...formData, isi: newValue });
+            setTimeout(() => {
+              if (e.target) {
+                e.target.selectionStart = newPos;
+                e.target.selectionEnd = newPos;
+              }
+            }, 10);
+          } else {
+            // Keep the prefix on the first line if it's the only line?
+            // Let's protect it as requested.
+            e.preventDefault();
+          }
         }
       }
     }
@@ -155,19 +211,23 @@ export default function Catatan() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isShort = formData.jenis === NOTE_TYPES.SHORT;
-    
+
     // Clean up empty lines before saving
     let finalIsi = formData.isi;
-    if (formData.jenis === NOTE_TYPES.BULLET || formData.jenis === NOTE_TYPES.CHECKBOX) {
-        const prefix = formData.jenis === NOTE_TYPES.BULLET ? "• " : "[ ] ";
-        finalIsi = finalIsi.split("\n")
-          .filter(line => line.trim() !== "" && line.trim() !== prefix.trim())
-          .join("\n");
-        
-        if (!finalIsi) {
-          alert("Isi catatan tidak boleh kosong.");
-          return;
-        }
+    if (
+      formData.jenis === NOTE_TYPES.BULLET ||
+      formData.jenis === NOTE_TYPES.CHECKBOX
+    ) {
+      const prefix = formData.jenis === NOTE_TYPES.BULLET ? "• " : "[ ] ";
+      finalIsi = finalIsi
+        .split("\n")
+        .filter((line) => line.trim() !== "" && line.trim() !== prefix.trim())
+        .join("\n");
+
+      if (!finalIsi) {
+        alert("Isi catatan tidak boleh kosong.");
+        return;
+      }
     }
 
     if (!isShort && !formData.judul.trim()) {
@@ -226,7 +286,6 @@ export default function Catatan() {
     });
   };
 
-
   const formatDateTime = (item) => {
     const raw = item.updatedAt || item.createdAt;
     if (!raw) return "-";
@@ -263,7 +322,7 @@ export default function Catatan() {
     e.stopPropagation();
     const lines = (item.isi || "").split("\n");
     const line = lines[lineIdx];
-    
+
     if (line.trim().startsWith("[x]")) {
       lines[lineIdx] = line.replace("[x]", "[ ]");
     } else if (line.trim().startsWith("[ ]")) {
@@ -271,9 +330,12 @@ export default function Catatan() {
     } else {
       lines[lineIdx] = "[x] " + line;
     }
-    
+
     const newIsi = lines.join("\n");
-    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, { ...item, isi: newIsi });
+    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, {
+      ...item,
+      isi: newIsi,
+    });
     loadData();
   };
 
@@ -393,7 +455,10 @@ export default function Catatan() {
                       Terakhir diubah: {formatDateTime(item)}
                     </p>
                   </div>
-                  <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => handleEdit(item)}
                       className="p-1.5 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40"
@@ -413,17 +478,21 @@ export default function Catatan() {
 
                 {type === NOTE_TYPES.BULLET ? (
                   <ul className="text-sm text-slate-200 mt-2 space-y-1">
-                    {bulletItems(item.isi || "").slice(0, 3).map((line, idx) => {
-                      const text = line.replace(/^\s*[•*]?\s*/, "").trim();
-                      return (
-                        <li key={`${item.id}-${idx}`} className="flex gap-2">
-                          <span>•</span>
-                          <span className="truncate">{text}</span>
-                        </li>
-                      );
-                    })}
+                    {bulletItems(item.isi || "")
+                      .slice(0, 3)
+                      .map((line, idx) => {
+                        const text = line.replace(/^\s*[•*]?\s*/, "").trim();
+                        return (
+                          <li key={`${item.id}-${idx}`} className="flex gap-2">
+                            <span>•</span>
+                            <span className="truncate">{text}</span>
+                          </li>
+                        );
+                      })}
                     {bulletItems(item.isi || "").length > 3 && (
-                      <li className="text-xs text-slate-500 italic mt-1">... lihat selebihnya</li>
+                      <li className="text-xs text-slate-500 italic mt-1">
+                        ... lihat selebihnya
+                      </li>
                     )}
                   </ul>
                 ) : type === NOTE_TYPES.CHECKBOX ? (
@@ -431,35 +500,51 @@ export default function Catatan() {
                     {(item.isi || "")
                       .split("\n")
                       .map((line, i) => ({ line, i }))
-                      .filter(x => x.line.trim() !== "")
+                      .filter((x) => x.line.trim() !== "")
                       .slice(0, 4)
                       .map(({ line, i }, idx) => {
-                      const isChecked = line.trim().startsWith("[x]");
-                      const hasCheckbox = line.trim().startsWith("[x]") || line.trim().startsWith("[ ]");
-                      const text = hasCheckbox ? line.replace(/^\[[x ]\]\s*/i, "") : line;
+                        const isChecked = line.trim().startsWith("[x]");
+                        const hasCheckbox =
+                          line.trim().startsWith("[x]") ||
+                          line.trim().startsWith("[ ]");
+                        const text = hasCheckbox
+                          ? line.replace(/^\[[x ]\]\s*/i, "")
+                          : line;
 
-                      return (
-                        <div key={`${item.id}-${idx}`} className="flex items-start gap-2">
+                        return (
                           <div
-                            onClick={(e) => toggleCheckbox(item, i, e)}
-                            className="mt-0.5 shrink-0 cursor-pointer text-slate-400 hover:text-white"
+                            key={`${item.id}-${idx}`}
+                            className="flex items-start gap-2"
                           >
-                            {isChecked ? (
-                              <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-sm flex items-center justify-center">
-                                <Check size={12} className="text-white" strokeWidth={3} />
-                              </div>
-                            ) : (
-                              <div className="w-4 h-4 border border-slate-500 rounded-sm"></div>
-                            )}
+                            <div
+                              onClick={(e) => toggleCheckbox(item, i, e)}
+                              className="mt-0.5 shrink-0 cursor-pointer text-slate-400 hover:text-white"
+                            >
+                              {isChecked ? (
+                                <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-sm flex items-center justify-center">
+                                  <Check
+                                    size={12}
+                                    className="text-white"
+                                    strokeWidth={3}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-4 h-4 border border-slate-500 rounded-sm"></div>
+                              )}
+                            </div>
+                            <span
+                              className={`truncate cursor-text ${isChecked ? "text-slate-500 line-through" : ""}`}
+                            >
+                              {text}
+                            </span>
                           </div>
-                          <span className={`truncate cursor-text ${isChecked ? "text-slate-500 line-through" : ""}`}>
-                            {text}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {(item.isi || "").split("\n").filter(l => l.trim() !== "").length > 4 && (
-                      <div className="text-xs text-slate-500 italic mt-1">... lihat selebihnya</div>
+                        );
+                      })}
+                    {(item.isi || "").split("\n").filter((l) => l.trim() !== "")
+                      .length > 4 && (
+                      <div className="text-xs text-slate-500 italic mt-1">
+                        ... lihat selebihnya
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -528,7 +613,10 @@ export default function Catatan() {
                 onClick={() => openType(NOTE_TYPES.CHECKBOX)}
                 className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
               >
-                <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center"><Check size={12} strokeWidth={3} /></div> Judul + Catatan Checkbox
+                <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center">
+                  <Check size={12} strokeWidth={3} />
+                </div>{" "}
+                Judul + Catatan Checkbox
               </button>
             </div>
           </div>

@@ -111,8 +111,23 @@ export default function Piutang() {
     setConfirmModal({
       visible: true,
       title: "Hapus Piutang",
-      message: `Apakah piutang "${item.namaOrang}" mau dihapus?`,
+      message: `Apakah piutang "${item.namaOrang}" mau dihapus? Semua riwayat juga akan dihapus.`,
       onConfirm: () => {
+        // Hapus history dan sync data
+        const historyPiutang = pembayaranPiutang.filter(p => p.piutangId?.toString() === item.id?.toString());
+        historyPiutang.forEach(hist => {
+          LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_PIUTANG, hist.id);
+          if (hist.type === "tambah") {
+            const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+            const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "piutang_tambah");
+            if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+          } else {
+            const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+            const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "piutang_bayar");
+            if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+          }
+        });
+
         LocalStorageService.deleteRow(SHEETS.PIUTANG, item.id);
         loadData();
         setConfirmModal({ ...confirmModal, visible: false });
@@ -191,7 +206,32 @@ export default function Piutang() {
     }
   };
 
+  const getTotalDiterima = (piutangId) =>
+    pembayaranPiutang
+      .filter(
+        (item) =>
+          item.piutangId?.toString() === piutangId?.toString() &&
+          (!item.type || item.type === "bayar"),
+      )
+      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const getTotalPenambahan = (piutangId) =>
+    pembayaranPiutang
+      .filter(
+        (item) =>
+          item.piutangId?.toString() === piutangId?.toString() &&
+          item.type === "tambah",
+      )
+      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+
+  const getSisa = (item) => {
+    const t = parseFloat(item.jumlah) || 0;
+    const p = getTotalPenambahan(item.id);
+    const d = getTotalDiterima(item.id);
+    return Math.max(t + p - d, 0);
+  };
+
   const getDueStatus = (item) => {
+    if (getSisa(item) <= 0) return "lunas";
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dueDate = new Date(item.jatuhTempo);
@@ -214,41 +254,24 @@ export default function Piutang() {
     upcoming: piutang.filter((i) => getDueStatus(i) === "upcoming").length,
     due: piutang.filter((i) => getDueStatus(i) === "due").length,
     overdue: piutang.filter((i) => getDueStatus(i) === "overdue").length,
+    lunas: piutang.filter((i) => getDueStatus(i) === "lunas").length,
   };
 
-  const totalPiutangKeseluruhan = piutang.reduce(
-    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
-    0,
-  );
-  const totalPenambahanKeseluruhan = pembayaranPiutang
-    .filter((item) => item.type === "tambah")
-    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalDiterimaKeseluruhan = pembayaranPiutang
-    .filter((item) => !item.type || item.type === "bayar")
-    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalSisaKeseluruhan = Math.max(
-    totalPiutangKeseluruhan +
-      totalPenambahanKeseluruhan -
-      totalDiterimaKeseluruhan,
-    0,
-  );
+  const hitunganPerItemPiutang = piutang.map((item) => {
+    const t = parseFloat(item.jumlah) || 0;
+    const penambahan = getTotalPenambahan(item.id);
+    const diterima = getTotalDiterima(item.id);
+    const sisa = Math.max(t + penambahan - diterima, 0);
+    return { id: item.id, total: t, penambahan, diterima, sisa };
+  });
 
-  const getTotalDiterima = (piutangId) =>
-    pembayaranPiutang
-      .filter(
-        (item) =>
-          item.piutangId?.toString() === piutangId?.toString() &&
-          (!item.type || item.type === "bayar"),
-      )
-      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const getTotalPenambahan = (piutangId) =>
-    pembayaranPiutang
-      .filter(
-        (item) =>
-          item.piutangId?.toString() === piutangId?.toString() &&
-          item.type === "tambah",
-      )
-      .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const totalPiutangKeseluruhan = hitunganPerItemPiutang.reduce((sum, item) => sum + item.total, 0);
+  const totalPenambahanKeseluruhan = hitunganPerItemPiutang.reduce((sum, item) => sum + item.penambahan, 0);
+  const totalDiterimaKeseluruhan = hitunganPerItemPiutang.reduce((sum, item) => sum + item.diterima, 0);
+  const totalSisaKeseluruhan = hitunganPerItemPiutang.reduce((sum, item) => sum + item.sisa, 0);
+
+  const piutangAktif = hitunganPerItemPiutang.filter((item) => item.sisa > 0);
+  const jumlahDataAktif = piutangAktif.length;
   const getHistoryPiutang = (piutangId) =>
     pembayaranPiutang
       .filter((item) => item.piutangId?.toString() === piutangId?.toString())
@@ -286,13 +309,23 @@ export default function Piutang() {
       alert("Data pembayaran belum valid.");
       return;
     }
-    LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
+    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
       piutangId: payFormData.piutangId,
       namaOrang: payFormData.namaOrang,
       jumlah: nominal,
       tanggal: payFormData.tanggal,
       catatan: payFormData.catatan,
       type: "bayar",
+    });
+
+    // Sync ke Pemasukan (karena menerima pembayaran piutang = uang masuk)
+    LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+      nama: `Terima Piutang: ${payFormData.namaOrang}`,
+      jumlah: nominal,
+      tanggal: payFormData.tanggal,
+      catatan: payFormData.catatan || "",
+      sourceRef: saved.id,
+      sourceType: "piutang_bayar"
     });
     setShowPayModal(false);
     loadData();
@@ -322,6 +355,35 @@ export default function Piutang() {
       tanggal: editPayData.tanggal,
       catatan: editPayData.catatan,
     });
+
+    // Update synced Pemasukan/Pengeluaran
+    const historyItem = pembayaranPiutang.find(p => p.id === editPayData.id);
+    if (historyItem) {
+      if (historyItem.type === "tambah") {
+        const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "piutang_tambah");
+        if (pExisting) {
+          LocalStorageService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
+            nama: `Penambahan Piutang: ${editPayData.namaOrang}`,
+            jumlah: nominal,
+            tanggal: editPayData.tanggal,
+            catatan: editPayData.catatan || ""
+          });
+        }
+      } else {
+        const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "piutang_bayar");
+        if (pExisting) {
+          LocalStorageService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
+            nama: `Terima Piutang: ${editPayData.namaOrang}`,
+            jumlah: nominal,
+            tanggal: editPayData.tanggal,
+            catatan: editPayData.catatan || ""
+          });
+        }
+      }
+    }
+
     setShowEditPayModal(false);
     loadData();
   };
@@ -336,6 +398,17 @@ export default function Piutang() {
           SHEETS.PEMBAYARAN_PIUTANG,
           historyItem.id,
         );
+
+        if (historyItem.type === "tambah") {
+          const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+          const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "piutang_tambah");
+          if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+        } else {
+          const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+          const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "piutang_bayar");
+          if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+        }
+
         loadData();
         setConfirmModal({ ...confirmModal, visible: false });
       },
@@ -360,13 +433,24 @@ export default function Piutang() {
       alert("Data penambahan belum valid.");
       return;
     }
-    LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
+    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
       piutangId: addFormData.piutangId,
       namaOrang: addFormData.namaOrang,
       jumlah: nominal,
       tanggal: addFormData.tanggal,
       catatan: addFormData.catatan,
       type: "tambah",
+    });
+
+    // Sync ke Pengeluaran (karena memberi piutang = uang keluar)
+    LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+      nama: `Penambahan Piutang: ${addFormData.namaOrang}`,
+      kategori: "Pinjaman",
+      jumlah: nominal,
+      tanggal: addFormData.tanggal,
+      catatan: addFormData.catatan || "",
+      sourceRef: saved.id,
+      sourceType: "piutang_tambah"
     });
     setShowAddModal(false);
     loadData();
@@ -389,7 +473,9 @@ export default function Piutang() {
         ? "Akan Datang"
         : filterStatus === "due"
           ? "Jatuh Tempo Hari Ini"
-          : "Terlewat";
+          : filterStatus === "lunas"
+            ? "Lunas"
+            : "Terlewat";
     return `Status: ${statusLabel}`;
   };
 
@@ -407,10 +493,10 @@ export default function Piutang() {
           </div>
           <div className="text-right">
             <div className="text-sm font-bold text-white leading-tight">
-              {piutang.length} Data
+              {jumlahDataAktif} Data
             </div>
             <div className="text-[10px] text-emerald-100 opacity-80 tracking-wider">
-              Aktif
+              Aktif Belum Lunas
             </div>
           </div>
         </div>
@@ -488,6 +574,13 @@ export default function Piutang() {
                     color: "red",
                     count: countStatus.overdue,
                   },
+                  {
+                    id: "lunas",
+                    label: "Lunas",
+                    icon: CheckCircle,
+                    color: "emerald",
+                    count: countStatus.lunas,
+                  },
                 ].map((s) => (
                   <button
                     key={s.id}
@@ -521,7 +614,12 @@ export default function Piutang() {
             let statusText = "Akan Datang";
             let statusBg = "bg-emerald-400/10 text-emerald-300";
 
-            if (status === "overdue") {
+            if (status === "lunas") {
+              borderColor = "border-l-emerald-500";
+              statusIcon = <CheckCircle size={12} className="text-emerald-500" />;
+              statusText = "Lunas";
+              statusBg = "bg-emerald-500/10 text-emerald-400";
+            } else if (status === "overdue") {
               borderColor = "border-l-emerald-600";
               statusIcon = <AlertCircle size={12} className="text-emerald-500" />;
               statusText = "Terlewat";
@@ -581,7 +679,7 @@ export default function Piutang() {
                     },
                     {
                       icon: History,
-                      label: "Histori",
+                      label: `Histori${historyPembayaran.length > 0 ? ` (${historyPembayaran.length})` : ""}`,
                       color: "violet",
                       onClick: () =>
                         setActiveHistoryId(
