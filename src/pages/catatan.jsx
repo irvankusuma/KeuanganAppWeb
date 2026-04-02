@@ -10,6 +10,7 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Check,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
@@ -19,6 +20,7 @@ const NOTE_TYPES = {
   STANDARD: "standard",
   BULLET: "bullet",
   SHORT: "short",
+  CHECKBOX: "checkbox",
 };
 
 const initialForm = {
@@ -86,15 +88,87 @@ export default function Catatan() {
   };
 
   const openType = (type) => {
-    setFormData({ ...initialForm, jenis: type });
+    let initialIsi = "";
+    if (type === NOTE_TYPES.BULLET) initialIsi = "• ";
+    if (type === NOTE_TYPES.CHECKBOX) initialIsi = "[ ] ";
+    
+    setFormData({ ...initialForm, jenis: type, isi: initialIsi });
     setEditId(null);
     setShowTypePicker(false);
     setShowModal(true);
+  };
+  const handleIsiChange = (e) => {
+    setFormData({ ...formData, isi: e.target.value });
+  };
+
+  const handleKeyDown = (e) => {
+    const { selectionStart, value } = e.target;
+    const isBulletType = formData.jenis === NOTE_TYPES.BULLET;
+    const isCheckboxType = formData.jenis === NOTE_TYPES.CHECKBOX;
+    const prefixLen = isBulletType ? 2 : 4; // "• " or "[ ] "
+    
+    if (e.key === "Enter") {
+      if (isBulletType || isCheckboxType) {
+        e.preventDefault();
+        const prefix = isBulletType ? "\n• " : "\n[ ] ";
+        const newValue = value.substring(0, selectionStart) + prefix + value.substring(selectionStart);
+        
+        setFormData({ ...formData, isi: newValue });
+        
+        setTimeout(() => {
+          if (e.target) {
+            e.target.selectionStart = selectionStart + prefix.length;
+            e.target.selectionEnd = selectionStart + prefix.length;
+          }
+        }, 10);
+      }
+    } else if (e.key === "Backspace") {
+      const prefix = isBulletType ? "• " : "[ ] ";
+      const prefixLen = prefix.length;
+      
+      const linesBefore = value.substring(0, selectionStart).split("\n");
+      const currentLineText = linesBefore[linesBefore.length - 1];
+      
+      // If we are deleting a line that is empty except for the prefix
+      if ((isBulletType || isCheckboxType) && currentLineText.length <= prefixLen) {
+        if (linesBefore.length > 1) {
+          e.preventDefault();
+          // Find the total length of characters to remove including preceding newline
+          const removeLen = currentLineText.length + 1;
+          const newValue = value.substring(0, selectionStart - removeLen) + value.substring(selectionStart);
+          const newPos = selectionStart - removeLen;
+          
+          setFormData({ ...formData, isi: newValue });
+          setTimeout(() => {
+            if (e.target) {
+              e.target.selectionStart = newPos;
+              e.target.selectionEnd = newPos;
+            }
+          }, 10);
+        } else if (currentLineText === prefix) {
+          // Optional: don't delete first line's prefix entirely or do nothing
+        }
+      }
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const isShort = formData.jenis === NOTE_TYPES.SHORT;
+    
+    // Clean up empty lines before saving
+    let finalIsi = formData.isi;
+    if (formData.jenis === NOTE_TYPES.BULLET || formData.jenis === NOTE_TYPES.CHECKBOX) {
+        const prefix = formData.jenis === NOTE_TYPES.BULLET ? "• " : "[ ] ";
+        finalIsi = finalIsi.split("\n")
+          .filter(line => line.trim() !== "" && line.trim() !== prefix.trim())
+          .join("\n");
+        
+        if (!finalIsi) {
+          alert("Isi catatan tidak boleh kosong.");
+          return;
+        }
+    }
 
     if (!isShort && !formData.judul.trim()) {
       alert("Judul harus diisi.");
@@ -113,7 +187,7 @@ export default function Catatan() {
 
     const payload = {
       judul: isShort ? "" : formData.judul.trim(),
-      isi: formData.isi.trim(),
+      isi: finalIsi,
       jenis: formData.jenis,
       tanggal: new Date().toISOString().split("T")[0],
     };
@@ -168,6 +242,7 @@ export default function Catatan() {
   const getTypeLabel = (type) => {
     if (type === NOTE_TYPES.BULLET) return "List";
     if (type === NOTE_TYPES.SHORT) return "Singkat";
+    if (type === NOTE_TYPES.CHECKBOX) return "Checkbox";
     return "Standar";
   };
 
@@ -184,9 +259,28 @@ export default function Catatan() {
       .map((line) => line.trim())
       .filter(Boolean);
 
+  const toggleCheckbox = (item, lineIdx, e) => {
+    e.stopPropagation();
+    const lines = (item.isi || "").split("\n");
+    const line = lines[lineIdx];
+    
+    if (line.trim().startsWith("[x]")) {
+      lines[lineIdx] = line.replace("[x]", "[ ]");
+    } else if (line.trim().startsWith("[ ]")) {
+      lines[lineIdx] = line.replace("[ ]", "[x]");
+    } else {
+      lines[lineIdx] = "[x] " + line;
+    }
+    
+    const newIsi = lines.join("\n");
+    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, { ...item, isi: newIsi });
+    loadData();
+  };
+
   const selectedType = formData.jenis;
   const isShort = selectedType === NOTE_TYPES.SHORT;
   const isBullet = selectedType === NOTE_TYPES.BULLET;
+  const isCheckbox = selectedType === NOTE_TYPES.CHECKBOX;
 
   return (
     <div className="space-y-4 pb-28 md:pb-6">
@@ -219,6 +313,7 @@ export default function Catatan() {
                   { value: NOTE_TYPES.STANDARD, label: "Standar" },
                   { value: NOTE_TYPES.BULLET, label: "List" },
                   { value: NOTE_TYPES.SHORT, label: "Singkat" },
+                  { value: NOTE_TYPES.CHECKBOX, label: "Checkbox" },
                 ].map((item) => (
                   <button
                     key={item.value}
@@ -281,9 +376,10 @@ export default function Catatan() {
             return (
               <div
                 key={item.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-3"
+                className="bg-slate-800 border border-slate-700 rounded-xl p-3 cursor-pointer hover:bg-slate-700/50 transition relative"
+                onClick={() => handleEdit(item)}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3 relative z-10">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold text-white">
@@ -297,7 +393,7 @@ export default function Catatan() {
                       Terakhir diubah: {formatDateTime(item)}
                     </p>
                   </div>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEdit(item)}
                       className="p-1.5 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40"
@@ -317,15 +413,57 @@ export default function Catatan() {
 
                 {type === NOTE_TYPES.BULLET ? (
                   <ul className="text-sm text-slate-200 mt-2 space-y-1">
-                    {bulletItems(item.isi || "").map((line, idx) => (
-                      <li key={`${item.id}-${idx}`} className="flex gap-2">
-                        <span>•</span>
-                        <span>{line}</span>
-                      </li>
-                    ))}
+                    {bulletItems(item.isi || "").slice(0, 3).map((line, idx) => {
+                      const text = line.replace(/^\s*[•*]?\s*/, "").trim();
+                      return (
+                        <li key={`${item.id}-${idx}`} className="flex gap-2">
+                          <span>•</span>
+                          <span className="truncate">{text}</span>
+                        </li>
+                      );
+                    })}
+                    {bulletItems(item.isi || "").length > 3 && (
+                      <li className="text-xs text-slate-500 italic mt-1">... lihat selebihnya</li>
+                    )}
                   </ul>
+                ) : type === NOTE_TYPES.CHECKBOX ? (
+                  <div className="text-sm text-slate-200 mt-2 space-y-1">
+                    {(item.isi || "")
+                      .split("\n")
+                      .map((line, i) => ({ line, i }))
+                      .filter(x => x.line.trim() !== "")
+                      .slice(0, 4)
+                      .map(({ line, i }, idx) => {
+                      const isChecked = line.trim().startsWith("[x]");
+                      const hasCheckbox = line.trim().startsWith("[x]") || line.trim().startsWith("[ ]");
+                      const text = hasCheckbox ? line.replace(/^\[[x ]\]\s*/i, "") : line;
+
+                      return (
+                        <div key={`${item.id}-${idx}`} className="flex items-start gap-2">
+                          <div
+                            onClick={(e) => toggleCheckbox(item, i, e)}
+                            className="mt-0.5 shrink-0 cursor-pointer text-slate-400 hover:text-white"
+                          >
+                            {isChecked ? (
+                              <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-sm flex items-center justify-center">
+                                <Check size={12} className="text-white" strokeWidth={3} />
+                              </div>
+                            ) : (
+                              <div className="w-4 h-4 border border-slate-500 rounded-sm"></div>
+                            )}
+                          </div>
+                          <span className={`truncate cursor-text ${isChecked ? "text-slate-500 line-through" : ""}`}>
+                            {text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {(item.isi || "").split("\n").filter(l => l.trim() !== "").length > 4 && (
+                      <div className="text-xs text-slate-500 italic mt-1">... lihat selebihnya</div>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">
+                  <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap line-clamp-3">
                     {item.isi}
                   </p>
                 )}
@@ -386,6 +524,12 @@ export default function Catatan() {
               >
                 <MessageSquare size={16} /> Catatan Singkat (maks 100 karakter)
               </button>
+              <button
+                onClick={() => openType(NOTE_TYPES.CHECKBOX)}
+                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
+              >
+                <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center"><Check size={12} strokeWidth={3} /></div> Judul + Catatan Checkbox
+              </button>
             </div>
           </div>
         </div>
@@ -434,21 +578,20 @@ export default function Catatan() {
 
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
-                  {isBullet
+                  {isBullet || isCheckbox
                     ? "Catatan (tekan Enter untuk poin baru)"
                     : "Isi Catatan"}
                 </label>
                 <textarea
                   value={formData.isi}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isi: e.target.value })
-                  }
+                  onChange={handleIsiChange}
+                  onKeyDown={handleKeyDown}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
                   rows={isShort ? 3 : 8}
                   maxLength={isShort ? 100 : undefined}
                   placeholder={
-                    isBullet
-                      ? "Contoh 1\nContoh 2\nContoh 3"
+                    isBullet || isCheckbox
+                      ? "Ketik catatan disini..."
                       : isShort
                         ? "Tulis catatan singkat..."
                         : "Tulis catatan di sini..."

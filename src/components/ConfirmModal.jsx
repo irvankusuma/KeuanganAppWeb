@@ -1,6 +1,15 @@
 import { Trash2 } from "lucide-react";
 
-export default function ConfirmModal({ visible, title, message, onConfirm, onCancel }) {
+export default function ConfirmModal({ 
+  visible, 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel,
+  confirmText = "Hapus",
+  icon: Icon = Trash2,
+  danger = true
+}) {
   if (!visible) return null;
 
   return (
@@ -10,8 +19,8 @@ export default function ConfirmModal({ visible, title, message, onConfirm, onCan
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Trash2 size={32} className="text-red-500" />
+          <div className={`w-16 h-16 ${danger ? 'bg-red-500/20' : 'bg-blue-500/20'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            <Icon size={32} className={danger ? 'text-red-500' : 'text-blue-500'} />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">
             {title}
@@ -28,9 +37,9 @@ export default function ConfirmModal({ visible, title, message, onConfirm, onCan
             </button>
             <button
               onClick={onConfirm}
-              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-red-600/20"
+              className={`px-4 py-2.5 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-xl text-sm font-medium transition shadow-lg`}
             >
-              Hapus
+              {confirmText}
             </button>
           </div>
         </div>

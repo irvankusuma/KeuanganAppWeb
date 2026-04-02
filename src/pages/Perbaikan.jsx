@@ -181,6 +181,47 @@ export default function Perbaikan() {
     </div>
   );
 
+  // Helper: cari entri pengeluaran berdasarkan sourceRef (ID perbaikan/histori)
+  const findPengeluaranByRef = (refId) => {
+    const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    return allPengeluaran.find(
+      (p) => p.sourceRef?.toString() === refId?.toString() && p.sourceType === "perbaikan"
+    );
+  };
+
+  // Helper: sync pengeluaran terkait saat edit biaya
+  const syncPengeluaranEdit = (refId, nama, biayaBaru, tanggal, catatan) => {
+    const existing = findPengeluaranByRef(refId);
+    if (existing) {
+      if (biayaBaru > 0) {
+        // Update jumlah di pengeluaran yang sudah ada
+        LocalStorageService.updateRow(SHEETS.PENGELUARAN, existing.id, {
+          nama: `Perbaikan: ${nama}`,
+          kategori: "Perbaikan",
+          jumlah: biayaBaru,
+          tanggal,
+          catatan: catatan || "",
+          sourceRef: refId,
+          sourceType: "perbaikan",
+        });
+      } else {
+        // Biaya jadi 0 → hapus entri pengeluaran
+        LocalStorageService.deleteRow(SHEETS.PENGELUARAN, existing.id);
+      }
+    } else if (biayaBaru > 0) {
+      // Belum ada entry → buat baru
+      LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+        nama: `Perbaikan: ${nama}`,
+        kategori: "Perbaikan",
+        jumlah: biayaBaru,
+        tanggal,
+        catatan: catatan || "",
+        sourceRef: refId,
+        sourceType: "perbaikan",
+      });
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const a = parseN(formData.km_saat_ini),
@@ -198,8 +239,10 @@ export default function Perbaikan() {
     };
     if (editMode && editId) {
       LocalStorageService.updateRow(SHEETS.PERBAIKAN, editId, data);
+      // Sync pengeluaran: update/hapus/buat sesuai biaya baru
+      syncPengeluaranEdit(editId, data.nama, data.biaya, data.tanggal, data.catatan);
     } else {
-      LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
+      const saved = LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
       if (data.biaya > 0)
         LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
           nama: `Perbaikan: ${data.nama}`,
@@ -207,6 +250,8 @@ export default function Perbaikan() {
           jumlah: data.biaya,
           tanggal: data.tanggal,
           catatan: data.catatan || "",
+          sourceRef: saved.id,
+          sourceType: "perbaikan",
         });
     }
     resetForm();
@@ -280,9 +325,11 @@ export default function Perbaikan() {
     };
     if (editTambahMode && editTambahId) {
       LocalStorageService.updateRow(SHEETS.PERBAIKAN, editTambahId, data);
+      // Sync pengeluaran terkait: update/hapus/buat sesuai biaya baru
+      syncPengeluaranEdit(editTambahId, data.nama, biaya, data.tanggal, data.catatan);
     } else {
-      LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
-      // Otomatis masuk pengeluaran jika ada biaya
+      const saved = LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
+      // Otomatis masuk pengeluaran jika ada biaya, simpan sourceRef
       if (biaya > 0)
         LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
           nama: `Perbaikan: ${data.nama}`,
@@ -290,6 +337,8 @@ export default function Perbaikan() {
           jumlah: biaya,
           tanggal: data.tanggal,
           catatan: data.catatan || "",
+          sourceRef: saved.id,
+          sourceType: "perbaikan",
         });
     }
     setShowTambahModal(false);
@@ -303,6 +352,11 @@ export default function Perbaikan() {
       message: `Hapus histori servis tanggal ${histItem.tanggal}?`,
       onConfirm: () => {
         LocalStorageService.deleteRow(SHEETS.PERBAIKAN, histItem.id);
+        // Hapus pengeluaran terkait jika ada
+        const existingPengeluaran = findPengeluaranByRef(histItem.id);
+        if (existingPengeluaran) {
+          LocalStorageService.deleteRow(SHEETS.PENGELUARAN, existingPengeluaran.id);
+        }
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
       },

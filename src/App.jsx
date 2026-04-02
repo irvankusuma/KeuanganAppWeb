@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Wrench,
   Download,
+  Power,
 } from "lucide-react";
 
 // Pages
@@ -27,10 +28,12 @@ import Catatan from "./pages/catatan";
 
 // Components
 import ExportImportModal from "./components/ExportImportModal";
+import ConfirmModal from "./components/ConfirmModal";
 
 function Layout({ children }) {
   const location = useLocation();
   const [showModal, setShowModal] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const navItems = [
     { path: "/", icon: Home, label: "Beranda" },
@@ -47,15 +50,31 @@ function Layout({ children }) {
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
         <div className="container mx-auto px-3 h-14 flex items-center justify-between">
-          <Link to="/catatan" className="hover:text-blue-400 transition-colors">
-            <h1 className="text-lg font-bold">📘 Catatan</h1>
-          </Link>
-          <button
-            onClick={() => setShowModal(true)}
-            className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors"
-            aria-label="Export/Import">
-            <Download size={20} />
-          </button>
+          <div className="w-1/3 flex justify-start">
+            <Link to="/catatan" className="hover:text-blue-400 transition-colors flex items-center shrink-0">
+              <h1 className="text-lg font-bold truncate">📘 Catatan</h1>
+            </Link>
+          </div>
+          
+          <div className="w-1/3 flex justify-center">
+            <button
+              onClick={() => setShowExitConfirm(true)}
+              className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors flex items-center justify-center shrink-0"
+              aria-label="Keluar Aplikasi"
+            >
+              <Power size={22} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          <div className="w-1/3 flex justify-end">
+            <button
+              onClick={() => setShowModal(true)}
+              className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors shrink-0"
+              aria-label="Export/Import"
+            >
+              <Download size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -114,6 +133,21 @@ function Layout({ children }) {
       <ExportImportModal
         visible={showModal}
         onClose={() => setShowModal(false)}
+      />
+
+      {/* Exit Confirmation Modal */}
+      <ConfirmModal
+        visible={showExitConfirm}
+        title="Keluar Aplikasi"
+        message="Apakah Anda yakin ingin keluar dari aplikasi?"
+        confirmText="Keluar"
+        icon={Power}
+        onConfirm={() => {
+          setShowExitConfirm(false);
+          window.close();
+          window.location.href = "about:blank";
+        }}
+        onCancel={() => setShowExitConfirm(false)}
       />
     </div>
   );
