@@ -31,6 +31,7 @@ const initialForm = {
 export default function Catatan() {
   const [catatan, setCatatan] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [editId, setEditId] = useState(null);
   const [search, setSearch] = useState("");
@@ -83,6 +84,7 @@ export default function Catatan() {
     setFormData(initialForm);
     setEditId(null);
     setShowModal(false);
+    setTimeout(() => setIsViewMode(false), 200); // Wait for transition
   };
 
   const openType = (type) => {
@@ -92,6 +94,7 @@ export default function Catatan() {
 
     setFormData({ ...initialForm, jenis: type, isi: initialIsi });
     setEditId(null);
+    setIsViewMode(false);
     setShowTypePicker(false);
     setShowModal(true);
   };
@@ -270,6 +273,7 @@ export default function Catatan() {
       isi: item.isi || "",
       jenis: type,
     });
+    setIsViewMode(true);
     setShowModal(true);
   };
 
@@ -289,13 +293,14 @@ export default function Catatan() {
   const formatDateTime = (item) => {
     const raw = item.updatedAt || item.createdAt;
     if (!raw) return "-";
-    return new Date(raw).toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const d = new Date(raw);
+    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hours}.${minutes}`;
   };
 
   const getTypeLabel = (type) => {
@@ -337,6 +342,43 @@ export default function Catatan() {
       isi: newIsi,
     });
     loadData();
+  };
+
+  const toggleCheckboxInView = (visibleIdx, e) => {
+    e.stopPropagation();
+    const lines = (formData.isi || "").split("\n");
+    
+    // Map visible lines to original indices
+    const visibleToOriginal = [];
+    lines.forEach((l, i) => {
+      if (l.trim() !== '') visibleToOriginal.push(i);
+    });
+    
+    const actualIdx = visibleToOriginal[visibleIdx];
+    if (actualIdx === undefined) return;
+
+    let line = lines[actualIdx];
+    if (line.trim().toLowerCase().startsWith("[x]")) {
+      line = line.replace(/^\[x\]\s*/i, "[ ] ");
+    } else if (line.trim().startsWith("[ ]")) {
+      line = line.replace(/^\[ \]\s*/, "[x] ");
+    } else {
+      line = "[x] " + line;
+    }
+    lines[actualIdx] = line;
+
+    const newIsi = lines.join("\n");
+    setFormData({ ...formData, isi: newIsi });
+
+    if (editId) {
+      LocalStorageService.updateRow(SHEETS.CATATAN, editId, {
+        judul: formData.judul,
+        isi: newIsi,
+        jenis: formData.jenis,
+        tanggal: new Date().toISOString().split("T")[0],
+      });
+      loadData();
+    }
   };
 
   const selectedType = formData.jenis;
@@ -483,9 +525,9 @@ export default function Catatan() {
                       .map((line, idx) => {
                         const text = line.replace(/^\s*[•*]?\s*/, "").trim();
                         return (
-                          <li key={`${item.id}-${idx}`} className="flex gap-2">
-                            <span>•</span>
-                            <span className="truncate">{text}</span>
+                          <li key={`${item.id}-${idx}`} className="flex gap-2.5 items-start">
+                            <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-500 shrink-0" />
+                            <span className="flex-1 min-w-0 break-words line-clamp-2 leading-relaxed">{text}</span>
                           </li>
                         );
                       })}
@@ -521,7 +563,7 @@ export default function Catatan() {
                               className="mt-0.5 shrink-0 cursor-pointer text-slate-400 hover:text-white"
                             >
                               {isChecked ? (
-                                <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-sm flex items-center justify-center">
+                                <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-[4px] flex items-center justify-center shadow-sm">
                                   <Check
                                     size={12}
                                     className="text-white"
@@ -529,11 +571,11 @@ export default function Catatan() {
                                   />
                                 </div>
                               ) : (
-                                <div className="w-4 h-4 border border-slate-500 rounded-sm"></div>
+                                <div className="w-4 h-4 border-[1.5px] border-slate-500 rounded-[4px]"></div>
                               )}
                             </div>
                             <span
-                              className={`truncate cursor-text ${isChecked ? "text-slate-500 line-through" : ""}`}
+                              className={`flex-1 min-w-0 break-words line-clamp-2 leading-relaxed ${isChecked ? "text-slate-500 line-through" : ""}`}
                             >
                               {text}
                             </span>
@@ -625,82 +667,154 @@ export default function Catatan() {
 
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
-          onClick={resetForm}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4 md:p-6"
+          onClick={isViewMode ? resetForm : undefined}
         >
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-lg max-h-[86vh] overflow-auto"
+            className="bg-[#0e1523] border border-[#1e2d45] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-10">
-              <h2 className="text-lg font-bold">
-                {editId ? "Edit Catatan" : "Tambah Catatan"} (
-                {getTypeLabel(selectedType)})
-              </h2>
-              <button
-                onClick={resetForm}
-                className="p-1.5 hover:bg-slate-700 rounded-lg"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-3 space-y-3 pb-8">
-              {!isShort && (
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">
-                    Judul
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.judul}
-                    onChange={(e) =>
-                      setFormData({ ...formData, judul: e.target.value })
-                    }
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                    placeholder="Contoh: Belanja bulanan"
-                    required
-                  />
+            {isViewMode ? (
+              /* VIEW MODE */
+              <div className="flex flex-col h-full animate-in fade-in duration-300">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
+                   <div className="flex items-center gap-3">
+                     <span className="text-xs font-medium px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-lg">
+                       {getTypeLabel(selectedType)}
+                     </span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <button onClick={() => setIsViewMode(false)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20">
+                       <Pencil size={14} /> Edit
+                     </button>
+                     <button onClick={resetForm} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+                       <X size={18} />
+                     </button>
+                   </div>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  {isBullet || isCheckbox
-                    ? "Catatan (tekan Enter untuk poin baru)"
-                    : "Isi Catatan"}
-                </label>
-                <textarea
-                  value={formData.isi}
-                  onChange={handleIsiChange}
-                  onKeyDown={handleKeyDown}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                  rows={isShort ? 3 : 8}
-                  maxLength={isShort ? 100 : undefined}
-                  placeholder={
-                    isBullet || isCheckbox
-                      ? "Ketik catatan disini..."
-                      : isShort
-                        ? "Tulis catatan singkat..."
-                        : "Tulis catatan di sini..."
-                  }
-                  required
-                />
-                {isShort && (
-                  <div className="text-[11px] text-gray-400 mt-1 text-right">
-                    {formData.isi.length}/100
+                <div className="p-6 md:p-8 overflow-y-auto">
+                  {!isShort && (
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-6 leading-tight">
+                      {formData.judul || "Tanpa Judul"}
+                    </h1>
+                  )}
+                  <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                    {isCheckbox ? (
+                       <div className="space-y-3">
+                         {formData.isi.split('\n').filter(l => l.trim() !== '').map((line, i) => {
+                           const isChecked = line.trim().toLowerCase().startsWith("[x]");
+                           const text = line.replace(/^\[[x ]\]\s*/i, "");
+                           return (
+                             <div key={i} className="flex items-start gap-3 group">
+                               <div 
+                                 className="mt-[3px] shrink-0 cursor-pointer"
+                                 onClick={(e) => toggleCheckboxInView(i, e)}
+                               >
+                                 {isChecked ? (
+                                   <div className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded-md flex items-center justify-center shadow-sm transition-colors">
+                                     <Check size={14} className="text-white" strokeWidth={3} />
+                                   </div>
+                                 ) : (
+                                   <div className="w-5 h-5 border-[2px] border-[#334155] group-hover:border-blue-400 rounded-md transition-colors" />
+                                 )}
+                               </div>
+                               <span className={`flex-1 min-w-0 break-words ${isChecked ? "text-slate-500 line-through" : "text-slate-200"}`}>{text}</span>
+                             </div>
+                           )
+                         })}
+                       </div>
+                    ) : isBullet ? (
+                       <ul className="space-y-2 list-none ml-0">
+                         {formData.isi.split('\n').filter(l => l.trim() !== '').map((line, i) => {
+                           const text = line.replace(/^\s*[•*]?\s*/, "").trim();
+                           return (
+                             <li key={i} className="flex items-start gap-3">
+                               <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0"></span>
+                               <span className="flex-1 min-w-0 break-words text-slate-200">{text}</span>
+                             </li>
+                           )
+                         })}
+                       </ul>
+                    ) : (
+                       <p className="whitespace-pre-wrap break-words">{formData.isi}</p>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
+            ) : (
+              /* EDIT MODE */
+              <div className="flex flex-col h-full animate-in fade-in duration-300">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
+                  <h2 className="text-sm font-semibold text-white">
+                    {editId ? "Mode Edit" : "Catatan Baru"} <span className="text-slate-500 font-normal ml-1">({getTypeLabel(selectedType)})</span>
+                  </h2>
+                  <button onClick={resetForm} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+                
+                <form id="note-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+                  {!isShort && (
+                    <div>
+                      <input
+                        type="text"
+                        value={formData.judul}
+                        onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
+                        className="w-full bg-transparent border-b border-[#1e2d45] focus:border-blue-500 py-3 text-xl md:text-2xl font-bold text-white placeholder-slate-600 outline-none transition-colors"
+                        placeholder="Judul Catatan..."
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  )}
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium text-sm mt-2 mb-2 flex items-center justify-center gap-2"
-              >
-                <Save size={16} />{" "}
-                {editId ? "Simpan Perubahan" : "Simpan Catatan"}
-              </button>
-            </form>
+                  <div>
+                    <textarea
+                      value={formData.isi}
+                      onChange={handleIsiChange}
+                      onKeyDown={handleKeyDown}
+                      className="w-full bg-[#141d2e]/50 border border-[#1e2d45] rounded-xl p-4 md:p-5 text-[15px] leading-relaxed text-slate-200 placeholder-slate-600 outline-none focus:border-blue-500/50 focus:bg-[#141d2e] focus:ring-4 focus:ring-blue-500/10 transition-all resize-none min-h-[300px]"
+                      rows={isShort ? 5 : 12}
+                      maxLength={isShort ? 100 : undefined}
+                      placeholder={
+                        isBullet || isCheckbox
+                          ? "Ketik catatan disini... (Tekan Enter untuk poin baru)"
+                          : isShort
+                            ? "Tulis catatan singkat (maks 100 karakter)..."
+                            : "Mulai menulis catatan Anda di sini..."
+                      }
+                      required
+                      autoFocus={isShort}
+                    />
+                    {isShort && (
+                      <div className="text-xs font-medium text-slate-500 mt-2 flex justify-end">
+                        <span className={formData.isi.length >= 100 ? "text-orange-400" : ""}>
+                          {formData.isi.length}
+                        </span>
+                        /100
+                      </div>
+                    )}
+                  </div>
+                </form>
+
+                <div className="px-6 py-4 border-t border-[#1e2d45] flex justify-end gap-3 bg-[#0a0f1a]">
+                  <button
+                    type="button"
+                    onClick={() => editId ? setIsViewMode(true) : resetForm()}
+                    className="px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    form="note-form"
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                  >
+                    <Save size={16} /> Simpan
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

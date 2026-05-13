@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
+import NumericInput from "../components/NumericInput";
 
 export default function Piutang() {
   const [piutang, setPiutang] = useState([]);
@@ -32,10 +33,9 @@ export default function Piutang() {
     jatuhTempo: new Date().toISOString().split("T")[0],
     catatan: "",
   });
-  const [calcInput, setCalcInput] = useState("");
-  const [showCalc, setShowCalc] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState(null);
+  const [showLunasHistory, setShowLunasHistory] = useState(false);
   const [payFormData, setPayFormData] = useState({
     piutangId: "",
     namaOrang: "",
@@ -103,7 +103,6 @@ export default function Piutang() {
       jatuhTempo: item.jatuhTempo,
       catatan: item.catatan || "",
     });
-    setCalcInput(formatNumber(item.jumlah));
     setModalVisible(true);
   };
 
@@ -146,64 +145,11 @@ export default function Piutang() {
       jatuhTempo: new Date().toISOString().split("T")[0],
       catatan: "",
     });
-    setCalcInput("");
-    setShowCalc(false);
   };
 
   const formatCurrency = (num) => {
     if (!num) return "Rp 0";
     return "Rp " + Number(num).toLocaleString("id-ID");
-  };
-
-  const formatNumber = (num) => {
-    if (!num) return "";
-    return Number(num).toLocaleString("id-ID");
-  };
-
-  const parseLocaleNumber = (str) => {
-    if (!str) return 0;
-    return Number(str.replace(/\./g, ""));
-  };
-
-  const handleJumlahChange = (e) => {
-    const raw = e.target.value.replace(/[^\d]/g, "");
-    const num = raw ? parseInt(raw, 10) : 0;
-    setFormData({ ...formData, jumlah: num });
-    setCalcInput(num ? num.toLocaleString("id-ID") : "");
-  };
-
-  const safeEvaluate = (input) => {
-    try {
-      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!expr) return 0;
-      const result = new Function(`return ${expr}`)();
-      return isNaN(result) ? 0 : result;
-    } catch (e) {
-      return 0;
-    }
-  };
-
-  const handleCalcButton = (val) => {
-    if (val === "C") {
-      setCalcInput("");
-      setFormData({ ...formData, jumlah: 0 });
-    } else if (val === "←") {
-      const newInput = calcInput.slice(0, -1);
-      setCalcInput(newInput);
-      const num = parseLocaleNumber(newInput);
-      setFormData({ ...formData, jumlah: num });
-    } else if (val === "=") {
-      const result = safeEvaluate(calcInput);
-      setCalcInput(result.toLocaleString("id-ID"));
-      setFormData({ ...formData, jumlah: result });
-    } else {
-      const newInput = calcInput + val;
-      setCalcInput(newInput);
-      const expr = newInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!isNaN(Number(expr))) {
-        setFormData({ ...formData, jumlah: Number(expr) });
-      }
-    }
   };
 
   const getTotalDiterima = (piutangId) =>
@@ -247,7 +193,136 @@ export default function Piutang() {
       const status = getDueStatus(item);
       return status === filterStatus;
     })
-    .sort((a, b) => new Date(a.jatuhTempo) - new Date(b.jatuhTempo));
+    .sort((a, b) => {
+      return new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0);
+    });
+
+  const activePiutang = sortedData.filter((item) => getDueStatus(item) !== "lunas");
+  const lunasPiutang = sortedData.filter((item) => getDueStatus(item) === "lunas");
+
+  const renderPiutangCard = (item) => {
+    const total = parseFloat(item.jumlah) || 0;
+    const totalPenambahan = getTotalPenambahan(item.id);
+    const totalDiterima = getTotalDiterima(item.id);
+    const sisa = Math.max(total + totalPenambahan - totalDiterima, 0);
+    const historyPembayaran = getHistoryPiutang(item.id);
+    const status = getDueStatus(item);
+    
+    let borderColor = "border-l-emerald-400";
+    let statusIcon = <Clock size={12} className="text-emerald-400" />;
+    let statusText = "Akan Datang";
+    let statusBg = "bg-emerald-400/10 text-emerald-300";
+
+    if (status === "lunas") {
+      borderColor = "border-l-emerald-500";
+      statusIcon = <CheckCircle size={12} className="text-emerald-500" />;
+      statusText = "Lunas";
+      statusBg = "bg-emerald-500/10 text-emerald-400";
+    } else if (status === "overdue") {
+      borderColor = "border-l-rose-500";
+      statusIcon = <AlertCircle size={12} className="text-rose-500" />;
+      statusText = "Terlewat";
+      statusBg = "bg-rose-500/10 text-rose-400";
+    } else if (status === "due") {
+      borderColor = "border-l-orange-500";
+      statusIcon = <CheckCircle size={12} className="text-orange-500" />;
+      statusText = "Hari Ini";
+      statusBg = "bg-orange-500/10 text-orange-400";
+    }
+
+    return (
+      <div
+        key={item.id}
+        className={`bg-[#0c1220] rounded-2xl p-4 md:p-5 border border-[#1e2d45] border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all`}
+      >
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="text-lg font-bold text-white tracking-tight">
+              {item.namaOrang}
+            </h3>
+            <span className="text-xs text-emerald-400 font-medium">
+              {item.tanggal || "-"}
+            </span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium ${statusBg}`}>
+            {statusIcon}
+            {statusText}
+          </div>
+        </div>
+        
+        <div className="flex items-end justify-between mb-2">
+          <div className="text-slate-400 text-xs">Sisa Piutang</div>
+          <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+            {formatCurrency(sisa)}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-4 pb-4 border-b border-[#1e2d45]">
+          <div>
+            Jatuh Tempo: <span className="text-slate-300 font-medium">{new Date(item.jatuhTempo).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
+          </div>
+          <div>
+            Total: <span className="text-slate-300 font-medium">{formatCurrency(total)}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-5 gap-2">
+          {[
+            { icon: Wallet, label: "Terima", color: "emerald", onClick: () => openBayarModal(item) },
+            { icon: Plus, label: "Tambah", color: "orange", onClick: () => handleAdd(item) },
+            { icon: History, label: `Histori${historyPembayaran.length > 0 ? ` (${historyPembayaran.length})` : ""}`, color: "violet", onClick: () => setActiveHistoryId(activeHistoryId === item.id ? null : item.id) },
+            { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+            { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+          ].map((btn) => {
+            const colors = {
+              emerald: "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-transparent hover:border-emerald-500/30",
+              orange: "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-transparent hover:border-orange-500/30",
+              violet: "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-transparent hover:border-violet-500/30",
+              blue: "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-transparent hover:border-blue-500/30",
+              red: "bg-red-500/10 hover:bg-red-500/20 text-red-400 border-transparent hover:border-red-500/30",
+            };
+            return (
+              <button
+                key={btn.label}
+                onClick={btn.onClick}
+                className={`${colors[btn.color]} text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border w-full`}
+              >
+                <btn.icon size={14} />
+                <span className="whitespace-nowrap font-medium">{btn.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeHistoryId === item.id && (
+          <div className="mt-4 bg-[#0a0f1a] rounded-xl p-3 border border-[#1e2d45] space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">
+              Riwayat Transaksi
+            </div>
+            {historyPembayaran.length > 0 ? (
+              historyPembayaran.map((h) => (
+                <div key={h.id} className="text-xs border-b border-[#1e2d45] pb-2.5 mb-2.5 last:border-0 last:pb-0 last:mb-0">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-slate-300 font-medium">{h.tanggal || "-"}</span>
+                    <span className={`font-bold ${h.type === "tambah" ? "text-orange-400" : "text-emerald-400"}`}>
+                      {h.type === "tambah" ? "+" : "-"} {formatCurrency(h.jumlah)}
+                    </span>
+                  </div>
+                  <div className="text-slate-500 mb-2 italic">"{h.catatan || (h.type === "tambah" ? "Penambahan piutang" : "Penerimaan pembayaran")}"</div>
+                  <div className="flex gap-3">
+                    <button onClick={() => handleEditPembayaran(h)} className="text-blue-400 hover:text-blue-300 font-medium">Edit</button>
+                    <button onClick={() => handleDeletePembayaran(h)} className="text-red-400 hover:text-red-300 font-medium">Hapus</button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-500 italic py-2">Belum ada riwayat transaksi.</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const countStatus = {
     all: piutang.length,
@@ -600,194 +675,29 @@ export default function Piutang() {
         )}
       </div>
 
-      <div className="space-y-3">
-        {sortedData.length > 0 ? (
-          sortedData.map((item) => {
-            const total = parseFloat(item.jumlah) || 0;
-            const totalPenambahan = getTotalPenambahan(item.id);
-            const totalDiterima = getTotalDiterima(item.id);
-            const sisa = Math.max(total + totalPenambahan - totalDiterima, 0);
-            const historyPembayaran = getHistoryPiutang(item.id);
-            const status = getDueStatus(item);
-            let borderColor = "border-l-emerald-400";
-            let statusIcon = <Clock size={12} className="text-emerald-400" />;
-            let statusText = "Akan Datang";
-            let statusBg = "bg-emerald-400/10 text-emerald-300";
-
-            if (status === "lunas") {
-              borderColor = "border-l-emerald-500";
-              statusIcon = <CheckCircle size={12} className="text-emerald-500" />;
-              statusText = "Lunas";
-              statusBg = "bg-emerald-500/10 text-emerald-400";
-            } else if (status === "overdue") {
-              borderColor = "border-l-emerald-600";
-              statusIcon = <AlertCircle size={12} className="text-emerald-500" />;
-              statusText = "Terlewat";
-              statusBg = "bg-emerald-600/20 text-emerald-400";
-            } else if (status === "due") {
-              borderColor = "border-l-emerald-500";
-              statusIcon = (
-                <CheckCircle size={12} className="text-emerald-500" />
-              );
-              statusText = "Jatuh Tempo Hari Ini";
-              statusBg = "bg-emerald-500/10 text-emerald-400";
-            }
-
-            return (
-              <div
-                key={item.id}
-                className={`bg-slate-800 rounded-xl p-3 border border-slate-700 border-l-4 ${borderColor} shadow-sm`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-base font-bold text-white">
-                    {item.namaOrang}
-                  </h3>
-                  <div
-                    className={`flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${statusBg}`}
-                  >
-                    {statusIcon}
-                    {statusText}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-gray-500">{item.tanggal}</span>
-                  <span className="text-lg font-bold text-green-500">
-                    {formatCurrency(sisa)}
-                  </span>
-                </div>
-                <div className="text-[10px] text-gray-500 mb-1">
-                  Jatuh Tempo: {item.jatuhTempo}
-                </div>
-                <div className="text-[10px] text-gray-400 mb-3 pb-3 border-b border-slate-700/50">
-                  Total: {formatCurrency(total)} • Diterima:{" "}
-                  {formatCurrency(totalDiterima)}
-                </div>
-
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[
-                    {
-                      icon: Wallet,
-                      label: "Terima",
-                      color: "emerald",
-                      onClick: () => openBayarModal(item),
-                    },
-                    {
-                      icon: Plus,
-                      label: "Tambah",
-                      color: "orange",
-                      onClick: () => handleAdd(item),
-                    },
-                    {
-                      icon: History,
-                      label: `Histori${historyPembayaran.length > 0 ? ` (${historyPembayaran.length})` : ""}`,
-                      color: "violet",
-                      onClick: () =>
-                        setActiveHistoryId(
-                          activeHistoryId === item.id ? null : item.id,
-                        ),
-                    },
-                    {
-                      icon: Pencil,
-                      label: "Edit",
-                      color: "blue",
-                      onClick: () => handleEdit(item),
-                    },
-                    {
-                      icon: Trash2,
-                      label: "Hapus",
-                      color: "red",
-                      onClick: () => handleDelete(item),
-                    },
-                  ].map((btn) => {
-                    // Kamus warna statis agar Tailwind bisa membaca warnanya saat di-deploy
-                    const colors = {
-                      emerald:
-                        "bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border-emerald-500/20",
-                      orange:
-                        "bg-orange-600/10 hover:bg-orange-600/20 text-orange-400 border-orange-500/20",
-                      violet:
-                        "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-violet-500/20",
-                      blue: "bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border-blue-500/20",
-                      red: "bg-red-600/10 hover:bg-red-600/20 text-red-400 border-red-500/20",
-                    };
-
-                    const colorClass = colors[btn.color] || colors.blue;
-
-                    return (
-                      <button
-                        key={btn.label}
-                        onClick={btn.onClick}
-                        // Desain diubah menjadi menyamping (flex items-center) dan teks tidak turun ke bawah (whitespace-nowrap)
-                        className={`${colorClass} text-[9px] sm:text-[10px] py-1.5 px-1 rounded-lg flex items-center justify-center gap-1 transition-colors border w-full`}
-                      >
-                        <btn.icon size={12} />
-                        <span className="whitespace-nowrap">{btn.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {activeHistoryId === item.id && (
-                  <div className="mt-3 bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/50 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1">
-                      Riwayat Transaksi
-                    </div>
-                    {historyPembayaran.length > 0 ? (
-                      historyPembayaran.map((h) => (
-                        <div
-                          key={h.id}
-                          className="text-[11px] border-b border-slate-700/50 pb-2 last:border-0 last:pb-0"
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-gray-300 font-medium">
-                              {h.tanggal || "-"}
-                            </span>
-                            <span
-                              className={`font-bold ${h.type === "tambah" ? "text-orange-400" : "text-emerald-400"}`}
-                            >
-                              {h.type === "tambah" ? "+" : "-"}{" "}
-                              {formatCurrency(h.jumlah)}
-                            </span>
-                          </div>
-                          <div className="text-gray-500 mb-1.5 italic">
-                            "
-                            {h.catatan ||
-                              (h.type === "tambah"
-                                ? "Penambahan piutang"
-                                : "Penerimaan pembayaran")}
-                            "
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditPembayaran(h)}
-                              className="text-blue-400 hover:text-blue-300 font-medium"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeletePembayaran(h)}
-                              className="text-red-400 hover:text-red-300 font-medium"
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[11px] text-gray-500 italic py-2">
-                        Belum ada riwayat transaksi.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })
+      <div className="space-y-4">
+        {activePiutang.length > 0 ? (
+          activePiutang.map((item) => renderPiutangCard(item))
         ) : (
-          <div className="text-center py-12 bg-slate-800/20 border border-dashed border-slate-700 rounded-2xl">
-            <p className="text-gray-500 text-sm">
-              Tidak ada piutang ditemukan.
-            </p>
+          <div className="text-center py-12 bg-[#0c1220]/50 border border-dashed border-[#1e2d45] rounded-2xl">
+            <p className="text-slate-500 text-sm">Tidak ada piutang aktif.</p>
+          </div>
+        )}
+
+        {lunasPiutang.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-[#1e2d45]">
+            <button 
+              onClick={() => setShowLunasHistory(!showLunasHistory)} 
+              className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors w-full"
+            >
+              {showLunasHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              Riwayat Piutang Selesai ({lunasPiutang.length})
+            </button>
+            {showLunasHistory && (
+              <div className="mt-4 space-y-4 opacity-70 hover:opacity-100 transition-opacity">
+                {lunasPiutang.map(item => renderPiutangCard(item))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -840,15 +750,10 @@ export default function Piutang() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Jumlah Piutang (Rp)
-                </label>
-                <input
-                  type="text"
-                  value={calcInput}
-                  onChange={handleJumlahChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
-                  placeholder="0"
+                <NumericInput
+                  label="Jumlah Piutang"
+                  value={formData.jumlah}
+                  onChange={(val) => setFormData({ ...formData, jumlah: val ? Number(val) : "" })}
                   required
                 />
               </div>
@@ -934,22 +839,12 @@ export default function Piutang() {
                 </span>
               </p>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Nominal Diterima
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                    Rp
-                  </span>
-                  <input
-                    type="text"
-                    value={getPayInputDisplay()}
-                    onChange={(e) => handlePayJumlahChange(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-9 text-sm text-white focus:border-emerald-500 transition-colors"
-                    placeholder="0"
-                    required
-                  />
-                </div>
+                <NumericInput
+                  label="Nominal Diterima"
+                  value={payFormData.jumlah}
+                  onChange={(val) => setPayFormData({ ...payFormData, jumlah: val })}
+                  required
+                />
               </div>
               <input
                 type="date"
@@ -1005,22 +900,12 @@ export default function Piutang() {
                 </span>
               </p>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Nominal Tambah
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                    Rp
-                  </span>
-                  <input
-                    type="text"
-                    value={getAddInputDisplay()}
-                    onChange={(e) => handleAddJumlahChange(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-9 text-sm text-white focus:border-orange-500 transition-colors"
-                    placeholder="0"
-                    required
-                  />
-                </div>
+                <NumericInput
+                  label="Nominal Tambah"
+                  value={addFormData.jumlah}
+                  onChange={(val) => setAddFormData({ ...addFormData, jumlah: val })}
+                  required
+                />
               </div>
               <input
                 type="date"
@@ -1070,30 +955,12 @@ export default function Piutang() {
             </div>
             <form onSubmit={handleUpdatePembayaran} className="p-4 space-y-4">
               <div>
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Nominal
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                    Rp
-                  </span>
-                  <input
-                    type="text"
-                    value={
-                      editPayData.jumlah
-                        ? Number(editPayData.jumlah).toLocaleString("id-ID")
-                        : ""
-                    }
-                    onChange={(e) =>
-                      setEditPayData({
-                        ...editPayData,
-                        jumlah: e.target.value.replace(/[^\d]/g, ""),
-                      })
-                    }
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pl-9 text-sm text-white focus:border-blue-500 transition-colors"
-                    required
-                  />
-                </div>
+                <NumericInput
+                  label="Nominal"
+                  value={editPayData.jumlah}
+                  onChange={(val) => setEditPayData({ ...editPayData, jumlah: val })}
+                  required
+                />
               </div>
               <input
                 type="date"

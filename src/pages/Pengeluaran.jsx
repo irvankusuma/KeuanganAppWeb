@@ -4,7 +4,6 @@ import {
   Pencil,
   Trash2,
   X,
-  Calculator,
   TrendingDown,
   Filter,
   ChevronDown,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
+import NumericInput from "../components/NumericInput";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -37,8 +37,6 @@ export default function Pengeluaran() {
     tanggal: new Date().toISOString().split("T")[0],
     catatan: "",
   });
-  const [calcInput, setCalcInput] = useState("");
-  const [showCalc, setShowCalc] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
@@ -120,7 +118,6 @@ export default function Pengeluaran() {
       tanggal: item.tanggal,
       catatan: item.catatan || "",
     });
-    setCalcInput(formatNumber(item.jumlah));
     setModalVisible(true);
   };
 
@@ -148,65 +145,11 @@ export default function Pengeluaran() {
       tanggal: new Date().toISOString().split("T")[0],
       catatan: "",
     });
-    setCalcInput("");
-    setShowCalc(false);
   };
 
   const formatCurrency = (num) => {
     if (!num) return "Rp 0";
     return "Rp " + Number(num).toLocaleString("id-ID");
-  };
-
-  const formatNumber = (num) => {
-    if (!num) return "";
-    return Number(num).toLocaleString("id-ID");
-  };
-
-  const parseLocaleNumber = (str) => {
-    if (!str) return 0;
-    return Number(str.replace(/\./g, ""));
-  };
-
-  const handleJumlahChange = (e) => {
-    const raw = e.target.value.replace(/[^\d]/g, "");
-    const num = raw ? parseInt(raw, 10) : 0;
-    setFormData({ ...formData, jumlah: num });
-    setCalcInput(num ? num.toLocaleString("id-ID") : "");
-  };
-
-  const safeEvaluate = (input) => {
-    try {
-      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!expr) return 0;
-      // eslint-disable-next-line no-new-func
-      const result = new Function(`return ${expr}`)();
-      return isNaN(result) ? 0 : result;
-    } catch (e) {
-      return 0;
-    }
-  };
-
-  const handleCalcButton = (val) => {
-    if (val === "C") {
-      setCalcInput("");
-      setFormData({ ...formData, jumlah: 0 });
-    } else if (val === "←") {
-      const newInput = calcInput.slice(0, -1);
-      setCalcInput(newInput);
-      const num = parseLocaleNumber(newInput);
-      setFormData({ ...formData, jumlah: num });
-    } else if (val === "=") {
-      const result = safeEvaluate(calcInput);
-      setCalcInput(result.toLocaleString("id-ID"));
-      setFormData({ ...formData, jumlah: result });
-    } else {
-      const newInput = calcInput + val;
-      setCalcInput(newInput);
-      const expr = newInput.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!isNaN(Number(expr))) {
-        setFormData({ ...formData, jumlah: Number(expr) });
-      }
-    }
   };
 
   // Ambil bulan dari tanggal
@@ -440,54 +383,54 @@ export default function Pengeluaran() {
             return (
               <div
                 key={i}
-                className="bg-slate-800 rounded-xl p-3 border-l-4 border-orange-500"
+                className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 border-l-4 border-l-orange-500 shadow-sm transition-all hover:shadow-md"
               >
-                <div className="flex justify-between items-start mb-1">
-                  <h3 className="text-base font-bold">{item.nama}</h3>
-                  <div className="flex items-center gap-1 text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded-full">
+                <div className="flex justify-between items-start mb-1.5">
+                  <h3 className="text-sm font-semibold text-white truncate flex-1">{item.nama}</h3>
+                  <div className="flex items-center gap-1.5 text-[10px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full shrink-0 font-medium border border-orange-500/20">
                     {getKategoriIcon(item.kategori)}
                     <span>{item.kategori || "Lainnya"}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs text-gray-500">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-slate-500 font-medium">
                     {new Date(item.tanggal).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     })}
                   </div>
-                  <div className="text-sm font-bold text-orange-500">
+                  <div className="text-sm font-bold text-orange-400">
                     {formatCurrency(total)}
                   </div>
                 </div>
 
                 {item.catatan && (
-                  <div className="text-[10px] text-gray-500 mb-2 italic">
-                    {item.catatan}
+                  <div className="text-[11px] text-slate-400 mb-3 italic bg-slate-800/30 p-2 rounded-lg border border-slate-700/30">
+                    "{item.catatan}"
                   </div>
                 )}
 
-                <div className="flex gap-2 mt-2">
+                <div className="flex items-center gap-2 pt-3 border-t border-[#1e2d45]/50">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#141d2e] text-slate-400 hover:text-blue-400 hover:bg-blue-600/15 transition-colors"
                   >
-                    <Pencil size={12} /> Edit
+                    <Pencil size={13} /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#141d2e] text-slate-400 hover:text-red-400 hover:bg-red-600/15 transition-colors"
                   >
-                    <Trash2 size={12} /> Hapus
+                    <Trash2 size={13} /> Hapus
                   </button>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-14 text-slate-500 text-sm bg-[#0e1523] border border-[#1e2d45] rounded-xl">
             {filterKategori !== "all" || filterBulan !== "all"
               ? "Tidak ada pengeluaran dengan kriteria ini"
               : "Belum ada pengeluaran"}
@@ -498,7 +441,7 @@ export default function Pengeluaran() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-700 rounded-full flex items-center justify-center shadow-lg z-40"
+        className="fixed bottom-20 md:bottom-8 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-900/40 z-40 transition-colors"
       >
         <Plus size={22} />
       </button>
@@ -580,70 +523,14 @@ export default function Pengeluaran() {
                 </div>
               </div>
 
-              {/* Jumlah dengan kalkulator */}
+              {/* Jumlah */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Jumlah (Rp)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={calcInput}
-                    onChange={handleJumlahChange}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white pr-8"
-                    placeholder="0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCalc(!showCalc)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white"
-                  >
-                    <Calculator size={16} />
-                  </button>
-                </div>
-
-                {showCalc && (
-                  <div className="mt-2 p-2 bg-slate-900 rounded-lg grid grid-cols-4 gap-1">
-                    {[
-                      "7",
-                      "8",
-                      "9",
-                      "C",
-                      "4",
-                      "5",
-                      "6",
-                      "←",
-                      "1",
-                      "2",
-                      "3",
-                      "+",
-                      "0",
-                      "00",
-                      "-",
-                      "*",
-                      "/",
-                      "=",
-                    ].map((btn) => (
-                      <button
-                        key={btn}
-                        type="button"
-                        onClick={() => handleCalcButton(btn)}
-                        className={`p-1.5 rounded text-xs font-bold ${
-                          btn === "C"
-                            ? "bg-red-600/20 text-red-400"
-                            : btn === "="
-                              ? "bg-green-600/20 text-green-400"
-                              : "bg-slate-800 hover:bg-slate-700"
-                        }`}
-                      >
-                        {btn}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="text-[10px] text-gray-500 mt-1">
-                  {formatCurrency(formData.jumlah)}
-                </div>
+                <NumericInput
+                  label="Jumlah"
+                  value={formData.jumlah}
+                  onChange={(val) => setFormData({ ...formData, jumlah: val ? Number(val) : "" })}
+                  required
+                />
               </div>
 
               {/* Tanggal */}

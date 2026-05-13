@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus, Pencil, Trash2, X, Calculator, TrendingUp,
   Filter, ChevronDown, ChevronUp, History,
-  ArrowDownCircle, ArrowUpCircle,
+  ArrowDownCircle, ArrowUpCircle, MoreHorizontal,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
+import { SkeletonListPage } from "../components/Skeleton";
+import NumericInput from "../components/NumericInput";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -20,8 +22,6 @@ export default function Pemasukan() {
     tanggal: new Date().toISOString().split("T")[0],
     catatan: "",
   });
-  const [calcInput, setCalcInput] = useState("");
-  const [showCalc, setShowCalc] = useState(false);
 
   // Modal tambah sub-saldo (per item)
   const [showTambahSubModal, setShowTambahSubModal] = useState(false);
@@ -31,8 +31,6 @@ export default function Pemasukan() {
     parentId: "", tanggal: new Date().toISOString().split("T")[0],
     jumlah: "", catatan: "",
   });
-  const [subCalcInput, setSubCalcInput] = useState("");
-  const [showSubCalc, setShowSubCalc] = useState(false);
 
   // Modal keluar (per item)
   const [showKeluarModal, setShowKeluarModal] = useState(false);
@@ -44,8 +42,6 @@ export default function Pemasukan() {
     tanggal: new Date().toISOString().split("T")[0],
     jumlah: "", catatan: "",
   });
-  const [keluarCalcInput, setKeluarCalcInput] = useState("");
-  const [showKeluarCalc, setShowKeluarCalc] = useState(false);
 
   // History panel
   const [activeHistoryId, setActiveHistoryId] = useState(null);
@@ -54,13 +50,19 @@ export default function Pemasukan() {
   const [filterBulan, setFilterBulan] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Dropdown menu per card
+  const [activeMenu, setActiveMenu] = useState(null);
+
   const [confirmModal, setConfirmModal] = useState({
     visible: false, title: "", message: "", onConfirm: null,
   });
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = () => {
+    setLoading(false);
     setPemasukan(LocalStorageService.readSheet(SHEETS.PEMASUKAN));
     setPengeluaran(LocalStorageService.readSheet(SHEETS.PENGELUARAN));
   };
@@ -108,52 +110,6 @@ export default function Pemasukan() {
   const filteredRoots = rootItems.filter((i) => filterBulan === "all" || getMonthYear(i.tanggal) === filterBulan);
   const sortedRoots = [...filteredRoots].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
 
-  // ===== CALCULATOR =====
-  const safeEval = (input) => {
-    try {
-      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!expr) return 0;
-      // eslint-disable-next-line no-new-func
-      const r = new Function(`return ${expr}`)();
-      return isNaN(r) ? 0 : r;
-    } catch { return 0; }
-  };
-
-  const calcKeys = ["7","8","9","C","4","5","6","←","1","2","3","+","0","00","-","*","/","="];
-
-  const makeCalcHandler = (getCur, setCur, setNum) => (btn) => {
-    const curVal = getCur();
-    let next = curVal;
-    if (btn === "C") { next = ""; setNum(0); }
-    else if (btn === "←") { next = curVal.slice(0, -1); setNum(parseN(next)); }
-    else if (btn === "=") {
-      const r = safeEval(curVal);
-      next = r ? r.toLocaleString("id-ID") : "";
-      setNum(r);
-    } else {
-      next = curVal + btn;
-      const expr = next.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!isNaN(Number(expr))) setNum(Number(expr));
-    }
-    setCur(next);
-  };
-
-  const renderCalc = (handler) => (
-    <div className="mt-1.5 p-2 bg-slate-900 rounded-lg grid grid-cols-4 gap-1 border border-slate-700">
-      {calcKeys.map((btn) => (
-        <button
-          key={btn} type="button"
-          onClick={() => handler(btn)}
-          className={`p-1.5 rounded text-xs font-bold ${
-            btn === "C" ? "bg-red-600/20 text-red-400" :
-            btn === "=" ? "bg-green-600/20 text-green-400" :
-            "bg-slate-800 hover:bg-slate-700 text-gray-300"
-          }`}
-        >{btn}</button>
-      ))}
-    </div>
-  );
-
   const inputCls = "w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white";
   const labelCls = "block text-xs text-gray-400 mb-1";
 
@@ -172,7 +128,6 @@ export default function Pemasukan() {
   const handleEdit = (item) => {
     setEditMode(true); setEditId(item.id);
     setFormData({ nama: item.nama, jumlah: item.jumlah, tanggal: item.tanggal, catatan: item.catatan || "" });
-    setCalcInput(fmtN(item.jumlah));
     setModalVisible(true);
   };
 
@@ -194,28 +149,24 @@ export default function Pemasukan() {
   const resetForm = () => {
     setModalVisible(false); setEditMode(false); setEditId(null);
     setFormData({ nama: "", jumlah: "", tanggal: new Date().toISOString().split("T")[0], catatan: "" });
-    setCalcInput(""); setShowCalc(false);
   };
 
   // ===== HANDLERS: SUB-TAMBAH =====
   const handleOpenSub = (item) => {
     setEditSubMode(false); setEditSubId(null);
     setSubForm({ parentId: item.id, tanggal: new Date().toISOString().split("T")[0], jumlah: "", catatan: "" });
-    setSubCalcInput(""); setShowSubCalc(false);
     setShowTambahSubModal(true);
   };
 
   const handleEditSub = (subItem) => {
     setEditSubMode(true); setEditSubId(subItem.id);
     setSubForm({ parentId: subItem.parent_id, tanggal: subItem.tanggal, jumlah: subItem.jumlah, catatan: subItem.catatan || "" });
-    setSubCalcInput(fmtN(subItem.jumlah));
-    setShowSubCalc(false);
     setShowTambahSubModal(true);
   };
 
   const handleSubmitSub = (e) => {
     e.preventDefault();
-    const jumlahNum = parseN(subCalcInput) || parseFloat(subForm.jumlah) || 0;
+    const jumlahNum = parseFloat(subForm.jumlah) || 0;
     if (!jumlahNum) { alert("Saldo harus diisi!"); return; }
     const data = { parent_id: subForm.parentId, jumlah: jumlahNum, tanggal: subForm.tanggal, catatan: subForm.catatan || "" };
     if (editSubMode && editSubId) {
@@ -242,7 +193,6 @@ export default function Pemasukan() {
     setEditKeluarMode(false); setEditKeluarId(null);
     setKeluarParentId(item.id); setKeluarParentNama(item.nama);
     setKeluarForm({ tanggal: new Date().toISOString().split("T")[0], jumlah: "", catatan: "" });
-    setKeluarCalcInput(""); setShowKeluarCalc(false);
     setShowKeluarModal(true);
   };
 
@@ -250,14 +200,12 @@ export default function Pemasukan() {
     setEditKeluarMode(true); setEditKeluarId(kItem.id);
     setKeluarParentId(parentItem.id); setKeluarParentNama(parentItem.nama);
     setKeluarForm({ tanggal: kItem.tanggal, jumlah: kItem.jumlah, catatan: kItem.catatan || "" });
-    setKeluarCalcInput(fmtN(kItem.jumlah));
-    setShowKeluarCalc(false);
     setShowKeluarModal(true);
   };
 
   const handleSubmitKeluar = (e) => {
     e.preventDefault();
-    const jumlahNum = parseN(keluarCalcInput) || parseFloat(keluarForm.jumlah) || 0;
+    const jumlahNum = parseFloat(keluarForm.jumlah) || 0;
     if (!jumlahNum) { alert("Saldo harus diisi!"); return; }
     const data = {
       nama: `Keluar: ${keluarParentNama}`,
@@ -288,25 +236,27 @@ export default function Pemasukan() {
   };
 
   // ===== RENDER =====
+  if (loading) return <SkeletonListPage count={4} />;
+
   return (
     <div>
       {/* Ringkasan */}
-      <div className="mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-4 shadow-lg text-white">
+      <div className="mb-4 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl p-5 shadow-xl shadow-emerald-900/20 text-white">
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs text-emerald-100 mb-1">Total Pemasukan</div>
-            <div className="text-2xl font-bold">{fmtC(totalPemasukan)}</div>
+            <div className="text-2xl font-bold tracking-tight">{fmtC(totalPemasukan)}</div>
           </div>
-          <div className="bg-white/20 p-2 rounded-full"><TrendingUp size={24} /></div>
+          <div className="bg-white/20 p-2.5 rounded-xl"><TrendingUp size={22} /></div>
         </div>
         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/20">
           <div>
-            <div className="text-[10px] text-emerald-100">Total Pengeluaran</div>
-            <div className="text-sm font-semibold">{fmtC(totalPengeluaran)}</div>
+            <div className="text-xs text-emerald-100">Total Pengeluaran</div>
+            <div className="text-sm font-semibold mt-0.5">{fmtC(totalPengeluaran)}</div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] text-emerald-100">Sisa Saldo</div>
-            <div className={`text-sm font-semibold ${sisaSaldo < 0 ? "text-red-200" : "text-green-200"}`}>{fmtC(sisaSaldo)}</div>
+            <div className="text-xs text-emerald-100">Sisa Saldo</div>
+            <div className={`text-sm font-semibold mt-0.5 ${sisaSaldo < 0 ? "text-red-200" : "text-green-200"}`}>{fmtC(sisaSaldo)}</div>
           </div>
         </div>
       </div>
@@ -358,123 +308,167 @@ export default function Pemasukan() {
       {/* Daftar */}
       <div className="space-y-2">
         {sortedRoots.length > 0 ? (
-          sortedRoots.map((item, i) => {
-            const subTambah = getSubTambah(item.id);
-            const keluarList = getKeluarList(item.id);
-            const saldoAktif = getSaldoAktif(item);
-            const showHistory = activeHistoryId === item.id;
+          sortedRoots.map((item) => {
+            const subTambah    = getSubTambah(item.id);
+            const keluarList   = getKeluarList(item.id);
+            const saldoAktif   = getSaldoAktif(item);
+            const showHistory  = activeHistoryId === item.id;
             const historyCount = subTambah.length + keluarList.length;
+            const menuOpen     = activeMenu === item.id;
 
             return (
-              <div key={i} className="bg-slate-800 rounded-xl border border-slate-700 border-l-4 border-l-emerald-500 p-2.5">
-                {/* Baris 1: nama + jumlah */}
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-sm font-bold text-white truncate flex-1 mr-2">{item.nama}</h3>
-                  <span className="text-sm font-bold text-emerald-400">{fmtC(item.jumlah)}</span>
+              <div
+                key={item.id}
+                className="bg-[#0e1523] border border-[#1e2d45] rounded-xl border-l-4 border-l-emerald-500 p-4"
+              >
+                {/* Row 1: nama + jumlah awal */}
+                <div className="flex justify-between items-start gap-3 mb-1">
+                  <h3 className="text-sm font-semibold text-white truncate flex-1">{item.nama}</h3>
+                  <span className="text-sm font-bold text-emerald-400 shrink-0">{fmtC(item.jumlah)}</span>
                 </div>
 
-                {/* Baris 2: tanggal + saldo aktif */}
-                <div className="flex items-center gap-1 text-[10px] mb-1 flex-wrap">
-                  <span className="text-gray-500">
-                    {new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "2-digit" })}
+                {/* Row 2: tanggal + saldo aktif */}
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-3">
+                  <span>
+                    {new Date(item.tanggal).toLocaleDateString("id-ID", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
                   </span>
                   {saldoAktif !== (parseFloat(item.jumlah) || 0) && (
                     <>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-400">Aktif:</span>
-                      <span className={`font-bold ${saldoAktif < 0 ? "text-red-400" : "text-teal-400"}`}>{fmtC(saldoAktif)}</span>
+                      <span className="text-slate-700">·</span>
+                      <span className="text-slate-400">Aktif:</span>
+                      <span className={`font-semibold ${saldoAktif < 0 ? "text-red-400" : "text-teal-400"}`}>
+                        {fmtC(saldoAktif)}
+                      </span>
                     </>
                   )}
-                  {historyCount > 0 && <span className="text-emerald-400 ml-auto">{historyCount} entri</span>}
+                  {historyCount > 0 && (
+                    <span className="ml-auto text-emerald-400/80 text-xs">{historyCount} entri</span>
+                  )}
                 </div>
 
-                {item.catatan && <div className="text-[9px] text-gray-500 italic mb-1 truncate">{item.catatan}</div>}
+                {item.catatan && (
+                  <p className="text-xs text-slate-500 italic mb-3 truncate">{item.catatan}</p>
+                )}
 
-                {/* Tombol 5 kolom */}
-                <div className="grid grid-cols-5 gap-1">
-                  <button
-                    onClick={() => handleOpenSub(item)}
-                    className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
-                  ><Plus size={10} /> Tambah</button>
-                  <button
-                    onClick={() => handleOpenKeluar(item)}
-                    className="bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
-                  ><ArrowDownCircle size={10} /> Keluar</button>
+                {/* ── Action buttons: 3 main + overflow menu ── */}
+                <div className="flex items-center gap-2">
+                  {/* Riwayat */}
                   <button
                     onClick={() => setActiveHistoryId(showHistory ? null : item.id)}
-                    className={`text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5 ${showHistory ? "bg-violet-600/40 text-violet-300" : "bg-violet-600/20 hover:bg-violet-600/40 text-violet-400"}`}
-                  ><History size={10} /> Histori {historyCount > 0 && `(${historyCount})`}</button>
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      showHistory
+                        ? "bg-violet-600/30 text-violet-300"
+                        : "bg-[#141d2e] text-slate-400 hover:text-violet-400 hover:bg-violet-600/15"
+                    }`}
+                  >
+                    <History size={13} />
+                    Riwayat {historyCount > 0 && `(${historyCount})`}
+                  </button>
+
+                  {/* Edit */}
                   <button
                     onClick={() => handleEdit(item)}
-                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
-                  ><Pencil size={10} /> Edit</button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
-                  ><Trash2 size={10} /> Hapus</button>
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#141d2e] text-slate-400 hover:text-blue-400 hover:bg-blue-600/15 transition-colors"
+                  >
+                    <Pencil size={13} />
+                    Edit
+                  </button>
+
+                  {/* Overflow menu (⋯) */}
+                  <div className="ml-auto relative">
+                    <button
+                      onClick={() => setActiveMenu(menuOpen ? null : item.id)}
+                      className={`p-1.5 rounded-lg text-xs transition-colors ${
+                        menuOpen
+                          ? "bg-white/10 text-slate-200"
+                          : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                      }`}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+
+                    {menuOpen && (
+                      <>
+                        {/* Click-away overlay */}
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setActiveMenu(null)}
+                        />
+                        {/* Dropdown */}
+                        <div className="absolute right-0 bottom-full mb-1.5 w-44 bg-[#0e1523] border border-[#1e2d45] rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
+                          <button
+                            onClick={() => { handleOpenSub(item); setActiveMenu(null); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-slate-300 hover:text-emerald-300 hover:bg-emerald-600/10 transition-colors"
+                          >
+                            <ArrowUpCircle size={14} />
+                            Tambah Saldo
+                          </button>
+                          <button
+                            onClick={() => { handleOpenKeluar(item); setActiveMenu(null); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-slate-300 hover:text-orange-300 hover:bg-orange-600/10 transition-colors"
+                          >
+                            <ArrowDownCircle size={14} />
+                            Keluar Saldo
+                          </button>
+                          <div className="h-px bg-[#1e2d45]" />
+                          <button
+                            onClick={() => { handleDelete(item); setActiveMenu(null); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-slate-300 hover:text-red-400 hover:bg-red-600/10 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                            Hapus
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {/* History panel */}
+                {/* ── History panel ── */}
                 {showHistory && (
-                  <div className="mt-2 bg-slate-900/60 rounded-lg border border-slate-700/50 p-2">
-                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">Riwayat</div>
+                  <div className="mt-3 bg-[#0a0f1a] rounded-xl border border-[#1e2d45] p-3">
+                    <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-2">Riwayat</p>
                     {historyCount > 0 ? (
-                      <div>
+                      <div className="space-y-2">
                         {subTambah.map((s) => (
-                          <div key={s.id} className="border-b border-slate-700/40 pb-2 mb-2 last:border-0 last:mb-0">
-                            <div className="flex justify-between items-center mb-0.5">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <ArrowUpCircle size={8} /> Tambah
-                                </span>
-                                <span className="text-[10px] text-gray-300">
-                                  {new Date(s.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-bold text-emerald-400">{fmtC(s.jumlah)}</span>
+                          <div key={s.id} className="flex items-start justify-between gap-2 pb-2 border-b border-[#1e2d45] last:border-0 last:pb-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[10px] font-medium shrink-0 flex items-center gap-1">
+                                <ArrowUpCircle size={10} /> Masuk
+                              </span>
+                              <span className="text-xs text-slate-400 truncate">
+                                {new Date(s.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
                             </div>
-                            {s.catatan && <div className="text-[9px] text-gray-500 italic mb-1">{s.catatan}</div>}
-                            <div className="flex gap-1 mt-1">
-                              <button onClick={() => handleEditSub(s)}
-                                className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5">
-                                <Pencil size={9} /> Edit
-                              </button>
-                              <button onClick={() => handleDeleteSub(s)}
-                                className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5">
-                                <Trash2 size={9} /> Hapus
-                              </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs font-semibold text-emerald-400">{fmtC(s.jumlah)}</span>
+                              <button onClick={() => handleEditSub(s)} className="p-1 rounded text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={11} /></button>
+                              <button onClick={() => handleDeleteSub(s)} className="p-1 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={11} /></button>
                             </div>
                           </div>
                         ))}
                         {keluarList.map((k) => (
-                          <div key={k.id} className="border-b border-slate-700/40 pb-2 mb-2 last:border-0 last:mb-0">
-                            <div className="flex justify-between items-center mb-0.5">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <ArrowDownCircle size={8} /> Keluar
-                                </span>
-                                <span className="text-[10px] text-gray-300">
-                                  {new Date(k.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-bold text-orange-400">-{fmtC(k.jumlah)}</span>
+                          <div key={k.id} className="flex items-start justify-between gap-2 pb-2 border-b border-[#1e2d45] last:border-0 last:pb-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded-md bg-orange-500/15 text-orange-400 text-[10px] font-medium shrink-0 flex items-center gap-1">
+                                <ArrowDownCircle size={10} /> Keluar
+                              </span>
+                              <span className="text-xs text-slate-400 truncate">
+                                {new Date(k.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
                             </div>
-                            {k.catatan && <div className="text-[9px] text-gray-500 italic mb-1">{k.catatan}</div>}
-                            <div className="flex gap-1 mt-1">
-                              <button onClick={() => handleEditKeluar(k, item)}
-                                className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5">
-                                <Pencil size={9} /> Edit
-                              </button>
-                              <button onClick={() => handleDeleteKeluar(k)}
-                                className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5">
-                                <Trash2 size={9} /> Hapus
-                              </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs font-semibold text-orange-400">-{fmtC(k.jumlah)}</span>
+                              <button onClick={() => handleEditKeluar(k, item)} className="p-1 rounded text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={11} /></button>
+                              <button onClick={() => handleDeleteKeluar(k)} className="p-1 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={11} /></button>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-gray-500 italic py-1 text-center">Belum ada riwayat</div>
+                      <p className="text-xs text-slate-600 italic text-center py-2">Belum ada riwayat</p>
                     )}
                   </div>
                 )}
@@ -482,7 +476,7 @@ export default function Pemasukan() {
             );
           })
         ) : (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-14 text-slate-500 text-sm bg-[#0e1523] border border-[#1e2d45] rounded-xl">
             {filterBulan !== "all" ? "Tidak ada pemasukan di bulan ini" : "Belum ada pemasukan"}
           </div>
         )}
@@ -491,8 +485,11 @@ export default function Pemasukan() {
       {/* FAB */}
       <button
         onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-6 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-700 rounded-full flex items-center justify-center shadow-lg z-40"
-      ><Plus size={22} /></button>
+        className="fixed bottom-20 md:bottom-8 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-900/40 z-40 transition-colors"
+        aria-label="Tambah pemasukan"
+      >
+        <Plus size={22} />
+      </button>
 
       {/* ========== MODAL TAMBAH/EDIT ROOT ========== */}
       {modalVisible && (
@@ -516,23 +513,12 @@ export default function Pemasukan() {
                   className={inputCls} style={{ colorScheme: "dark" }} />
               </div>
               <div>
-                <label className={labelCls}>Saldo (Rp) <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <input type="text" value={calcInput}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d]/g, "");
-                      const num = raw ? parseInt(raw, 10) : 0;
-                      setFormData({ ...formData, jumlah: num });
-                      setCalcInput(num ? num.toLocaleString("id-ID") : "");
-                    }}
-                    className={`${inputCls} pr-8`} placeholder="0" />
-                  <button type="button" onClick={() => setShowCalc(!showCalc)}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${showCalc ? "bg-emerald-600/20 text-emerald-400" : "text-gray-400 hover:text-white"}`}>
-                    <Calculator size={16} />
-                  </button>
-                </div>
-                {showCalc && renderCalc(makeCalcHandler(() => calcInput, setCalcInput, (v) => setFormData((p) => ({ ...p, jumlah: v }))))}
-                <div className="text-[10px] text-gray-500 mt-1">{fmtC(formData.jumlah)}</div>
+                <NumericInput
+                  label="Saldo"
+                  value={formData.jumlah}
+                  onChange={(val) => setFormData({ ...formData, jumlah: val ? Number(val) : "" })}
+                  required
+                />
               </div>
               <div>
                 <label className={labelCls}>Catatan</label>
@@ -564,23 +550,12 @@ export default function Pemasukan() {
                   className={inputCls} style={{ colorScheme: "dark" }} />
               </div>
               <div>
-                <label className={labelCls}>Saldo (Rp) <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <input type="text" value={subCalcInput}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d]/g, "");
-                      const num = raw ? parseInt(raw, 10) : 0;
-                      setSubForm({ ...subForm, jumlah: num });
-                      setSubCalcInput(num ? num.toLocaleString("id-ID") : "");
-                    }}
-                    className={`${inputCls} pr-8`} placeholder="0" />
-                  <button type="button" onClick={() => setShowSubCalc(!showSubCalc)}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${showSubCalc ? "bg-emerald-600/20 text-emerald-400" : "text-gray-400 hover:text-white"}`}>
-                    <Calculator size={16} />
-                  </button>
-                </div>
-                {showSubCalc && renderCalc(makeCalcHandler(() => subCalcInput, setSubCalcInput, (v) => setSubForm((p) => ({ ...p, jumlah: v }))))}
-                <div className="text-[10px] text-gray-500 mt-1">{fmtC(subForm.jumlah)}</div>
+                <NumericInput
+                  label="Saldo"
+                  value={subForm.jumlah}
+                  onChange={(val) => setSubForm({ ...subForm, jumlah: val ? Number(val) : "" })}
+                  required
+                />
               </div>
               <div>
                 <label className={labelCls}>Catatan</label>
@@ -615,23 +590,12 @@ export default function Pemasukan() {
                   className={inputCls} style={{ colorScheme: "dark" }} />
               </div>
               <div>
-                <label className={labelCls}>Saldo Keluar (Rp) <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <input type="text" value={keluarCalcInput}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d]/g, "");
-                      const num = raw ? parseInt(raw, 10) : 0;
-                      setKeluarForm({ ...keluarForm, jumlah: num });
-                      setKeluarCalcInput(num ? num.toLocaleString("id-ID") : "");
-                    }}
-                    className={`${inputCls} pr-8`} placeholder="0" />
-                  <button type="button" onClick={() => setShowKeluarCalc(!showKeluarCalc)}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${showKeluarCalc ? "bg-orange-600/20 text-orange-400" : "text-gray-400 hover:text-white"}`}>
-                    <Calculator size={16} />
-                  </button>
-                </div>
-                {showKeluarCalc && renderCalc(makeCalcHandler(() => keluarCalcInput, setKeluarCalcInput, (v) => setKeluarForm((p) => ({ ...p, jumlah: v }))))}
-                <div className="text-[10px] text-gray-500 mt-1">{fmtC(keluarForm.jumlah)}</div>
+                <NumericInput
+                  label="Saldo Keluar"
+                  value={keluarForm.jumlah}
+                  onChange={(val) => setKeluarForm({ ...keluarForm, jumlah: val ? Number(val) : "" })}
+                  required
+                />
               </div>
               <div>
                 <label className={labelCls}>Catatan</label>

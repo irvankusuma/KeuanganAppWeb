@@ -1,16 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { DollarSign, Coins, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import { SkeletonDashboard } from "../components/Skeleton";
 import {
   ComposedChart,
   Bar,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -140,222 +139,231 @@ export default function Dashboard() {
     }
   }, [chartPeriod]);
 
+  // ─── 5 most recent transactions across all categories ───
+  const recentTransactions = useMemo(() => {
+    const all = [
+      ...data.pemasukan.map((i) => ({ label: i.nama || i.sumber || "Pemasukan", amount: parseFloat(i.jumlah) || 0, date: i.tanggal || i.createdAt, type: "pemasukan" })),
+      ...data.pengeluaran.map((i) => ({ label: i.kategori || i.nama || "Pengeluaran", amount: parseFloat(i.jumlah) || 0, date: i.tanggal || i.createdAt, type: "pengeluaran" })),
+      ...data.hutang.map((i) => ({ label: i.nama || "Hutang", amount: parseFloat(i.jumlah) || 0, date: i.tanggal || i.createdAt, type: "hutang" })),
+      ...data.piutang.map((i) => ({ label: i.namaOrang || i.nama || "Piutang", amount: parseFloat(i.jumlah) || 0, date: i.tanggal || i.createdAt, type: "piutang" })),
+    ];
+    return all
+      .filter((i) => i.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+  }, [data]);
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-sm text-gray-400">Memuat data...</div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
+  const TYPE_CONFIG = {
+    pemasukan:  { color: "text-emerald-400", bg: "bg-emerald-500/10", icon: TrendingUp,   sign: "+" },
+    pengeluaran:{ color: "text-orange-400",  bg: "bg-orange-500/10",  icon: TrendingDown, sign: "-" },
+    hutang:     { color: "text-red-400",     bg: "bg-red-500/10",     icon: DollarSign,   sign: "-" },
+    piutang:    { color: "text-blue-400",    bg: "bg-blue-500/10",    icon: Coins,        sign: "+" },
+  };
+
   return (
-    <div className="space-y-4 max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
-      {/* Saldo Bersih */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-blue-100 mb-1">Saldo Bersih</div>
-            <div className="text-xl sm:text-2xl font-bold text-white">
-              {formatCurrency(saldoBersih)}
-            </div>
-          </div>
-          <div className="bg-white/20 p-2 rounded-full">
-            <DollarSign size={20} className="text-white" />
-          </div>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-blue-100">
-          <div>Aset: {formatCurrency(totalPemasukan + sisaPiutang)}</div>
-          <div>Kewajiban: {formatCurrency(totalPengeluaran + sisaHutang)}</div>
-        </div>
-      </div>
+    <div className="space-y-4 max-w-7xl mx-auto">
 
-      {/* Baris dua kolom untuk 4 card */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Kolom Kiri: Hutang & Piutang */}
-        <div className="space-y-4">
-          <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-red-500/20 rounded-lg"><DollarSign size={16} className="text-red-500" /></div>
-              <div>
-                <div className="text-xs text-gray-400">Hutang</div>
-                <div className="text-[10px] text-gray-500">{data.hutang.length} aktif</div>
-              </div>
-            </div>
-            <div className="text-lg font-bold text-red-500 mb-1">{formatCurrency(sisaHutang)}</div>
-            <div className="flex justify-between text-[10px] text-gray-500">
-              <span>Total: {formatCurrency(totalHutang)}</span>
-              <span>Dibayar: {formatCurrency(totalPembayaranHutang)}</span>
-            </div>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-green-500/20 rounded-lg"><Coins size={16} className="text-green-500" /></div>
-              <div>
-                <div className="text-xs text-gray-400">Piutang</div>
-                <div className="text-[10px] text-gray-500">{data.piutang.length} aktif</div>
-              </div>
-            </div>
-            <div className="text-lg font-bold text-green-500 mb-1">{formatCurrency(sisaPiutang)}</div>
-            <div className="flex justify-between text-[10px] text-gray-500">
-              <span>Total: {formatCurrency(totalPiutang)}</span>
-              <span>Diterima: {formatCurrency(totalPembayaranPiutang)}</span>
-            </div>
-          </div>
-        </div>
+      {/* ── Hero: Saldo Bersih ── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-5 shadow-xl shadow-blue-900/30">
+        {/* Decorative circles */}
+        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5" />
+        <div className="absolute -bottom-8 -right-2 w-24 h-24 rounded-full bg-white/5" />
 
-        {/* Kolom Kanan: Pemasukan & Pengeluaran */}
-        <div className="space-y-4">
-          <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-emerald-500/20 rounded-lg"><TrendingUp size={16} className="text-emerald-500" /></div>
-              <div>
-                <div className="text-xs text-gray-400">Pemasukan</div>
-                <div className="text-[10px] text-gray-500">{data.pemasukan.length} transaksi</div>
-              </div>
-            </div>
-            <div className="text-lg font-bold text-emerald-500 mb-1">{formatCurrency(totalPemasukan)}</div>
-            <div className="text-[10px] text-gray-500">
-              Rata²: {data.pemasukan.length ? formatCurrency(totalPemasukan / data.pemasukan.length) : "Rp 0"}
-            </div>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-orange-500/20 rounded-lg"><TrendingDown size={16} className="text-orange-500" /></div>
-              <div>
-                <div className="text-xs text-gray-400">Pengeluaran</div>
-                <div className="text-[10px] text-gray-500">{data.pengeluaran.length} transaksi</div>
-              </div>
-            </div>
-            <div className="text-lg font-bold text-orange-500 mb-1">{formatCurrency(totalPengeluaran)}</div>
-            <div className="text-[10px] text-gray-500">
-              Rata²: {data.pengeluaran.length ? formatCurrency(totalPengeluaran / data.pengeluaran.length) : "Rp 0"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Ringkasan Cepat */}
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
-            <span className="w-1 h-4 bg-blue-500 rounded-full"></span> Ringkasan Cepat
-          </h3>
-          <div className="mb-3 p-2 rounded-lg bg-slate-900/70 border border-slate-700 flex items-center justify-between">
-            <div>
-              <div className="text-[11px] text-gray-400">Catatan</div>
-              <div className="text-xs text-white">{data.catatan.length} catatan tersimpan</div>
-            </div>
-            <Link to="/catatan" className="text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 px-2 py-1 rounded-md">
-              Buka Catatan
-            </Link>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center py-1 border-b border-slate-700 text-xs">
-              <span className="text-gray-400">Total Aset Lancar</span>
-              <span className="text-white font-medium">{formatCurrency(totalPemasukan + sisaPiutang)}</span>
-            </div>
-            <div className="flex justify-between items-center py-1 border-b border-slate-700 text-xs">
-              <span className="text-gray-400">Total Kewajiban</span>
-              <span className="text-white font-medium">{formatCurrency(totalPengeluaran + sisaHutang)}</span>
-            </div>
-            <div className="flex justify-between items-center py-1 text-xs">
-              <span className="text-gray-400">Rasio Keuangan</span>
-              <span className="text-white font-medium">
-                {((totalPemasukan + sisaPiutang) / (totalPengeluaran + sisaHutang) || 0).toFixed(2)}
+        <div className="relative">
+          <p className="text-xs font-medium text-blue-200 mb-1">Saldo Bersih</p>
+          <p className="text-3xl font-bold text-white tracking-tight">
+            {formatCurrency(saldoBersih)}
+          </p>
+          <div className="mt-3 flex gap-5 text-xs text-blue-200">
+            <span>Aset: <span className="text-white font-medium">{formatCurrency(totalPemasukan + sisaPiutang)}</span></span>
+            <span>Kewajiban: <span className="text-white font-medium">{formatCurrency(totalPengeluaran + sisaHutang)}</span></span>
+            <span className="ml-auto hidden sm:block">
+              Rasio: <span className="text-white font-medium">
+                {((totalPemasukan + sisaPiutang) / Math.max(totalPengeluaran + sisaHutang, 1)).toFixed(2)}×
               </span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4 Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Pemasukan */}
+        <Link to="/pemasukan" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-emerald-500/30 rounded-xl p-4 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-emerald-500/10 rounded-lg"><TrendingUp size={16} className="text-emerald-400" /></div>
+            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Pemasukan</p>
+          <p className="text-base font-bold text-emerald-400 leading-tight">{formatCurrency(totalPemasukan)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.pemasukan.filter(i => !i.parent_id).length} sumber</p>
+        </Link>
+
+        {/* Pengeluaran */}
+        <Link to="/pengeluaran" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-orange-500/30 rounded-xl p-4 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-orange-500/10 rounded-lg"><TrendingDown size={16} className="text-orange-400" /></div>
+            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-orange-400 transition-colors" />
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Pengeluaran</p>
+          <p className="text-base font-bold text-orange-400 leading-tight">{formatCurrency(totalPengeluaran)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.pengeluaran.length} transaksi</p>
+        </Link>
+
+        {/* Hutang */}
+        <Link to="/hutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-red-500/30 rounded-xl p-4 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-red-500/10 rounded-lg"><DollarSign size={16} className="text-red-400" /></div>
+            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-red-400 transition-colors" />
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Hutang</p>
+          <p className="text-base font-bold text-red-400 leading-tight">{formatCurrency(sisaHutang)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.hutang.length} aktif · dibayar {formatCurrency(totalPembayaranHutang)}</p>
+        </Link>
+
+        {/* Piutang */}
+        <Link to="/piutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-blue-500/30 rounded-xl p-4 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg"><Coins size={16} className="text-blue-400" /></div>
+            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Piutang</p>
+          <p className="text-base font-bold text-blue-400 leading-tight">{formatCurrency(sisaPiutang)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.piutang.length} aktif · diterima {formatCurrency(totalPembayaranPiutang)}</p>
+        </Link>
+      </div>
+
+      {/* ── Chart (full width) ── */}
+      <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <span className="w-1 h-4 bg-blue-500 rounded-full inline-block" />
+            {chartTitle}
+          </h3>
+          <div className="flex items-center gap-4">
+            {/* Legend */}
+            <div className="hidden sm:flex items-center gap-3">
+              {[["#10b981","Pemasukan"],["#f97316","Pengeluaran"],["#ef4444","Hutang"],["#3b82f6","Piutang"]].map(([c,l]) => (
+                <div key={l} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-sm" style={{background:c}} />
+                  <span className="text-xs text-slate-400">{l}</span>
+                </div>
+              ))}
+            </div>
+            {/* Period filter */}
+            <div className="flex items-center gap-1 bg-[#141d2e] rounded-lg p-1">
+              {[["mingguan","7H"],["bulanan","6B"],["tahunan","Thn"]].map(([val,short]) => (
+                <button
+                  key={val}
+                  onClick={() => setChartPeriod(val)}
+                  className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
+                    chartPeriod === val
+                      ? "bg-blue-600 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {short}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Grafik Tren Transaksi */}
-        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex flex-col gap-3 mb-3">
-            <h3 className="text-white text-sm font-medium flex items-center gap-2">
-              <span className="w-1 h-4 bg-blue-500 rounded-full"></span> {chartTitle}
-            </h3>
-            
-            {/* Custom Legend */}
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-[2px] bg-[#10b981]"></div>
-                <span className="text-[11px] text-gray-400">Pemasukan</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-[2px] bg-[#f97316]"></div>
-                <span className="text-[11px] text-gray-400">Pengeluaran</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-[2px] bg-[#ef4444]"></div>
-                <span className="text-[11px] text-gray-400">Hutang</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-[2px] bg-[#3b82f6]"></div>
-                <span className="text-[11px] text-gray-400">Piutang</span>
-              </div>
-            </div>
-
-            {/* Filter Buttons */}
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setChartPeriod("mingguan")}
-                className={`px-3 py-1 text-[10px] rounded-full transition-all ${
-                  chartPeriod === "mingguan" ? "bg-blue-600 text-white shadow-lg" : "bg-slate-700 text-gray-300 hover:bg-slate-600 font-medium"
-                }`}>
-                Mingguan
-              </button>
-              <button
-                onClick={() => setChartPeriod("bulanan")}
-                className={`px-3 py-1 text-[10px] rounded-full transition-all ${
-                  chartPeriod === "bulanan" ? "bg-blue-600 text-white shadow-lg" : "bg-slate-700 text-gray-300 hover:bg-slate-600 font-medium"
-                }`}>
-                Bulanan
-              </button>
-              <button
-                onClick={() => setChartPeriod("tahunan")}
-                className={`px-3 py-1 text-[10px] rounded-full transition-all ${
-                  chartPeriod === "tahunan" ? "bg-blue-600 text-white shadow-lg" : "bg-slate-700 text-gray-300 hover:bg-slate-600 font-medium"
-                }`}>
-                Tahunan
-              </button>
-            </div>
+        {chartData.length > 0 ? (
+          <div className="h-64 sm:h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 5, right: 4, left: -12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e2d45" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="#334155"
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#334155"
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => (v >= 1000000 ? "Rp " + (v / 1000000).toFixed(0) + "Jt" : "Rp " + (v/1000).toFixed(0) + "K")}
+                />
+                <Tooltip
+                  formatter={(value, name) => [formatCurrency(value), name]}
+                  contentStyle={{
+                    backgroundColor: "#0e1523",
+                    border: "1px solid #1e2d45",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+                  }}
+                  labelStyle={{ color: "#94a3b8", marginBottom: "4px" }}
+                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                />
+                <Bar dataKey="pemasukan"   name="Pemasukan"   fill="#10b981" radius={[4,4,0,0]} maxBarSize={20} />
+                <Bar dataKey="pengeluaran" name="Pengeluaran" fill="#f97316" radius={[4,4,0,0]} maxBarSize={20} />
+                <Bar dataKey="hutang"      name="Hutang"      fill="#ef4444" radius={[4,4,0,0]} maxBarSize={20} />
+                <Bar dataKey="piutang"     name="Piutang"     fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={20} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
+            Belum ada data transaksi
+          </div>
+        )}
+      </div>
 
-          {chartData.length > 0 ? (
-            <div className="h-72 w-full min-h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis 
-                    dataKey="label" 
-                    stroke="#9ca3af" 
-                    tick={{ fontSize: 11, fill: '#9ca3af' }} 
-                    tickLine={false} 
-                    axisLine={false} 
-                  />
-                  <YAxis 
-                    stroke="#9ca3af" 
-                    tick={{ fontSize: 11, fill: '#9ca3af' }} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(v) => 'Rp ' + (v/1000000).toFixed(0) + 'Jt'} 
-                  />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                    labelStyle={{ color: '#94a3b8', fontSize: '11px', marginBottom: '4px' }}
-                  />
-                  <Bar dataKey="pemasukan" name="Pemasukan" fill="#10b981" radius={[3, 3, 0, 0]} barSize={12} />
-                  <Bar dataKey="pengeluaran" name="Pengeluaran" fill="#f97316" radius={[3, 3, 0, 0]} barSize={12} />
-                  <Bar dataKey="hutang" name="Hutang" fill="#ef4444" radius={[3, 3, 0, 0]} barSize={12} />
-                  <Bar dataKey="piutang" name="Piutang" fill="#3b82f6" radius={[3, 3, 0, 0]} barSize={12} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-gray-500 text-xs italic">
-              Tidak ada data untuk periode ini
-            </div>
-          )}
+      {/* ── Recent Transactions ── */}
+      <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d45]">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <span className="w-1 h-4 bg-blue-500 rounded-full inline-block" />
+            Transaksi Terbaru
+          </h3>
+          <span className="text-xs text-slate-500">{recentTransactions.length} terakhir</span>
+        </div>
+
+        {recentTransactions.length > 0 ? (
+          <div className="divide-y divide-[#1e2d45]">
+            {recentTransactions.map((tx, i) => {
+              const cfg = TYPE_CONFIG[tx.type] || TYPE_CONFIG.pengeluaran;
+              const Icon = cfg.icon;
+              const isIncome = tx.type === "pemasukan" || tx.type === "piutang";
+              return (
+                <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                  <div className={`w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                    <Icon size={14} className={cfg.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-200 truncate font-medium">{tx.label}</p>
+                    <p className="text-xs text-slate-500">
+                      {tx.date ? new Date(tx.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-semibold shrink-0 ${isIncome ? "text-emerald-400" : "text-red-400"}`}>
+                    {isIncome ? "+" : "-"}{formatCurrency(tx.amount)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-10 text-center text-slate-500 text-sm">
+            Belum ada transaksi tercatat
+          </div>
+        )}
+
+        {/* Catatan shortcut */}
+        <div className="px-4 py-3 border-t border-[#1e2d45] flex items-center justify-between">
+          <span className="text-xs text-slate-500">{data.catatan.length} catatan tersimpan</span>
+          <Link to="/catatan" className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
+            Buka Catatan →
+          </Link>
         </div>
       </div>
     </div>

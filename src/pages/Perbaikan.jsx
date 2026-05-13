@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
+import NumericInput from "../components/NumericInput";
 
 export default function Perbaikan() {
   const [perbaikan, setPerbaikan] = useState([]);
@@ -22,6 +23,7 @@ export default function Perbaikan() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState(null);
+  const [showLunasHistory, setShowLunasHistory] = useState(false);
   const [formData, setFormData] = useState({
     nama: "",
     tanggal: new Date().toISOString().split("T")[0],
@@ -30,11 +32,6 @@ export default function Perbaikan() {
     biaya: "",
     catatan: "",
   });
-  const [showCalc, setShowCalc] = useState({
-    km_saat_ini: false,
-    biaya: false,
-  });
-  const [calcInput, setCalcInput] = useState({ km_saat_ini: "", biaya: "" });
 
   // Tambah Servis modal
   const [showTambahModal, setShowTambahModal] = useState(false);
@@ -50,11 +47,6 @@ export default function Perbaikan() {
     biaya: "",
     catatan: "",
   });
-  const [tambahCalc, setTambahCalc] = useState({ km_saat_ini: "", biaya: "" });
-  const [tambahShowCalc, setTambahShowCalc] = useState({
-    km_saat_ini: false,
-    biaya: false,
-  });
 
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
@@ -69,14 +61,8 @@ export default function Perbaikan() {
   const loadData = () =>
     setPerbaikan(LocalStorageService.readSheet(SHEETS.PERBAIKAN));
 
-  const parseN = (str) => {
-    if (!str) return 0;
-    return Number(String(str).replace(/\./g, ""));
-  };
-  const fmtN = (num) => {
-    if (!num && num !== 0) return "";
-    return Number(num).toLocaleString("id-ID");
-  };
+  const parseN = (val) => parseFloat(val) || 0;
+  const fmtN = (num) => (num || num === 0 ? Number(num).toLocaleString("id-ID") : "");
   const fmtC = (num) => {
     if (!num) return "Rp 0";
     return "Rp " + Number(num).toLocaleString("id-ID");
@@ -103,83 +89,6 @@ export default function Perbaikan() {
     const res = current - prev;
     return res > 0 ? `+${fmtN(res)}` : fmtN(res);
   };
-
-  const handleInputChange = (field, value, isTambah = false) => {
-    const raw = value.replace(/[^\d]/g, "");
-    const num = raw ? parseInt(raw, 10) : 0;
-    const fmt = num ? num.toLocaleString("id-ID") : "";
-    if (isTambah) {
-      setTambahForm((p) => ({ ...p, [field]: fmt }));
-      setTambahCalc((p) => ({ ...p, [field]: fmt }));
-    } else {
-      setFormData((p) => ({ ...p, [field]: fmt }));
-      setCalcInput((p) => ({ ...p, [field]: fmt }));
-    }
-  };
-
-  const safeEval = (input) => {
-    try {
-      const expr = input.replace(/\./g, "").replace(/[^-()\d/*+.]/g, "");
-      if (!expr) return 0;
-      // eslint-disable-next-line no-new-func
-      const r = new Function(`return ${expr}`)();
-      return isNaN(r) ? 0 : r;
-    } catch {
-      return 0;
-    }
-  };
-
-  const handleCalc = (field, val, isTambah = false) => {
-    const cur = isTambah ? tambahCalc[field] : calcInput[field];
-    let next = cur;
-    if (val === "C") next = "";
-    else if (val === "←") next = cur.slice(0, -1);
-    else if (val === "=") {
-      const r = safeEval(cur);
-      next = r ? r.toLocaleString("id-ID") : "";
-    } else next = cur + val;
-    if (isTambah) {
-      setTambahCalc((p) => ({ ...p, [field]: next }));
-      setTambahForm((p) => ({ ...p, [field]: next }));
-    } else {
-      setCalcInput((p) => ({ ...p, [field]: next }));
-      setFormData((p) => ({ ...p, [field]: next }));
-    }
-  };
-
-  const renderCalc = (field, isTambah = false) => (
-    <div className="mt-1.5 p-2 bg-slate-900 rounded-lg grid grid-cols-4 gap-1 border border-slate-700">
-      {[
-        "7",
-        "8",
-        "9",
-        "C",
-        "4",
-        "5",
-        "6",
-        "←",
-        "1",
-        "2",
-        "3",
-        "+",
-        "0",
-        "00",
-        "-",
-        "*",
-        "/",
-        "=",
-      ].map((btn) => (
-        <button
-          key={btn}
-          type="button"
-          onClick={() => handleCalc(field, btn, isTambah)}
-          className={`p-1.5 rounded text-xs font-bold ${btn === "C" ? "bg-red-600/20 text-red-400" : btn === "=" ? "bg-green-600/20 text-green-400" : "bg-slate-800 hover:bg-slate-700 text-gray-300"}`}
-        >
-          {btn}
-        </button>
-      ))}
-    </div>
-  );
 
   // Helper: cari entri pengeluaran berdasarkan sourceRef (ID perbaikan/histori)
   const findPengeluaranByRef = (refId) => {
@@ -275,8 +184,6 @@ export default function Perbaikan() {
       biaya: "",
       catatan: "",
     });
-    setTambahCalc({ km_saat_ini: "", biaya: "" });
-    setTambahShowCalc({ km_saat_ini: false, biaya: false });
     setShowTambahModal(true);
   };
 
@@ -290,14 +197,9 @@ export default function Perbaikan() {
       km_rekomendasi_sebelumnya: histItem.km_rekomendasi_sebelumnya || 0,
       km_saat_ini: fmtN(histItem.km_saat_ini),
       km_ditentukan: fmtN(histItem.km_tambahan),
-      biaya: histItem.biaya ? fmtN(histItem.biaya) : "",
+      biaya: histItem.biaya || "",
       catatan: histItem.catatan || "",
     });
-    setTambahCalc({
-      km_saat_ini: fmtN(histItem.km_saat_ini),
-      biaya: histItem.biaya ? fmtN(histItem.biaya) : "",
-    });
-    setTambahShowCalc({ km_saat_ini: false, biaya: false });
     setShowTambahModal(true);
   };
 
@@ -371,11 +273,10 @@ export default function Perbaikan() {
       tanggal: item.tanggal,
       km_saat_ini: fmtN(item.km_saat_ini),
       km_tambahan: item.km_tambahan ? fmtN(item.km_tambahan) : "",
-      biaya: item.biaya ? fmtN(item.biaya) : "",
+      biaya: item.biaya || "",
       catatan: item.catatan || "",
     };
     setFormData(d);
-    setCalcInput({ km_saat_ini: d.km_saat_ini, biaya: d.biaya });
     setModalVisible(true);
   };
 
@@ -392,6 +293,12 @@ export default function Perbaikan() {
     });
   };
 
+  const handleToggleSelesai = (item) => {
+    const newStatus = item.status === "selesai" ? "aktif" : "selesai";
+    LocalStorageService.updateRow(SHEETS.PERBAIKAN, item.id, { ...item, status: newStatus });
+    loadData();
+  };
+
   const resetForm = () => {
     setModalVisible(false);
     setEditMode(false);
@@ -404,8 +311,6 @@ export default function Perbaikan() {
       biaya: "",
       catatan: "",
     });
-    setCalcInput({ km_saat_ini: "", biaya: "" });
-    setShowCalc({ km_saat_ini: false, biaya: false });
   };
 
   const getSisaKM = (item) => {
@@ -440,8 +345,15 @@ export default function Perbaikan() {
     return getStatus(latest) === filterStatus;
   });
   const sortedData = [...filteredRoots].sort(
-    (a, b) => getSisaKM(getLatestRecord(a)) - getSisaKM(getLatestRecord(b)),
+    (a, b) => {
+      const aDate = new Date(getLatestRecord(a).tanggal || a.createdAt || 0);
+      const bDate = new Date(getLatestRecord(b).tanggal || b.createdAt || 0);
+      return bDate - aDate;
+    }
   );
+
+  const activeRoots = sortedData.filter((i) => i.status !== "selesai");
+  const selesaiRoots = sortedData.filter((i) => i.status === "selesai");
 
   const countStatus = {
     all: rootItems.length,
@@ -559,13 +471,11 @@ export default function Perbaikan() {
       </div>
 
       {/* Daftar */}
-      <div className="space-y-2">
-        {sortedData.length > 0 ? (
-          sortedData.map((item, i) => {
+      <div className="space-y-4">
+        {activeRoots.length > 0 ? (
+          activeRoots.map((item, i) => {
             const latest = getLatestRecord(item);
-            const kmB =
-              latest.km_berikutnya ||
-              latest.km_saat_ini + (latest.km_tambahan || 0);
+            const kmB = latest.km_berikutnya || latest.km_saat_ini + (latest.km_tambahan || 0);
             const sisa = kmB - latest.km_saat_ini;
             const status = getStatus(latest);
             const cfg = statusCfg[status];
@@ -576,180 +486,125 @@ export default function Perbaikan() {
             return (
               <div
                 key={i}
-                className={`bg-slate-800 rounded-xl border border-slate-700 border-l-4 ${cfg.border} p-2.5`}
+                className={`bg-[#0c1220] rounded-2xl border border-[#1e2d45] border-l-4 ${cfg.border} p-4 md:p-5 shadow-sm hover:shadow-md transition-all`}
               >
-                {/* Baris 1: nama + badge */}
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-sm font-bold text-white truncate flex-1 mr-2">
-                    {item.nama}
-                  </h3>
-                  <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${cfg.badge}`}
-                  >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-white tracking-tight">
+                      {item.nama}
+                    </h3>
+                    <span className="text-xs text-slate-400 font-medium">
+                      KM Saat Ini: {fmtN(latest.km_saat_ini)} → {fmtN(kmB)}
+                    </span>
+                  </div>
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${cfg.badge}`}>
                     {cfg.text}
                   </span>
                 </div>
-                {/* Baris 2: KM inline (dari data terbaru) */}
-                <div className="flex items-center gap-1 text-[10px] mb-1 flex-wrap">
-                  <span className="text-gray-500">KM:</span>
-                  <span className="text-white">{fmtN(latest.km_saat_ini)}</span>
-                  <span className="text-gray-600">→</span>
-                  <span className="text-blue-400">{fmtN(kmB)}</span>
-                  <span className="text-gray-600 mx-0.5">|</span>
-                  <span className="text-gray-500">Sisa:</span>
-                  <span className={`font-bold ${cfg.km}`}>
+                
+                <div className="flex items-end justify-between mb-2">
+                  <div className="text-slate-400 text-xs">Sisa Jarak Servis</div>
+                  <div className={`text-2xl font-bold tracking-tight ${cfg.km}`}>
                     {sisa > 0 ? fmtN(sisa) : `−${fmtN(Math.abs(sisa))}`} km
-                  </span>
-                  {hari > 0 && status !== "overdue" && (
-                    <span className="text-gray-500 ml-auto">~{hari} hr</span>
-                  )}
+                  </div>
                 </div>
-                {/* Baris 3: detail */}
-                <div className="flex items-center gap-1.5 text-[9px] mb-2 text-gray-500 flex-wrap">
-                  <span>
-                    {new Date(latest.tanggal).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "2-digit",
-                    })}
-                  </span>
+                
+                <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-4 pb-4 border-b border-[#1e2d45]">
+                  <div>
+                    Update: <span className="text-slate-300 font-medium">{new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
+                  </div>
                   {latest.biaya > 0 && (
-                    <>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-orange-400 font-medium">
-                        {fmtC(latest.biaya)}
-                      </span>
-                    </>
-                  )}
-                  {latest.catatan && (
-                    <>
-                      <span className="text-gray-600">•</span>
-                      <span className="italic truncate max-w-[100px]">
-                        {latest.catatan}
-                      </span>
-                    </>
+                    <div>
+                      Biaya: <span className="text-orange-400 font-medium">{fmtC(latest.biaya)}</span>
+                    </div>
                   )}
                   {history.length > 0 && (
-                    <span className="text-purple-400 ml-auto">
-                      {history.length} servis
-                    </span>
+                    <div className="text-purple-400 font-medium ml-auto">
+                      {history.length} Servis
+                    </div>
                   )}
                 </div>
-                {/* Baris 4: tombol 4 kolom */}
-                <div className="grid grid-cols-4 gap-1">
+
+                <div className="grid grid-cols-5 gap-2">
                   <button
                     onClick={() => handleOpenTambah(item)}
-                    className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
+                    className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-purple-500/30"
                   >
-                    <Plus size={10} /> Tambah
+                    <Plus size={14} /> <span className="whitespace-nowrap font-medium">Tambah</span>
                   </button>
                   <button
-                    onClick={() =>
-                      setActiveHistoryId(showHistory ? null : item.id)
-                    }
-                    className={`text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5 ${showHistory ? "bg-violet-600/40 text-violet-300" : "bg-violet-600/20 hover:bg-violet-600/40 text-violet-400"}`}
+                    onClick={() => setActiveHistoryId(showHistory ? null : item.id)}
+                    className={`${showHistory ? "bg-violet-500/20 text-violet-300 border-violet-500/30" : "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-transparent hover:border-violet-500/30"} text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border`}
                   >
-                    <History size={10} /> Histori{" "}
-                    {history.length > 0 && `(${history.length})`}
+                    <History size={14} /> <span className="whitespace-nowrap font-medium">Histori</span>
+                  </button>
+                  <button
+                    onClick={() => handleToggleSelesai(item)}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-emerald-500/30"
+                  >
+                    <CheckCircle size={14} className="lucide lucide-check-circle" /> <span className="whitespace-nowrap font-medium">Selesai</span>
                   </button>
                   <button
                     onClick={() => handleEdit(item)}
-                    className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
+                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-blue-500/30"
                   >
-                    <Pencil size={10} /> Edit
+                    <Pencil size={14} /> <span className="whitespace-nowrap font-medium">Edit</span>
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[9px] py-1 rounded-lg flex items-center justify-center gap-0.5"
+                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-red-500/30"
                   >
-                    <Trash2 size={10} /> Hapus
+                    <Trash2 size={14} /> <span className="whitespace-nowrap font-medium">Hapus</span>
                   </button>
                 </div>
 
                 {/* History panel */}
                 {showHistory && (
-                  <div className="mt-2 bg-slate-900/60 rounded-lg border border-slate-700/50 p-2">
-                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">
+                  <div className="mt-4 bg-[#0a0f1a] rounded-xl border border-[#1e2d45] p-3">
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">
                       Riwayat Servis
                     </div>
                     {history.length > 0 ? (
                       history.map((h) => {
-                        const hKmB =
-                          h.km_berikutnya ||
-                          h.km_saat_ini + (h.km_tambahan || 0);
+                        const hKmB = h.km_berikutnya || h.km_saat_ini + (h.km_tambahan || 0);
                         const hSisa = hKmB - h.km_saat_ini;
                         const hStatus = getStatus(h);
                         const hCfg = statusCfg[hStatus];
                         return (
-                          <div
-                            key={h.id}
-                            className="border-b border-slate-700/40 pb-2 mb-2 last:border-0 last:mb-0"
-                          >
-                            <div className="flex justify-between items-center mb-0.5">
-                              <span className="text-[10px] text-gray-300 font-medium">
-                                {new Date(h.tanggal).toLocaleDateString(
-                                  "id-ID",
-                                  {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  },
-                                )}
+                          <div key={h.id} className="border-b border-[#1e2d45] pb-2.5 mb-2.5 last:border-0 last:mb-0">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs text-slate-300 font-medium">
+                                {new Date(h.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                               </span>
-                              <span
-                                className={`text-[9px] px-1.5 py-0.5 rounded-full ${hCfg.badge}`}
-                              >
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${hCfg.badge}`}>
                                 {hCfg.text}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1 text-[9px] text-gray-400 mb-0.5">
+                            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
                               <span>KM: {fmtN(h.km_saat_ini)}</span>
-                              <span className="text-gray-600">→</span>
-                              <span className="text-blue-400">
-                                {fmtN(hKmB)}
-                              </span>
-                              <span className="text-gray-600">|</span>
-                              <span className={hCfg.km}>
-                                {hSisa > 0
-                                  ? fmtN(hSisa)
-                                  : `−${fmtN(Math.abs(hSisa))}`}{" "}
-                                km
+                              <span className="text-slate-600">→</span>
+                              <span className="text-blue-400">{fmtN(hKmB)}</span>
+                              <span className="text-slate-600">|</span>
+                              <span className={`font-medium ${hCfg.km}`}>
+                                {hSisa > 0 ? fmtN(hSisa) : `−${fmtN(Math.abs(hSisa))}`} km
                               </span>
                               {h.biaya > 0 && (
                                 <>
-                                  <span className="text-gray-600 ml-1">•</span>
-                                  <span className="text-orange-400">
-                                    {fmtC(h.biaya)}
-                                  </span>
+                                  <span className="text-slate-600">•</span>
+                                  <span className="text-orange-400 font-medium">{fmtC(h.biaya)}</span>
                                 </>
                               )}
                             </div>
-                            {h.catatan && (
-                              <div className="text-[9px] text-gray-500 italic mb-1">
-                                {h.catatan}
-                              </div>
-                            )}
-                            <div className="flex gap-1 mt-1">
-                              <button
-                                onClick={() => handleEditHistory(h, item)}
-                                className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5"
-                              >
-                                <Pencil size={9} /> Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteHistory(h)}
-                                className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-[9px] py-0.5 rounded flex items-center justify-center gap-0.5"
-                              >
-                                <Trash2 size={9} /> Hapus
-                              </button>
+                            {h.catatan && <div className="text-xs text-slate-500 italic mb-2">"{h.catatan}"</div>}
+                            <div className="flex gap-3">
+                              <button onClick={() => handleEditHistory(h, item)} className="text-blue-400 hover:text-blue-300 font-medium text-xs">Edit</button>
+                              <button onClick={() => handleDeleteHistory(h)} className="text-red-400 hover:text-red-300 font-medium text-xs">Hapus</button>
                             </div>
                           </div>
                         );
                       })
                     ) : (
-                      <div className="text-[10px] text-gray-500 italic py-1 text-center">
-                        Belum ada riwayat servis
-                      </div>
+                      <div className="text-xs text-slate-500 italic py-2">Belum ada riwayat servis</div>
                     )}
                   </div>
                 )}
@@ -757,10 +612,49 @@ export default function Perbaikan() {
             );
           })
         ) : (
-          <div className="text-center py-12 text-gray-400 text-sm">
-            {filterStatus !== "all"
-              ? "Tidak ada perbaikan dengan status ini"
-              : "Belum ada data perbaikan"}
+          <div className="text-center py-12 bg-[#0c1220]/50 border border-dashed border-[#1e2d45] rounded-2xl">
+            <p className="text-slate-500 text-sm">
+              {filterStatus !== "all" ? "Tidak ada perbaikan dengan status ini" : "Belum ada data perbaikan"}
+            </p>
+          </div>
+        )}
+
+        {selesaiRoots.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-[#1e2d45]">
+            <button 
+              onClick={() => setShowLunasHistory(!showLunasHistory)} 
+              className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors w-full"
+            >
+              {showLunasHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              Riwayat Perbaikan Selesai ({selesaiRoots.length})
+            </button>
+            {showLunasHistory && (
+              <div className="mt-4 space-y-4 opacity-70 hover:opacity-100 transition-opacity">
+                {selesaiRoots.map((item, i) => {
+                  const latest = getLatestRecord(item);
+                  return (
+                    <div key={`selesai-${i}`} className="bg-[#0c1220] rounded-xl border border-[#1e2d45] border-l-4 border-l-slate-600 p-4 shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-300 line-through tracking-tight">
+                            {item.nama}
+                          </h3>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Diselesaikan pada {new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleToggleSelesai(item)}
+                          className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 transition-all border border-slate-700"
+                        >
+                          <CheckCircle size={14} /> Aktifkan Lagi
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -826,45 +720,18 @@ export default function Perbaikan() {
                 />
               </div>
               <div>
-                <label className={labelCls}>
-                  KM Saat Ini <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.km_saat_ini}
-                    onChange={(e) =>
-                      handleInputChange("km_saat_ini", e.target.value)
-                    }
-                    className={`${inputCls} pr-8`}
-                    placeholder="0"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowCalc((p) => ({
-                        ...p,
-                        km_saat_ini: !p.km_saat_ini,
-                      }))
-                    }
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${showCalc.km_saat_ini ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"}`}
-                  >
-                    <Calculator size={16} />
-                  </button>
-                </div>
-                {showCalc.km_saat_ini && renderCalc("km_saat_ini")}
+                <NumericInput
+                  label="KM Saat Ini"
+                  value={formData.km_saat_ini}
+                  onChange={(val) => setFormData({ ...formData, km_saat_ini: val })}
+                  required
+                />
               </div>
               <div>
-                <label className={labelCls}>+ KM Rekomendasi (Interval)</label>
-                <input
-                  type="text"
+                <NumericInput
+                  label="+ KM Rekomendasi (Interval)"
                   value={formData.km_tambahan}
-                  onChange={(e) =>
-                    handleInputChange("km_tambahan", e.target.value)
-                  }
-                  className={inputCls}
-                  placeholder="Contoh: 5.000"
+                  onChange={(val) => setFormData({ ...formData, km_tambahan: val })}
                 />
               </div>
               <div>
@@ -878,26 +745,11 @@ export default function Perbaikan() {
                 />
               </div>
               <div>
-                <label className={labelCls}>Biaya (Opsional)</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.biaya}
-                    onChange={(e) => handleInputChange("biaya", e.target.value)}
-                    className={`${inputCls} pr-8`}
-                    placeholder="0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowCalc((p) => ({ ...p, biaya: !p.biaya }))
-                    }
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md ${showCalc.biaya ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"}`}
-                  >
-                    <Calculator size={16} />
-                  </button>
-                </div>
-                {showCalc.biaya && renderCalc("biaya")}
+                <NumericInput
+                  label="Biaya (Opsional)"
+                  value={formData.biaya}
+                  onChange={(val) => setFormData({ ...formData, biaya: val })}
+                />
                 <p className="text-[9px] text-gray-500 mt-0.5">
                   Otomatis tercatat di Pengeluaran
                 </p>
@@ -976,16 +828,19 @@ export default function Perbaikan() {
               {/* Baris 3: KM Saat Ini & KM Ditentukan */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>KM Saat Ini <span className="text-red-400">*</span></label>
-                  <div className="relative">
-                    <input type="text" value={tambahForm.km_saat_ini} onChange={(e) => handleInputChange("km_saat_ini", e.target.value, true)} className={`${inputCls} pr-8`} placeholder="0" required />
-                    <button type="button" onClick={() => setTambahShowCalc((p) => ({ ...p, km_saat_ini: !p.km_saat_ini }))} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md ${tambahShowCalc.km_saat_ini ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"}`}><Calculator size={14} /></button>
-                  </div>
-                  {tambahShowCalc.km_saat_ini && renderCalc("km_saat_ini", true)}
+                  <NumericInput
+                    label="KM Saat Ini"
+                    value={tambahForm.km_saat_ini}
+                    onChange={(val) => setTambahForm({ ...tambahForm, km_saat_ini: val })}
+                    required
+                  />
                 </div>
                 <div>
-                  <label className={labelCls}>KM Ditentukan (Interval)</label>
-                  <input type="text" value={tambahForm.km_ditentukan} onChange={(e) => handleInputChange("km_ditentukan", e.target.value, true)} className={inputCls} placeholder="Contoh: 5.000" />
+                  <NumericInput
+                    label="KM Ditentukan (Interval)"
+                    value={tambahForm.km_ditentukan}
+                    onChange={(val) => setTambahForm({ ...tambahForm, km_ditentukan: val })}
+                  />
                 </div>
               </div>
 
@@ -996,12 +851,11 @@ export default function Perbaikan() {
                   <input type="text" value={getTambahKmBerikutnya()} readOnly className={`${readonlyCls} text-blue-400 font-bold`} placeholder="Auto" />
                 </div>
                 <div>
-                  <label className={labelCls}>Biaya Operasional</label>
-                  <div className="relative">
-                    <input type="text" value={tambahForm.biaya} onChange={(e) => handleInputChange("biaya", e.target.value, true)} className={`${inputCls} pr-8`} placeholder="0" />
-                    <button type="button" onClick={() => setTambahShowCalc((p) => ({ ...p, biaya: !p.biaya }))} className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md ${tambahShowCalc.biaya ? "bg-purple-600/20 text-purple-400" : "text-gray-400 hover:text-white"}`}><Calculator size={14} /></button>
-                  </div>
-                  {tambahShowCalc.biaya && renderCalc("biaya", true)}
+                  <NumericInput
+                    label="Biaya Operasional"
+                    value={tambahForm.biaya}
+                    onChange={(val) => setTambahForm({ ...tambahForm, biaya: val })}
+                  />
                 </div>
               </div>
 

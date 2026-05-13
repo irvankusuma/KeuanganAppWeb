@@ -12,9 +12,12 @@ import {
   FileJson,
 } from "lucide-react";
 import LocalStorageService from "../services/LocalStorageService";
+import { useToast } from "../context/ToastContext";
+import ConfirmModal from "./ConfirmModal";
 import * as XLSX from "xlsx";
 
 export default function ExportImportModal({ visible, onClose }) {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState("export");
   const [history, setHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
@@ -26,6 +29,8 @@ export default function ExportImportModal({ visible, onClose }) {
   const [filterEndDate, setFilterEndDate] = useState("");
   const [exportFormat, setExportFormat] = useState("json");
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  // Import confirmation modal state
+  const [importConfirm, setImportConfirm] = useState({ visible: false, onConfirm: null, label: "" });
 
   const [availableMonths, setAvailableMonths] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
@@ -131,7 +136,8 @@ export default function ExportImportModal({ visible, onClose }) {
       const sheets = result.data;
 
       if (!sheets || Object.keys(sheets).length === 0) {
-        throw new Error("Tidak ada data untuk diekspor.");
+        showToast("Tidak ada data untuk diekspor.", "warning");
+        return;
       }
 
       if (exportFormat === "json") {
@@ -142,12 +148,10 @@ export default function ExportImportModal({ visible, onClose }) {
         exportTXT(sheets);
       }
 
-      alert(
-        `Data berhasil diekspor dalam format ${exportFormat.toUpperCase()}!`,
-      );
+      showToast(`Data berhasil diekspor sebagai ${exportFormat.toUpperCase()}!`, "success");
     } catch (error) {
       console.error("Export error:", error);
-      alert(`Gagal ekspor: ${error.message}`);
+      showToast(`Gagal ekspor: ${error.message}`, "error");
     }
   };
 
@@ -235,53 +239,50 @@ export default function ExportImportModal({ visible, onClose }) {
 
         const extension = file.name.split(".").pop().toLowerCase();
 
+        const doImport = (data, label) => {
+          setImportConfirm({
+            visible: true,
+            label,
+            onConfirm: () => {
+              try {
+                LocalStorageService.importAllData(data);
+                showToast(`Data berhasil diimport dari ${label}!`, "success");
+                setImportConfirm({ visible: false, onConfirm: null, label: "" });
+                onClose();
+                setTimeout(() => window.location.reload(), 800);
+              } catch {
+                showToast("Gagal menyimpan data import.", "error");
+              }
+            },
+          });
+        };
+
         if (extension === "json") {
           const text = await file.text();
           const data = JSON.parse(text);
-          if (confirm("Import akan MENIMPA semua data yang ada. Lanjutkan?")) {
-            LocalStorageService.importAllData(data);
-            alert("Data berhasil diimport!");
-            onClose();
-            window.location.reload();
-          }
+          doImport(data, "JSON");
         } else if (extension === "xlsx" || extension === "xls") {
           const buffer = await file.arrayBuffer();
           const wb = XLSX.read(buffer);
           const importedData = { data: {} };
-
           wb.SheetNames.forEach((sheetName) => {
-            const ws = wb.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(ws);
-            importedData.data[sheetName] = jsonData;
+            importedData.data[sheetName] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
           });
-
-          if (confirm("Import akan MENIMPA semua data yang ada. Lanjutkan?")) {
-            LocalStorageService.importAllData(importedData);
-            alert("Data berhasil diimport dari Excel!");
-            onClose();
-            window.location.reload();
-          }
+          doImport(importedData, "Excel");
         } else if (extension === "txt") {
           const text = await file.text();
           const importedData = parseTXT(text);
           if (!importedData) {
-            alert(
-              "Gagal memparse file TXT. Pastikan formatnya sesuai dengan ekspor dari aplikasi ini.",
-            );
+            showToast("File TXT tidak valid. Pastikan format sesuai ekspor aplikasi.", "error");
             return;
           }
-          if (confirm("Import akan MENIMPA semua data yang ada. Lanjutkan?")) {
-            LocalStorageService.importAllData(importedData);
-            alert("Data berhasil diimport dari TXT!");
-            onClose();
-            window.location.reload();
-          }
+          doImport(importedData, "TXT");
         } else {
-          alert("Format file tidak didukung. Gunakan JSON, Excel, atau TXT.");
+          showToast("Format tidak didukung. Gunakan JSON, Excel, atau TXT.", "warning");
         }
       } catch (error) {
         console.error(error);
-        alert("Gagal import data. Pastikan file valid.");
+        showToast("Gagal membaca file. Pastikan file valid.", "error");
       }
     };
     input.click();
@@ -290,47 +291,49 @@ export default function ExportImportModal({ visible, onClose }) {
   // ==================== DOWNLOAD FILTERED ====================
 
   const downloadFilteredExcel = () => {
-    const wb = XLSX.utils.book_new();
-    const data = filteredHistory.map((item, index) => ({
-      No: index + 1,
-      Nama: item.title,
-      Tipe: getTypeLabel(item.type),
-      Nominal: item.amount,
-      Tanggal: formatDate(item.date),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, "Riwayat Terfilter");
-    XLSX.writeFile(wb, getFileName("xlsx", "History"));
+    try {
+      const wb = XLSX.utils.book_new();
+      const data = filteredHistory.map((item, index) => ({
+        No: index + 1,
+        Nama: item.title,
+        Tipe: getTypeLabel(item.type),
+        Nominal: item.amount,
+        Tanggal: formatDate(item.date),
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Riwayat Terfilter");
+      XLSX.writeFile(wb, getFileName("xlsx", "History"));
+      showToast("Riwayat berhasil diunduh sebagai Excel!", "success");
+    } catch {
+      showToast("Gagal mengunduh Excel.", "error");
+    }
     setShowDownloadMenu(false);
   };
 
   const downloadFilteredTXT = () => {
-    let text = `LAPORAN RIWAYAT KEUANGAN (TERFILTER) - KEUANGANAPP\n`;
-    text += `Tanggal Export: ${new Date().toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })}\n`;
-    text += `====================================================\n\n`;
-
-    filteredHistory.forEach((item, index) => {
-      text += `${index + 1}. Nama: ${item.title}\n`;
-      text += `   Tipe: ${getTypeLabel(item.type)}\n`;
-      text += `   Nominal: ${formatCurrency(item.amount)}\n`;
-      text += `   Tanggal: ${formatDate(item.date)}\n`;
-      text += `----------------------------------------------------\n`;
-    });
-
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = getFileName("txt", "History");
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      let text = `LAPORAN RIWAYAT KEUANGAN (TERFILTER) - KEUANGANAPP\n`;
+      text += `Tanggal Export: ${new Date().toLocaleDateString("id-ID", {
+        day: "numeric", month: "long", year: "numeric",
+      })}\n====================================================\n\n`;
+      filteredHistory.forEach((item, index) => {
+        text += `${index + 1}. Nama: ${item.title}\n`;
+        text += `   Tipe: ${getTypeLabel(item.type)}\n`;
+        text += `   Nominal: ${formatCurrency(item.amount)}\n`;
+        text += `   Tanggal: ${formatDate(item.date)}\n`;
+        text += `----------------------------------------------------\n`;
+      });
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = getFileName("txt", "History");
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Riwayat berhasil diunduh sebagai TXT!", "success");
+    } catch {
+      showToast("Gagal mengunduh TXT.", "error");
+    }
     setShowDownloadMenu(false);
   };
 
@@ -389,12 +392,13 @@ export default function ExportImportModal({ visible, onClose }) {
   if (!visible) return null;
 
   return (
+    <>
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[80] p-3"
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="bg-[#0e1523] border border-[#1e2d45] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -758,5 +762,17 @@ export default function ExportImportModal({ visible, onClose }) {
         </div>
       </div>
     </div>
+
+    {/* Import confirmation modal */}
+    <ConfirmModal
+      visible={importConfirm.visible}
+      title="Konfirmasi Import"
+      message={`Import dari ${importConfirm.label} akan MENIMPA semua data yang ada. Data lama tidak dapat dikembalikan. Lanjutkan?`}
+      confirmText="Ya, Import"
+      danger
+      onConfirm={importConfirm.onConfirm}
+      onCancel={() => setImportConfirm({ visible: false, onConfirm: null, label: "" })}
+    />
+    </>
   );
 }
