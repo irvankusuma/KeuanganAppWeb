@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Plus,
   Pencil,
@@ -16,10 +17,12 @@ import {
   Car,
   Heart,
   Film,
+  Pin,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import { useToast } from "../context/ToastContext";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -40,9 +43,10 @@ export default function Pengeluaran() {
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
-    message: "",
     onConfirm: null,
   });
+
+  const { showToast } = useToast();
 
   // Daftar kategori pengeluaran umum
   const kategoriOptions = [
@@ -78,9 +82,14 @@ export default function Pengeluaran() {
     }
   };
 
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+    if (location.state?.autoAdd) {
+      setModalVisible(true);
+    }
+  }, [location.state]);
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
@@ -171,8 +180,20 @@ export default function Pengeluaran() {
 
   // Urutkan berdasarkan tanggal terbaru
   const sortedData = [...filteredData].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) {
+      return a.isPinned ? -1 : 1;
+    }
     return new Date(b.tanggal) - new Date(a.tanggal);
   });
+
+  const handleTogglePin = (id) => {
+    const result = LocalStorageService.togglePin(SHEETS.PENGELUARAN, id);
+    if (result.success) {
+      loadData();
+    } else {
+      showToast(result.message, "warning");
+    }
+  };
 
   // Hitung total pengeluaran
   const totalPengeluaran = filteredData.reduce(
@@ -385,11 +406,22 @@ export default function Pengeluaran() {
                 key={i}
                 className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 border-l-4 border-l-orange-500 shadow-sm transition-all hover:shadow-md"
               >
-                <div className="flex justify-between items-start mb-1.5">
-                  <h3 className="text-sm font-semibold text-white truncate flex-1">{item.nama}</h3>
-                  <div className="flex items-center gap-1.5 text-[10px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full shrink-0 font-medium border border-orange-500/20">
-                    {getKategoriIcon(item.kategori)}
-                    <span>{item.kategori || "Lainnya"}</span>
+                <div className="flex justify-between items-start mb-1.5 gap-2">
+                  <div className="flex-1 truncate">
+                    <h3 className="text-sm font-semibold text-white truncate">{item.nama}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 text-[10px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full font-medium border border-orange-500/20">
+                      {getKategoriIcon(item.kategori)}
+                      <span>{item.kategori || "Lainnya"}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleTogglePin(item.id)}
+                      className={`p-1 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
+                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
+                    >
+                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
+                    </button>
                   </div>
                 </div>
 
@@ -436,15 +468,6 @@ export default function Pengeluaran() {
               : "Belum ada pengeluaran"}
           </div>
         )}
-      </div>
-
-      {/* FAB */}
-      <button
-        onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-8 right-6 w-12 h-12 bg-orange-600 hover:bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-900/40 z-40 transition-colors"
-      >
-        <Plus size={22} />
-      </button>
 
       {/* Modal */}
       {modalVisible && (

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, Target, Edit2, Check, Wallet, Search, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wrench, BookOpen } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import { SkeletonDashboard } from "../components/Skeleton";
 import {
@@ -25,6 +25,20 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState("bulanan"); // 'mingguan', 'bulanan', 'tahunan'
+  
+  // State for Target Tabungan
+  const [targetTabungan, setTargetTabungan] = useState(() => {
+    return parseFloat(localStorage.getItem("@TargetTabungan")) || 10000000;
+  });
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState("");
+  const targetInputRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -72,6 +86,36 @@ export default function Dashboard() {
   const totalPengeluaran = data.pengeluaran.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
 
   const saldoBersih = totalPemasukan + sisaPiutang - totalPengeluaran - sisaHutang;
+
+  // Calculate new stats
+  const currentMonthYear = new Date().toISOString().slice(0, 7);
+
+  const pemasukanBulanIni = data.pemasukan
+    .filter((i) => i.tanggal && i.tanggal.startsWith(currentMonthYear))
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+
+  const pengeluaranBulanIni = data.pengeluaran
+    .filter((i) => i.tanggal && i.tanggal.startsWith(currentMonthYear))
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+    
+  const sisaUangBulanIni = pemasukanBulanIni - pengeluaranBulanIni;
+
+  const pemasukanTerbaru = useMemo(() => {
+    const sorted = [...data.pemasukan].sort((a,b) => new Date(b.tanggal||b.createdAt) - new Date(a.tanggal||a.createdAt));
+    return sorted.length > 0 ? sorted[0] : null;
+  }, [data.pemasukan]);
+
+  // Target Tabungan Handlers
+  const handleSaveTarget = () => {
+    const val = parseFloat(targetInput.replace(/\D/g, ""));
+    if (!isNaN(val) && val > 0) {
+      setTargetTabungan(val);
+      localStorage.setItem("@TargetTabungan", val.toString());
+    }
+    setIsEditingTarget(false);
+  };
+  
+  const progressTabungan = targetTabungan > 0 ? Math.min((saldoBersih / targetTabungan) * 100, 100) : 0;
 
   // Data untuk grafik per periode
   const chartData = useMemo(() => {
@@ -153,6 +197,46 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [data]);
 
+  // ─── Global Search Logic ───
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    const results = [];
+    
+    // Search in all modules
+    data.pemasukan.forEach(i => {
+      if ((i.nama||'').toLowerCase().includes(query) || (i.catatan||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'pemasukan', label: i.nama, path: '/pemasukan' });
+      }
+    });
+    data.pengeluaran.forEach(i => {
+      if ((i.nama||'').toLowerCase().includes(query) || (i.catatan||'').toLowerCase().includes(query) || (i.kategori||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'pengeluaran', label: i.nama, path: '/pengeluaran' });
+      }
+    });
+    data.hutang.forEach(i => {
+      if ((i.nama||'').toLowerCase().includes(query) || (i.catatan||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'hutang', label: i.nama, path: '/hutang' });
+      }
+    });
+    data.piutang.forEach(i => {
+      if ((i.nama||'').toLowerCase().includes(query) || (i.catatan||'').toLowerCase().includes(query) || (i.namaOrang||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'piutang', label: i.namaOrang || i.nama, path: '/piutang' });
+      }
+    });
+    data.catatan.forEach(i => {
+      if ((i.judul||'').toLowerCase().includes(query) || (i.isi||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'catatan', label: i.judul || 'Catatan', path: '/catatan' });
+      }
+    });
+    
+    setSearchResults(results.slice(0, 10)); // Limit results
+  }, [searchQuery, data]);
+
   if (loading) {
     return <SkeletonDashboard />;
   }
@@ -166,6 +250,60 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
+      {/* ── Global Search Bar ── */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <Search size={18} className="text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+        </div>
+        <input 
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            if (e.target.value.trim()) setShowSearchModal(true);
+          }}
+          placeholder="Cari transaksi, hutang, piutang, atau catatan..."
+          className="w-full bg-[#0e1523] border border-[#1e2d45] focus:border-blue-500/50 rounded-2xl pl-12 pr-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all shadow-lg"
+        />
+        
+        {showSearchModal && searchQuery.trim() && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-[#0e1523] border border-[#1e2d45] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="px-4 py-2 bg-[#141d2e] border-b border-[#1e2d45] flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Hasil Pencarian</span>
+              <button onClick={() => setShowSearchModal(false)} className="text-slate-500 hover:text-white"><X size={14} /></button>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
+              {searchResults.length > 0 ? (
+                searchResults.map((res, i) => (
+                  <Link 
+                    key={i}
+                    to={res.path}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors border-b border-[#1e2d45] last:border-0"
+                  >
+                    <div className={`w-8 h-8 rounded-lg ${TYPE_CONFIG[res.type]?.bg || 'bg-slate-500/10'} flex items-center justify-center shrink-0`}>
+                      {(() => {
+                        const Icon = TYPE_CONFIG[res.type]?.icon || Search;
+                        return <Icon size={14} className={TYPE_CONFIG[res.type]?.color || 'text-slate-400'} />;
+                      })()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-200 truncate">{res.label}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{res.type}</p>
+                    </div>
+                    {res.jumlah && (
+                      <span className="text-xs font-bold text-white shrink-0">{formatCurrency(parseFloat(res.jumlah))}</span>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                <div className="px-4 py-8 text-center text-slate-500 text-sm">
+                  Tidak ditemukan hasil untuk "{searchQuery}"
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Hero: Saldo Bersih ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-5 shadow-xl shadow-blue-900/30">
@@ -190,51 +328,105 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── 4 Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Pemasukan */}
-        <Link to="/pemasukan" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-emerald-500/30 rounded-xl p-4 transition-colors">
+      {/* ── 6 Stat Cards (Ringkasan Pintar) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {/* Total Uang Bulan Ini */}
+        <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-emerald-500/10 rounded-lg"><TrendingUp size={16} className="text-emerald-400" /></div>
-            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+            <div className="p-2 bg-emerald-500/10 rounded-lg"><Wallet size={16} className="text-emerald-400" /></div>
           </div>
-          <p className="text-xs text-slate-400 mb-1">Pemasukan</p>
-          <p className="text-base font-bold text-emerald-400 leading-tight">{formatCurrency(totalPemasukan)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.pemasukan.filter(i => !i.parent_id).length} sumber</p>
-        </Link>
+          <p className="text-xs text-slate-400 mb-1">Uang Bulan Ini</p>
+          <p className={`text-base font-bold leading-tight ${sisaUangBulanIni >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {formatCurrency(sisaUangBulanIni)}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">Sisa pemasukan & pengeluaran</p>
+        </div>
 
-        {/* Pengeluaran */}
+        {/* Pengeluaran Bulan Ini */}
         <Link to="/pengeluaran" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-orange-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-orange-500/10 rounded-lg"><TrendingDown size={16} className="text-orange-400" /></div>
             <ArrowUpRight size={14} className="text-slate-600 group-hover:text-orange-400 transition-colors" />
           </div>
-          <p className="text-xs text-slate-400 mb-1">Pengeluaran</p>
-          <p className="text-base font-bold text-orange-400 leading-tight">{formatCurrency(totalPengeluaran)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.pengeluaran.length} transaksi</p>
+          <p className="text-xs text-slate-400 mb-1">Pengeluaran (Bulan Ini)</p>
+          <p className="text-base font-bold text-orange-400 leading-tight">{formatCurrency(pengeluaranBulanIni)}</p>
         </Link>
 
-        {/* Hutang */}
+        {/* Pemasukan Terbaru */}
+        <Link to="/pemasukan" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-emerald-500/30 rounded-xl p-4 transition-colors flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-emerald-500/10 rounded-lg"><TrendingUp size={16} className="text-emerald-400" /></div>
+            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Pemasukan Terbaru</p>
+          <p className="text-base font-bold text-emerald-400 leading-tight">
+            {pemasukanTerbaru ? formatCurrency(pemasukanTerbaru.jumlah) : "Rp 0"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1 truncate">{pemasukanTerbaru ? pemasukanTerbaru.nama : "-"}</p>
+        </Link>
+
+        {/* Hutang Aktif */}
         <Link to="/hutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-red-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-red-500/10 rounded-lg"><DollarSign size={16} className="text-red-400" /></div>
             <ArrowUpRight size={14} className="text-slate-600 group-hover:text-red-400 transition-colors" />
           </div>
-          <p className="text-xs text-slate-400 mb-1">Hutang</p>
+          <p className="text-xs text-slate-400 mb-1">Hutang Aktif</p>
           <p className="text-base font-bold text-red-400 leading-tight">{formatCurrency(sisaHutang)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.hutang.length} aktif · dibayar {formatCurrency(totalPembayaranHutang)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.hutang.length} aktif</p>
         </Link>
 
-        {/* Piutang */}
+        {/* Piutang Aktif */}
         <Link to="/piutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-blue-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-blue-500/10 rounded-lg"><Coins size={16} className="text-blue-400" /></div>
             <ArrowUpRight size={14} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
           </div>
-          <p className="text-xs text-slate-400 mb-1">Piutang</p>
+          <p className="text-xs text-slate-400 mb-1">Piutang Aktif</p>
           <p className="text-base font-bold text-blue-400 leading-tight">{formatCurrency(sisaPiutang)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.piutang.length} aktif · diterima {formatCurrency(totalPembayaranPiutang)}</p>
+          <p className="text-xs text-slate-500 mt-1">{data.piutang.length} aktif</p>
         </Link>
+
+        {/* Target Tabungan */}
+        <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 flex flex-col justify-between relative group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-indigo-500/10 rounded-lg"><Target size={16} className="text-indigo-400" /></div>
+            {!isEditingTarget && (
+              <button onClick={() => { setTargetInput(targetTabungan.toString()); setIsEditingTarget(true); }} className="p-1 rounded text-slate-600 hover:text-indigo-400 transition-colors">
+                <Edit2 size={13} />
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mb-1">Target Tabungan</p>
+          
+          {isEditingTarget ? (
+            <div className="flex items-center gap-1 mt-1">
+              <input 
+                ref={targetInputRef}
+                autoFocus
+                type="text"
+                inputMode="numeric"
+                className="w-full bg-[#141d2e] border border-[#1e2d45] rounded-lg px-2 py-1 text-sm text-white outline-none focus:border-indigo-500"
+                value={targetInput}
+                onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveTarget(); }}
+              />
+              <button onClick={handleSaveTarget} className="p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+                <Check size={14} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-base font-bold text-indigo-400 leading-tight truncate" title={formatCurrency(targetTabungan)}>
+                {formatCurrency(targetTabungan)}
+              </p>
+              <div className="mt-2.5 w-full bg-[#1e2d45] rounded-full h-1.5 overflow-hidden">
+                <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${progressTabungan}%` }} />
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1.5">{progressTabungan.toFixed(1)}% tercapai</p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Chart (full width) ── */}
@@ -358,14 +550,101 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Catatan shortcut */}
-        <div className="px-4 py-3 border-t border-[#1e2d45] flex items-center justify-between">
-          <span className="text-xs text-slate-500">{data.catatan.length} catatan tersimpan</span>
-          <Link to="/catatan" className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
-            Buka Catatan →
-          </Link>
         </div>
       </div>
+
+      {/* ── Finance Calendar ── */}
+      <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block" />
+            Kalender Keuangan
+          </h3>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1))}
+              className="p-1 hover:bg-white/5 rounded-lg text-slate-400"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-bold text-slate-300 min-w-[100px] text-center capitalize">
+              {calendarDate.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}
+            </span>
+            <button 
+              onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1))}
+              className="p-1 hover:bg-white/5 rounded-lg text-slate-400"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {["S", "S", "R", "K", "J", "S", "M"].map((d, i) => (
+            <div key={i} className="text-[10px] font-bold text-slate-500 text-center py-1">{d}</div>
+          ))}
+          {(() => {
+            const daysInMonth = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate();
+            const firstDay = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay();
+            const days = [];
+            
+            // Adjust firstDay (Sunday is 0, we want Monday to be 0 or keep as is)
+            // Let's keep Sunday as first column for simplicity if needed, but here it's S S R K J S M (Sun to Sat)
+            
+            for (let i = 0; i < firstDay; i++) {
+              days.push(<div key={`empty-${i}`} className="h-8" />);
+            }
+            
+            const today = new Date();
+            const isCurrentMonth = today.getMonth() === calendarDate.getMonth() && today.getFullYear() === calendarDate.getFullYear();
+            
+            for (let d = 1; d <= daysInMonth; d++) {
+              const dateStr = `${calendarDate.getFullYear()}-${(calendarDate.getMonth() + 1).toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
+              const isToday = isCurrentMonth && today.getDate() === d;
+              
+              // Find events for this day
+              const events = [
+                ...data.pemasukan.filter(i => i.tanggal === dateStr).map(() => 'bg-emerald-500'),
+                ...data.pengeluaran.filter(i => i.tanggal === dateStr).map(() => 'bg-orange-500'),
+                ...data.hutang.filter(i => i.tanggal === dateStr).map(() => 'bg-red-500'),
+                ...data.piutang.filter(i => i.tanggal === dateStr).map(() => 'bg-blue-500'),
+              ].slice(0, 3);
+
+              days.push(
+                <div key={d} className={`h-10 flex flex-col items-center justify-center rounded-lg border ${isToday ? 'border-blue-500 bg-blue-500/10' : 'border-transparent hover:bg-white/5'} transition-colors cursor-default relative`}>
+                  <span className={`text-xs font-medium ${isToday ? 'text-blue-400' : 'text-slate-300'}`}>{d}</span>
+                  <div className="flex gap-0.5 mt-1">
+                    {events.map((cls, i) => (
+                      <div key={i} className={`w-1 h-1 rounded-full ${cls}`} />
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+            return days;
+          })()}
+        </div>
+        
+        <div className="mt-4 flex flex-wrap gap-4 px-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-[10px] text-slate-500 font-medium">Pemasukan</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-orange-500" />
+            <span className="text-[10px] text-slate-500 font-medium">Pengeluaran</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="text-[10px] text-slate-500 font-medium">Hutang</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="text-[10px] text-slate-500 font-medium">Piutang</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

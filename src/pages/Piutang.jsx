@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Plus,
   Pencil,
@@ -13,10 +14,12 @@ import {
   ChevronUp,
   Wallet,
   History,
+  Pin,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import { useToast } from "../context/ToastContext";
 
 export default function Piutang() {
   const [piutang, setPiutang] = useState([]);
@@ -36,6 +39,7 @@ export default function Piutang() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState(null);
   const [showLunasHistory, setShowLunasHistory] = useState(false);
+  const { showToast } = useToast();
   const [payFormData, setPayFormData] = useState({
     piutangId: "",
     namaOrang: "",
@@ -67,9 +71,14 @@ export default function Piutang() {
     onConfirm: null,
   });
 
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+    if (location.state?.autoAdd) {
+      setModalVisible(true);
+    }
+  }, [location.state]);
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.PIUTANG);
@@ -187,6 +196,15 @@ export default function Piutang() {
     return "upcoming";
   };
 
+  const handleTogglePin = (id) => {
+    const result = LocalStorageService.togglePin(SHEETS.PIUTANG, id);
+    if (result.success) {
+      loadData();
+    } else {
+      showToast(result.message, "warning");
+    }
+  };
+
   const sortedData = [...piutang]
     .filter((item) => {
       if (filterStatus === "all") return true;
@@ -194,6 +212,9 @@ export default function Piutang() {
       return status === filterStatus;
     })
     .sort((a, b) => {
+      if (a.isPinned !== b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
       return new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0);
     });
 
@@ -244,9 +265,18 @@ export default function Piutang() {
               {item.tanggal || "-"}
             </span>
           </div>
-          <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium ${statusBg}`}>
-            {statusIcon}
-            {statusText}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium ${statusBg}`}>
+              {statusIcon}
+              {statusText}
+            </div>
+            <button 
+              onClick={() => handleTogglePin(item.id)}
+              className={`p-1.5 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
+              title={item.isPinned ? "Lepas Pin" : "Pin Item"}
+            >
+              <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
+            </button>
           </div>
         </div>
         
@@ -700,14 +730,6 @@ export default function Piutang() {
             )}
           </div>
         )}
-      </div>
-
-      <button
-        onClick={() => setModalVisible(true)}
-        className="fixed bottom-24 md:bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-xl shadow-blue-600/20 z-40 transition-transform active:scale-95"
-      >
-        <Plus size={28} />
-      </button>
 
       {/* MODALS */}
       {modalVisible && (

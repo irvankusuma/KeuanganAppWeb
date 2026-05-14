@@ -22,6 +22,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  Plus,
 } from "lucide-react";
 
 // Pages
@@ -202,6 +203,8 @@ function Layout({ children }) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [showExportModal,  setShowExportModal]  = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -308,10 +311,83 @@ function Layout({ children }) {
         </header>
 
         {/* ── Main content ── */}
-        <main className="flex-1 p-4 md:p-6 pb-8 max-w-5xl w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-8 max-w-5xl w-full mx-auto relative">
           {children}
         </main>
       </div>
+
+      {/* ══════════════════════════════════════
+          GLOBAL FLOATING ACTION BUTTON (FAB)
+          ══════════════════════════════════════ */}
+      {/* Backdrop for Quick Add */}
+      {showQuickAdd && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-300" 
+          onClick={() => setShowQuickAdd(false)} 
+        />
+      )}
+
+      <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end">
+        {/* Expanded Menu */}
+        {showQuickAdd && (
+          <div className="mb-4 flex flex-col gap-2.5 items-end animate-in fade-in slide-in-from-bottom-5 duration-300">
+            {/* Quick Action Label */}
+            <div className="px-4 py-2 bg-[#0e1523]/80 backdrop-blur-md border border-[#1e2d45] rounded-2xl mb-1 shadow-xl">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Transaksi Cepat</span>
+            </div>
+            
+            {[
+              { path: "/pemasukan",   icon: TrendingUp,   label: "Tambah Pemasukan",   color: "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20" },
+              { path: "/pengeluaran", icon: TrendingDown, label: "Tambah Pengeluaran", color: "text-orange-400 bg-orange-500/10 hover:bg-orange-500/20" },
+              { path: "/hutang",      icon: DollarSign,   label: "Tambah Hutang",      color: "text-red-400 bg-red-500/10 hover:bg-red-500/20" },
+              { path: "/piutang",     icon: Coins,        label: "Tambah Piutang",     color: "text-blue-400 bg-blue-500/10 hover:bg-blue-500/20" },
+              { path: "/perbaikan",   icon: Wrench,       label: "Servis & Perbaikan", color: "text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20" },
+              { path: "/catatan",     icon: BookOpen,     label: "Catatan Baru",       color: "text-slate-400 bg-slate-500/10 hover:bg-slate-500/20" },
+            ].map((item, idx) => (
+              <button 
+                key={item.label}
+                onClick={() => { 
+                  setShowQuickAdd(false); 
+                  navigate(item.path, { state: { autoAdd: true } }); 
+                }}
+                className="flex items-center gap-3 bg-[#0e1523]/95 backdrop-blur-md border border-[#1e2d45] rounded-2xl pl-5 pr-2 py-2 shadow-2xl hover:border-blue-500/50 hover:bg-[#141d2e] transition-all group animate-in slide-in-from-bottom-2"
+                style={{ 
+                  animationFillMode: "both", 
+                  animationDelay: `${idx * 40}ms`,
+                  boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                }}
+              >
+                <span className="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">{item.label}</span>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 ${item.color}`}>
+                  <item.icon size={18} strokeWidth={2} />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Main Trigger Button */}
+        <button
+          onClick={() => setShowQuickAdd(!showQuickAdd)}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-500 group relative overflow-hidden ${
+            showQuickAdd 
+              ? "bg-[#1e2d45] border border-[#334155] rotate-[135deg]" 
+              : "bg-blue-600 hover:bg-blue-500 hover:scale-105 active:scale-95 shadow-blue-600/30"
+          }`}
+          aria-label={showQuickAdd ? "Tutup menu" : "Tambah transaksi"}
+        >
+          {/* Subtle glow effect */}
+          {!showQuickAdd && (
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+          <Plus 
+            size={28} 
+            className={`text-white transition-transform duration-500 ${showQuickAdd ? "" : "group-hover:rotate-90"}`} 
+          />
+        </button>
+      </div>
+
+
 
       {/* ══════════════════════════════════════
           GLOBAL MODALS

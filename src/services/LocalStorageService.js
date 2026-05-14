@@ -95,6 +95,48 @@ class LocalStorageService {
     }
   }
 
+  // Pinning logic
+  getTotalPinnedCount() {
+    let count = 0;
+    const sheetsToCheck = [
+      SHEETS.HUTANG,
+      SHEETS.PIUTANG,
+      SHEETS.PEMASUKAN,
+      SHEETS.PENGELUARAN,
+      SHEETS.PERBAIKAN,
+      SHEETS.CATATAN
+    ];
+    
+    sheetsToCheck.forEach(sheet => {
+      const data = this.readSheet(sheet);
+      count += data.filter(item => item.isPinned).length;
+    });
+    
+    return count;
+  }
+
+  togglePin(sheetName, id) {
+    const data = this.readSheet(sheetName);
+    const index = data.findIndex(item => item.id === id.toString());
+    
+    if (index === -1) return { success: false, message: 'Item tidak ditemukan' };
+    
+    const isCurrentlyPinned = data[index].isPinned;
+    
+    if (!isCurrentlyPinned) {
+      const totalPinned = this.getTotalPinnedCount();
+      if (totalPinned >= 5) {
+        return { success: false, message: 'Maksimal 5 data yang dapat dipin' };
+      }
+    }
+    
+    data[index].isPinned = !isCurrentlyPinned;
+    data[index].pinnedAt = data[index].isPinned ? new Date().toISOString() : null;
+    
+    this.writeSheet(sheetName, data);
+    return { success: true, isPinned: data[index].isPinned };
+  }
+
   // Export all data as JSON
   exportAllData() {
     try {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Plus,
   Pencil,
@@ -10,10 +11,13 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  CheckCircle,
+  Pin,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import { useToast } from "../context/ToastContext";
 
 export default function Perbaikan() {
   const [perbaikan, setPerbaikan] = useState([]);
@@ -24,6 +28,7 @@ export default function Perbaikan() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState(null);
   const [showLunasHistory, setShowLunasHistory] = useState(false);
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     nama: "",
     tanggal: new Date().toISOString().split("T")[0],
@@ -55,9 +60,14 @@ export default function Perbaikan() {
     onConfirm: null,
   });
 
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+    if (location.state?.autoAdd) {
+      setModalVisible(true);
+    }
+  }, [location.state]);
   const loadData = () =>
     setPerbaikan(LocalStorageService.readSheet(SHEETS.PERBAIKAN));
 
@@ -299,6 +309,15 @@ export default function Perbaikan() {
     loadData();
   };
 
+  const handleTogglePin = (id) => {
+    const result = LocalStorageService.togglePin(SHEETS.PERBAIKAN, id);
+    if (result.success) {
+      loadData();
+    } else {
+      showToast(result.message, "warning");
+    }
+  };
+
   const resetForm = () => {
     setModalVisible(false);
     setEditMode(false);
@@ -346,6 +365,9 @@ export default function Perbaikan() {
   });
   const sortedData = [...filteredRoots].sort(
     (a, b) => {
+      if (a.isPinned !== b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
       const aDate = new Date(getLatestRecord(a).tanggal || a.createdAt || 0);
       const bDate = new Date(getLatestRecord(b).tanggal || b.createdAt || 0);
       return bDate - aDate;
@@ -497,9 +519,18 @@ export default function Perbaikan() {
                       KM Saat Ini: {fmtN(latest.km_saat_ini)} → {fmtN(kmB)}
                     </span>
                   </div>
-                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${cfg.badge}`}>
-                    {cfg.text}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${cfg.badge}`}>
+                      {cfg.text}
+                    </span>
+                    <button 
+                      onClick={() => handleTogglePin(item.id)}
+                      className={`p-1.5 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
+                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
+                    >
+                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex items-end justify-between mb-2">
@@ -657,15 +688,6 @@ export default function Perbaikan() {
             )}
           </div>
         )}
-      </div>
-
-      {/* FAB */}
-      <button
-        onClick={() => setModalVisible(true)}
-        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg z-40"
-      >
-        <Plus size={22} />
-      </button>
 
       {/* Modal Tambah/Edit Data Utama */}
       {modalVisible && (

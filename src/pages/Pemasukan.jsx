@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Plus, Pencil, Trash2, X, Calculator, TrendingUp,
   Filter, ChevronDown, ChevronUp, History,
-  ArrowDownCircle, ArrowUpCircle, MoreHorizontal,
+  ArrowDownCircle, ArrowUpCircle, MoreHorizontal, Pin
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import { SkeletonListPage } from "../components/Skeleton";
 import NumericInput from "../components/NumericInput";
+import { useToast } from "../context/ToastContext";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -57,9 +59,17 @@ export default function Pemasukan() {
     visible: false, title: "", message: "", onConfirm: null,
   });
 
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, []);
+  const location = useLocation();
+
+  useEffect(() => {
+    loadData();
+    if (location.state?.autoAdd) {
+      setModalVisible(true);
+    }
+  }, [location.state]);
 
   const loadData = () => {
     setLoading(false);
@@ -108,7 +118,21 @@ export default function Pemasukan() {
     return yA !== yB ? yB - yA : mB - mA;
   });
   const filteredRoots = rootItems.filter((i) => filterBulan === "all" || getMonthYear(i.tanggal) === filterBulan);
-  const sortedRoots = [...filteredRoots].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+  const sortedRoots = [...filteredRoots].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) {
+      return a.isPinned ? -1 : 1;
+    }
+    return new Date(b.tanggal) - new Date(a.tanggal);
+  });
+
+  const handleTogglePin = (id) => {
+    const result = LocalStorageService.togglePin(SHEETS.PEMASUKAN, id);
+    if (result.success) {
+      loadData();
+    } else {
+      showToast(result.message, "warning");
+    }
+  };
 
   const inputCls = "w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white";
   const labelCls = "block text-xs text-gray-400 mb-1";
@@ -324,7 +348,16 @@ export default function Pemasukan() {
                 {/* Row 1: nama + jumlah awal */}
                 <div className="flex justify-between items-start gap-3 mb-1">
                   <h3 className="text-sm font-semibold text-white truncate flex-1">{item.nama}</h3>
-                  <span className="text-sm font-bold text-emerald-400 shrink-0">{fmtC(item.jumlah)}</span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-bold text-emerald-400">{fmtC(item.jumlah)}</span>
+                    <button 
+                      onClick={() => handleTogglePin(item.id)}
+                      className={`p-1 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
+                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
+                    >
+                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Row 2: tanggal + saldo aktif */}
@@ -480,16 +513,6 @@ export default function Pemasukan() {
             {filterBulan !== "all" ? "Tidak ada pemasukan di bulan ini" : "Belum ada pemasukan"}
           </div>
         )}
-      </div>
-
-      {/* FAB */}
-      <button
-        onClick={() => setModalVisible(true)}
-        className="fixed bottom-20 md:bottom-8 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-900/40 z-40 transition-colors"
-        aria-label="Tambah pemasukan"
-      >
-        <Plus size={22} />
-      </button>
 
       {/* ========== MODAL TAMBAH/EDIT ROOT ========== */}
       {modalVisible && (

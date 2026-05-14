@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Plus,
   Pencil,
@@ -11,9 +12,11 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Pin,
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
+import { useToast } from "../context/ToastContext";
 
 const NOTE_TYPES = {
   STANDARD: "standard",
@@ -42,13 +45,19 @@ export default function Catatan() {
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
-    message: "",
     onConfirm: null,
   });
 
+  const { showToast } = useToast();
+
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+    if (location.state?.autoAdd) {
+      setShowTypePicker(true);
+    }
+  }, [location.state]);
 
   const loadData = () => {
     const data = LocalStorageService.readSheet(SHEETS.CATATAN);
@@ -74,6 +83,9 @@ export default function Catatan() {
         return judul.includes(keyword) || isi.includes(keyword);
       })
       .sort((a, b) => {
+        if (a.isPinned !== b.isPinned) {
+          return a.isPinned ? -1 : 1;
+        }
         const dateA = new Date(a.updatedAt || a.createdAt || 0);
         const dateB = new Date(b.updatedAt || b.createdAt || 0);
         return filterSort === "newest" ? dateB - dateA : dateA - dateB;
@@ -290,6 +302,15 @@ export default function Catatan() {
     });
   };
 
+  const handleTogglePin = (id) => {
+    const result = LocalStorageService.togglePin(SHEETS.CATATAN, id);
+    if (result.success) {
+      loadData();
+    } else {
+      showToast(result.message, "warning");
+    }
+  };
+
   const formatDateTime = (item) => {
     const raw = item.updatedAt || item.createdAt;
     if (!raw) return "-";
@@ -502,6 +523,13 @@ export default function Catatan() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
+                      onClick={(e) => { e.stopPropagation(); handleTogglePin(item.id); }}
+                      className={`p-1.5 rounded-md transition-all ${item.isPinned ? "bg-blue-600/20 text-blue-300" : "bg-slate-700/50 text-slate-500 hover:text-slate-300"}`}
+                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
+                    >
+                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
+                    </button>
+                    <button
                       onClick={() => handleEdit(item)}
                       className="p-1.5 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40"
                       aria-label="Edit catatan"
@@ -604,15 +632,6 @@ export default function Catatan() {
               : "Belum ada catatan. Tambah catatan dari tombol +."}
           </div>
         )}
-      </div>
-
-      <button
-        onClick={() => setShowTypePicker(true)}
-        className="fixed bottom-24 md:bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center shadow-lg z-40 md:z-40"
-        aria-label="Tambah catatan"
-      >
-        <Plus size={22} />
-      </button>
 
       {showTypePicker && (
         <div
