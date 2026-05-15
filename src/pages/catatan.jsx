@@ -274,7 +274,7 @@ export default function Catatan() {
 
     if (editId) {
       LocalStorageService.updateRow(SHEETS.CATATAN, editId, payload);
-    } else {
+} else {
       LocalStorageService.appendRow(SHEETS.CATATAN, payload);
     }
 
@@ -291,6 +291,18 @@ export default function Catatan() {
       jenis: type,
     });
     setIsViewMode(true);
+    setShowModal(true);
+  };
+
+  const handleEditDirectly = (item) => {
+    const type = item.jenis || NOTE_TYPES.STANDARD;
+    setEditId(item.id);
+    setFormData({
+      judul: item.judul || "",
+      isi: item.isi || "",
+      jenis: type,
+    });
+    setIsViewMode(false);
     setShowModal(true);
   };
 
@@ -502,11 +514,11 @@ export default function Catatan() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Cari judul atau isi catatan..."
-          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none transition-colors"
         />
       </div>
 
-      <div className="space-y-3">
+      <div className="card-grid-responsive">
         {filteredNotes.length > 0 ? (
           filteredNotes.map((item) => {
             const type = item.jenis || NOTE_TYPES.STANDARD;
@@ -514,10 +526,10 @@ export default function Catatan() {
               <div
                 key={item.id}
                 ref={el => cardRefs.current[item.id] = el}
-                className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 cursor-pointer hover:bg-slate-700/20 transition-all group"
+                className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 cursor-pointer hover:bg-slate-700/20 transition-all group flex flex-col h-full min-w-0"
                 onClick={() => handleEdit(item)}
               >
-                <div className="flex items-start justify-between gap-3 mb-1">
+                <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <h3 className="text-sm font-bold text-white tracking-tight truncate">
@@ -529,8 +541,6 @@ export default function Catatan() {
                       <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
                         {getTypeLabel(type)}
                       </span>
-                      <span>•</span>
-                      <span className="truncate">{formatDateTime(item).split(',')[0]}</span>
                     </div>
                   </div>
                   <div
@@ -545,102 +555,98 @@ export default function Catatan() {
                       title={`Catatan: ${item.judul || "Tanpa Judul"}`}
                       dataString={`${item.judul || "Catatan"}: ${item.isi}`}
                     />
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="p-1.5 rounded-md text-slate-600 hover:text-blue-400 hover:bg-white/5"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item)}
-                      className="p-1.5 rounded-md text-slate-600 hover:text-red-400 hover:bg-white/5"
-                    >
-                      <Trash2 size={13} />
-                    </button>
                   </div>
                 </div>
 
-                {type === NOTE_TYPES.BULLET ? (
-                  <ul className="text-sm text-slate-200 mt-2 space-y-1">
-                    {bulletItems(item.isi || "")
-                      .slice(0, 3)
-                      .map((line, idx) => {
-                        const text = line.replace(/^\s*[•*]?\s*/, "").trim();
-                        return (
-                          <li key={`${item.id}-${idx}`} className="flex gap-2.5 items-start">
-                            <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-500 shrink-0" />
-                            <span className="flex-1 min-w-0 break-words line-clamp-2 leading-relaxed">{text}</span>
-                          </li>
-                        );
-                      })}
-                    {bulletItems(item.isi || "").length > 3 && (
-                      <li className="text-xs text-slate-500 italic mt-1">
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {type === NOTE_TYPES.BULLET ? (
+                    <ul className="text-sm text-slate-300 space-y-1">
+                      {bulletItems(item.isi || "")
+                        .map((line, idx) => {
+                          const text = line.replace(/^\s*[•*]?\s*/, "").trim();
+                          return (
+                            <li key={`${item.id}-${idx}`} className={`flex gap-2 items-start ${idx >= 3 ? 'note-extra-item' : ''}`}>
+                              <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-600 shrink-0" />
+                              <span className="flex-1 min-w-0 break-words line-clamp-2 leading-relaxed text-xs note-text-content">{text}</span>
+                            </li>
+                          );
+                        })}
+                      <li className="text-[10px] text-slate-500 italic mt-1 note-see-more">
                         ... lihat selebihnya
                       </li>
-                    )}
-                  </ul>
-                ) : type === NOTE_TYPES.CHECKBOX ? (
-                  <div className="text-sm text-slate-200 mt-2 space-y-1">
-                    {(item.isi || "")
-                      .split("\n")
-                      .map((line, i) => ({ line, i }))
-                      .filter((x) => x.line.trim() !== "")
-                      .slice(0, 4)
-                      .map(({ line, i }, idx) => {
-                        const isChecked = line.trim().startsWith("[x]");
-                        const hasCheckbox =
-                          line.trim().startsWith("[x]") ||
-                          line.trim().startsWith("[ ]");
-                        const text = hasCheckbox
-                          ? line.replace(/^\[[x ]\]\s*/i, "")
-                          : line;
+                    </ul>
+                  ) : type === NOTE_TYPES.CHECKBOX ? (
+                    <div className="text-sm text-slate-300 space-y-1">
+                      {(item.isi || "")
+                        .split("\n")
+                        .map((line, i) => ({ line, i }))
+                        .filter((x) => x.line.trim() !== "")
+                        .map(({ line, i }, idx) => {
+                          const isChecked = line.trim().startsWith("[x]");
+                          const text = line.replace(/^\[[x ]\]\s*/i, "");
 
-                        return (
-                          <div
-                            key={`${item.id}-${idx}`}
-                            className="flex items-start gap-2"
-                          >
+                          return (
                             <div
-                              onClick={(e) => toggleCheckbox(item, i, e)}
-                              className="mt-0.5 shrink-0 cursor-pointer text-slate-400 hover:text-white"
+                              key={`${item.id}-${idx}`}
+                              className={`flex items-start gap-2 ${idx >= 3 ? 'note-extra-item' : ''}`}
                             >
-                              {isChecked ? (
-                                <div className="w-4 h-4 border border-blue-500 bg-blue-500 rounded-[4px] flex items-center justify-center shadow-sm">
-                                  <Check
-                                    size={12}
-                                    className="text-white"
-                                    strokeWidth={3}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-4 h-4 border-[1.5px] border-slate-500 rounded-[4px]"></div>
-                              )}
+                              <div
+                                onClick={(e) => toggleCheckbox(item, i, e)}
+                                className="mt-0.5 shrink-0 cursor-pointer text-slate-500"
+                              >
+                                {isChecked ? (
+                                  <div className="w-3.5 h-3.5 border border-blue-500 bg-blue-500 rounded-[3px] flex items-center justify-center">
+                                    <Check size={10} className="text-white" strokeWidth={4} />
+                                  </div>
+                                ) : (
+                                  <div className="w-3.5 h-3.5 border-[1.5px] border-slate-600 rounded-[3px]"></div>
+                                )}
+                              </div>
+                              <span
+                                className={`flex-1 min-w-0 break-words line-clamp-2 leading-relaxed text-xs note-text-content ${isChecked ? "text-slate-600 line-through" : ""}`}
+                              >
+                                {text}
+                              </span>
                             </div>
-                            <span
-                              className={`flex-1 min-w-0 break-words line-clamp-2 leading-relaxed ${isChecked ? "text-slate-500 line-through" : ""}`}
-                            >
-                              {text}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    {(item.isi || "").split("\n").filter((l) => l.trim() !== "")
-                      .length > 4 && (
-                      <div className="text-xs text-slate-500 italic mt-1">
+                          );
+                        })}
+                      <div className="text-[10px] text-slate-500 italic mt-1 note-see-more">
                         ... lihat selebihnya
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap line-clamp-3">
-                    {item.isi}
-                  </p>
-                )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 whitespace-pre-wrap line-clamp-4 leading-relaxed break-words note-text-content">
+                      {item.isi}
+                    </p>
+                  )}
+                </div>
+
+                {/* Export Only Date */}
+                <div className="hidden is-export-only-date mt-4 pt-3 border-t border-[#1e2d45]/50">
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Waktu Terakhir</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(item)}</p>
+                </div>
+
+                {/* Footer Actions (Card Level) */}
+                <div className="mt-auto pt-3 flex items-center gap-2 no-export">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); handleEditDirectly(item); }}
+                     className="btn-action-compact btn-action-blue"
+                   >
+                     <Pencil size={12} /> Edit
+                   </button>
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+                     className="btn-action-compact btn-action-red"
+                   >
+                     <Trash2 size={12} /> Hapus
+                   </button>
+                </div>
               </div>
             );
           })
         ) : (
-          <div className="text-center text-sm text-slate-400 py-14 bg-slate-800/60 border border-slate-700 rounded-xl">
+          <div className="text-center text-sm text-slate-400 py-14 bg-slate-800/30 border border-slate-700/50 rounded-2xl col-span-full">
             {search
               ? "Catatan tidak ditemukan."
               : "Belum ada catatan. Tambah catatan dari tombol +."}
@@ -650,50 +656,43 @@ export default function Catatan() {
 
       {showTypePicker && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-[60] p-3"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[100] p-4"
           onClick={() => setShowTypePicker(false)}
         >
           <div
-            className="bg-slate-800 rounded-t-xl md:rounded-xl w-full md:max-w-md border border-slate-700"
+            className="bg-[#0c1220] rounded-3xl w-full md:max-w-sm border border-[#1e2d45] shadow-2xl animate-in slide-in-from-bottom md:slide-in-from-none duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-3 border-b border-slate-700 flex justify-between items-center">
-              <h2 className="font-semibold">Pilih Tipe Catatan</h2>
+            <div className="p-5 border-b border-[#1e2d45] flex justify-between items-center">
+              <h2 className="text-sm font-bold text-white tracking-tight">Pilih Tipe Catatan</h2>
               <button
                 onClick={() => setShowTypePicker(false)}
-                className="p-1.5 hover:bg-slate-700 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-full"
               >
                 <X size={18} />
               </button>
             </div>
-            <div className="p-3 space-y-2">
-              <button
-                onClick={() => openType(NOTE_TYPES.STANDARD)}
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
-              >
-                <Plus size={16} /> Judul + Catatan
-              </button>
-              <button
-                onClick={() => openType(NOTE_TYPES.BULLET)}
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
-              >
-                <List size={16} /> Judul + Catatan Bertitik
-              </button>
-              <button
-                onClick={() => openType(NOTE_TYPES.SHORT)}
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
-              >
-                <MessageSquare size={16} /> Catatan Singkat (maks 100 karakter)
-              </button>
-              <button
-                onClick={() => openType(NOTE_TYPES.CHECKBOX)}
-                className="w-full bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-left text-sm flex items-center gap-2"
-              >
-                <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center">
-                  <Check size={12} strokeWidth={3} />
-                </div>{" "}
-                Judul + Catatan Checkbox
-              </button>
+            <div className="p-5 space-y-2">
+              {[
+                { type: NOTE_TYPES.STANDARD, icon: Plus, label: "Catatan Standar", desc: "Judul & isi bebas" },
+                { type: NOTE_TYPES.BULLET, icon: List, label: "Catatan List", desc: "Poin-poin otomatis" },
+                { type: NOTE_TYPES.CHECKBOX, icon: Check, label: "Catatan Checkbox", desc: "Tugas dengan checklist" },
+                { type: NOTE_TYPES.SHORT, icon: MessageSquare, label: "Catatan Singkat", desc: "Maksimal 100 karakter" },
+              ].map((item) => (
+                <button
+                  key={item.type}
+                  onClick={() => openType(item.type)}
+                  className="w-full bg-slate-800/40 hover:bg-blue-500/10 border border-slate-700/50 hover:border-blue-500/30 rounded-2xl p-4 text-left transition-all flex items-center gap-4 group"
+                >
+                  <div className="w-10 h-10 bg-slate-700/50 group-hover:bg-blue-600 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-white transition-colors">
+                    <item.icon size={20} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{item.label}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">{item.desc}</div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -701,38 +700,41 @@ export default function Catatan() {
 
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4 md:p-6"
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4 md:p-6"
           onClick={isViewMode ? resetForm : undefined}
         >
           <div
-            className="bg-[#0e1523] border border-[#1e2d45] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="bg-[#0c1220] border border-[#1e2d45] rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {isViewMode ? (
               /* VIEW MODE */
-              <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
-                   <div className="flex items-center gap-3">
-                     <span className="text-xs font-medium px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-lg">
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e2d45] bg-[#0c1220]/80 backdrop-blur-md shrink-0">
+                   <div className="flex items-center gap-2">
+                     <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-lg uppercase tracking-wider border border-blue-500/20">
                        {getTypeLabel(selectedType)}
                      </span>
                    </div>
-                   <div className="flex items-center gap-2">
-                     <button onClick={() => setIsViewMode(false)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20">
-                       <Pencil size={14} /> Edit
+                   <div className="flex items-center gap-1.5">
+                     <button 
+                       onClick={() => setIsViewMode(false)} 
+                       className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                     >
+                       <Pencil size={12} /> EDIT
                      </button>
-                     <button onClick={resetForm} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+                     <button onClick={resetForm} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-colors">
                        <X size={18} />
                      </button>
                    </div>
                 </div>
-                <div className="p-6 md:p-8 overflow-y-auto">
+                <div className="p-5 md:p-8 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-transparent to-black/10">
                   {!isShort && (
-                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-6 leading-tight">
+                    <h1 className="text-xl md:text-3xl font-bold text-white mb-6 leading-tight tracking-tight break-words">
                       {formData.judul || "Tanpa Judul"}
                     </h1>
                   )}
-                  <div className="text-slate-300 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                  <div className="text-slate-300 text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words">
                     {isCheckbox ? (
                        <div className="space-y-3">
                          {formData.isi.split('\n').filter(l => l.trim() !== '').map((line, i) => {
@@ -741,87 +743,94 @@ export default function Catatan() {
                            return (
                              <div key={i} className="flex items-start gap-3 group">
                                <div 
-                                 className="mt-[3px] shrink-0 cursor-pointer"
+                                 className="mt-0.5 shrink-0 cursor-pointer"
                                  onClick={(e) => toggleCheckboxInView(i, e)}
-                               >
+                                >
                                  {isChecked ? (
-                                   <div className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded-md flex items-center justify-center shadow-sm transition-colors">
-                                     <Check size={14} className="text-white" strokeWidth={3} />
+                                   <div className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded-md flex items-center justify-center shadow-lg transition-colors border border-blue-400/50">
+                                     <Check size={14} className="text-white" strokeWidth={4} />
                                    </div>
                                  ) : (
-                                   <div className="w-5 h-5 border-[2px] border-[#334155] group-hover:border-blue-400 rounded-md transition-colors" />
+                                   <div className="w-5 h-5 border-[2px] border-[#1e2d45] hover:border-blue-500/50 rounded-md transition-colors bg-white/5" />
                                  )}
                                </div>
-                               <span className={`flex-1 min-w-0 break-words ${isChecked ? "text-slate-500 line-through" : "text-slate-200"}`}>{text}</span>
+                               <span className={`flex-1 min-w-0 break-words font-medium transition-all ${isChecked ? "text-slate-600 line-through opacity-60" : "text-slate-100"}`}>{text}</span>
                              </div>
                            )
                          })}
                        </div>
                     ) : isBullet ? (
-                       <ul className="space-y-2 list-none ml-0">
+                       <ul className="space-y-3 list-none">
                          {formData.isi.split('\n').filter(l => l.trim() !== '').map((line, i) => {
                            const text = line.replace(/^\s*[•*]?\s*/, "").trim();
                            return (
                              <li key={i} className="flex items-start gap-3">
-                               <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0"></span>
-                               <span className="flex-1 min-w-0 break-words text-slate-200">{text}</span>
+                               <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50 shrink-0"></span>
+                               <span className="flex-1 min-w-0 break-words text-slate-100 leading-relaxed">{text}</span>
                              </li>
                            )
                          })}
                        </ul>
                     ) : (
-                       <p className="whitespace-pre-wrap break-words">{formData.isi}</p>
+                       <div className="text-slate-200 leading-relaxed">
+                         {formData.isi}
+                       </div>
                     )}
+                  </div>
+                  <div className="mt-12 pt-8 border-t border-[#1e2d45]/30">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Waktu Terakhir</p>
+                    <p className="text-xs text-slate-400 mt-1 font-medium">{formatDateTime(editId ? catatan.find(c => c.id === editId) : {})}</p>
                   </div>
                 </div>
               </div>
             ) : (
               /* EDIT MODE */
-              <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
-                  <h2 className="text-sm font-semibold text-white">
-                    {editId ? "Mode Edit" : "Catatan Baru"} <span className="text-slate-500 font-normal ml-1">({getTypeLabel(selectedType)})</span>
-                  </h2>
-                  <button onClick={resetForm} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+              <div className="flex flex-col h-full">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e2d45]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-600/10 rounded-lg flex items-center justify-center text-blue-500">
+                      <Pencil size={14} />
+                    </div>
+                    <div>
+                      <h2 className="text-xs font-bold text-white tracking-tight">
+                        {editId ? "Edit Catatan" : "Catatan Baru"}
+                      </h2>
+                    </div>
+                  </div>
+                  <button onClick={resetForm} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-colors">
                     <X size={18} />
                   </button>
                 </div>
                 
-                <form id="note-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+                <form id="note-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 md:p-8 space-y-5 custom-scrollbar">
                   {!isShort && (
                     <div>
+                      <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 block">Judul Catatan</label>
                       <input
                         type="text"
                         value={formData.judul}
                         onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
-                        className="w-full bg-transparent border-b border-[#1e2d45] focus:border-blue-500 py-3 text-xl md:text-2xl font-bold text-white placeholder-slate-600 outline-none transition-colors"
-                        placeholder="Judul Catatan..."
+                        className="w-full bg-slate-900/40 border border-[#1e2d45] focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-bold text-white placeholder-slate-700 outline-none transition-all"
+                        placeholder="Tulis judul..."
                         required
                         autoFocus
                       />
                     </div>
                   )}
-
-                  <div>
+                  
+                  <div className="flex-1 flex flex-col min-h-[300px]">
+                    <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5 block">Isi Catatan</label>
                     <textarea
                       value={formData.isi}
                       onChange={handleIsiChange}
                       onKeyDown={handleKeyDown}
-                      className="w-full bg-[#141d2e]/50 border border-[#1e2d45] rounded-xl p-4 md:p-5 text-[15px] leading-relaxed text-slate-200 placeholder-slate-600 outline-none focus:border-blue-500/50 focus:bg-[#141d2e] focus:ring-4 focus:ring-blue-500/10 transition-all resize-none min-h-[300px]"
-                      rows={isShort ? 5 : 12}
-                      maxLength={isShort ? 100 : undefined}
-                      placeholder={
-                        isBullet || isCheckbox
-                          ? "Ketik catatan disini... (Tekan Enter untuk poin baru)"
-                          : isShort
-                            ? "Tulis catatan singkat (maks 100 karakter)..."
-                            : "Mulai menulis catatan Anda di sini..."
-                      }
+                      className="flex-1 w-full bg-slate-900/40 border border-[#1e2d45] focus:border-blue-500/50 rounded-xl p-4 text-sm text-slate-100 placeholder-slate-700 outline-none transition-all resize-none leading-relaxed custom-scrollbar whitespace-pre-wrap"
+                      placeholder={isShort ? "Maksimal 100 karakter..." : "Mulai menulis catatan..."}
                       required
                       autoFocus={isShort}
                     />
                     {isShort && (
-                      <div className="text-xs font-medium text-slate-500 mt-2 flex justify-end">
+                      <div className="text-[10px] font-bold text-slate-500 mt-2 flex justify-end">
                         <span className={formData.isi.length >= 100 ? "text-orange-400" : ""}>
                           {formData.isi.length}
                         </span>
@@ -831,20 +840,20 @@ export default function Catatan() {
                   </div>
                 </form>
 
-                <div className="px-6 py-4 border-t border-[#1e2d45] flex justify-end gap-3 bg-[#0a0f1a]">
+                <div className="px-5 py-3 border-t border-[#1e2d45] flex justify-end gap-2 bg-[#0a0f1a]">
                   <button
                     type="button"
                     onClick={() => editId ? setIsViewMode(true) : resetForm()}
-                    className="px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                    className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     form="note-form"
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                   >
-                    <Save size={16} /> Simpan
+                    <Save size={14} /> Simpan
                   </button>
                 </div>
               </div>

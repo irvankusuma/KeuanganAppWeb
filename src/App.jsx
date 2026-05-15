@@ -188,7 +188,7 @@ function RealtimeClock() {
   const minutes = String(d.getMinutes()).padStart(2, '0');
 
   return (
-    <div className="flex items-center text-[11px] font-medium text-slate-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/5 tracking-wide">
+    <div className="flex items-center text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded-lg border border-white/5 tracking-tight whitespace-nowrap overflow-hidden">
       {day} {month} {year}, {hours}.{minutes}
     </div>
   );
@@ -274,26 +274,26 @@ function Layout({ children }) {
 
         {/* ── Top bar (mobile only — shows hamburger + page title) ── */}
         <header className="md:hidden sticky top-0 z-30 bg-[#0c1220]/90 backdrop-blur-md border-b border-[#1e2d45]">
-          <div className="h-14 px-4 flex items-center gap-3">
+          <div className="h-14 px-4 flex items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
-              className="p-2 -ml-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+              className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
               aria-label="Buka menu"
             >
               <Menu size={20} />
             </button>
-            <span className="text-sm font-semibold text-white">{currentPage}</span>
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-              >
-                <Download size={18} />
-              </button>
+            <span className="text-xs font-bold text-white truncate shrink-0">{currentPage}</span>
+            
+            <div className="flex-1 flex justify-center min-w-0">
+              <RealtimeClock />
             </div>
-          </div>
-          <div className="px-4 pb-3 flex justify-between items-center">
-            <RealtimeClock />
+
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="p-2 -mr-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+            >
+              <Download size={18} />
+            </button>
           </div>
         </header>
 

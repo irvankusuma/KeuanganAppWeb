@@ -14,7 +14,6 @@ export const generateCardImage = async (element) => {
           'no-export',
           'fab-button',
           'dropdown',
-          'lucide',
           'interactive-element'
         ];
         if (skipClasses.some(cls => node.classList.contains(cls))) return false;

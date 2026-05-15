@@ -523,7 +523,7 @@ export default function Perbaikan() {
       </div>
 
       {/* Daftar */}
-      <div className="space-y-4">
+      <div className="card-grid-responsive">
         {activeRoots.length > 0 ? (
           activeRoots.map((item, i) => {
             const latest = getLatestRecord(item);
@@ -588,32 +588,23 @@ export default function Perbaikan() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
                   {[
                     { icon: Plus, label: "Tambah", color: "purple", onClick: () => handleOpenTambah(item) },
-                    { icon: History, label: "Histori", count: history.length, color: "violet", onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
+                    { icon: History, label: "Histori", count: history.length, color: "indigo", onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
                     { icon: CheckCircle, label: "Selesai", color: "emerald", onClick: () => handleToggleSelesai(item) },
                     { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
                     { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
-                  ].map((btn) => {
-                    const colors = {
-                      purple: "bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 border-purple-500/20",
-                      emerald: "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-                      violet: "bg-violet-500/5 hover:bg-violet-500/10 text-violet-400 border-violet-500/20",
-                      blue: "bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 border-blue-500/20",
-                      red: "bg-red-500/5 hover:bg-red-500/10 text-red-400 border-red-500/20",
-                    };
-                    return (
-                      <button
-                        key={btn.label}
-                        onClick={btn.onClick}
-                        className={`${colors[btn.color]} text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border shrink-0 font-bold`}
-                      >
-                        <btn.icon size={12} />
-                        <span>{btn.label} {btn.count > 0 ? `(${btn.count})` : ""}</span>
-                      </button>
-                    );
-                  })}
+                  ].map((btn) => (
+                    <button
+                      key={btn.label}
+                      onClick={btn.onClick}
+                      className={`btn-action-compact btn-action-${btn.color} shrink-0`}
+                    >
+                      <btn.icon size={12} />
+                      <span>{btn.label}{btn.count > 0 ? ` (${btn.count})` : ""}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* History panel */}

@@ -22,7 +22,9 @@ export default function Dashboard() {
     pembayaranHutang: [],
     pembayaranPiutang: [],
     catatan: [],
+    perbaikan: [],
   });
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState("bulanan"); // 'mingguan', 'bulanan', 'tahunan'
   
@@ -54,6 +56,7 @@ export default function Dashboard() {
       const pembayaranHutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
       const pembayaranPiutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
       const catatan = LocalStorageService.readSheet(SHEETS.CATATAN);
+      const perbaikan = LocalStorageService.readSheet(SHEETS.PERBAIKAN);
 
       setData({
         hutang,
@@ -63,6 +66,7 @@ export default function Dashboard() {
         pembayaranHutang,
         pembayaranPiutang,
         catatan,
+        perbaikan,
       });
     } catch (error) {
       console.error("Error loading data:", error);
@@ -641,6 +645,7 @@ export default function Dashboard() {
             for (let d = 1; d <= daysInMonth; d++) {
               const dateStr = `${calendarDate.getFullYear()}-${(calendarDate.getMonth() + 1).toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
               const isToday = isCurrentMonth && today.getDate() === d;
+              const isSelected = selectedDate === dateStr;
               
               // Find events for this day
               const events = [
@@ -648,11 +653,20 @@ export default function Dashboard() {
                 ...data.pengeluaran.filter(i => i.tanggal === dateStr).map(() => 'bg-orange-500'),
                 ...data.hutang.filter(i => i.tanggal === dateStr).map(() => 'bg-red-500'),
                 ...data.piutang.filter(i => i.tanggal === dateStr).map(() => 'bg-blue-500'),
+                ...data.perbaikan.filter(i => i.tanggal === dateStr).map(() => 'bg-indigo-500'),
+                ...data.catatan.filter(i => i.tanggal === dateStr).map(() => 'bg-purple-500'),
               ].slice(0, 3);
 
               days.push(
-                <div key={d} className={`h-10 flex flex-col items-center justify-center rounded-lg border ${isToday ? 'border-blue-500 bg-blue-500/10' : 'border-transparent hover:bg-white/5'} transition-colors cursor-default relative`}>
-                  <span className={`text-xs font-medium ${isToday ? 'text-blue-400' : 'text-slate-300'}`}>{d}</span>
+                <div 
+                  key={d} 
+                  onClick={() => setSelectedDate(dateStr)}
+                  className={`h-10 flex flex-col items-center justify-center rounded-lg border cursor-pointer transition-all ${
+                    isSelected ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/20' : 
+                    isToday ? 'border-blue-500/50 bg-blue-500/5' : 'border-transparent hover:bg-white/5'
+                  }`}
+                >
+                  <span className={`text-xs font-bold ${isSelected || isToday ? 'text-blue-400' : 'text-slate-300'}`}>{d}</span>
                   <div className="flex gap-0.5 mt-1">
                     {events.map((cls, i) => (
                       <div key={i} className={`w-1 h-1 rounded-full ${cls}`} />
@@ -665,23 +679,89 @@ export default function Dashboard() {
           })()}
         </div>
         
-        <div className="mt-4 flex flex-wrap gap-4 px-2">
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 px-2 border-t border-[#1e2d45]/50 pt-3">
+          {[
+            { color: 'bg-emerald-500', label: 'Pemasukan' },
+            { color: 'bg-orange-500', label: 'Pengeluaran' },
+            { color: 'bg-red-500', label: 'Hutang' },
+            { color: 'bg-blue-500', label: 'Piutang' },
+            { color: 'bg-indigo-500', label: 'Perbaikan' },
+            { color: 'bg-purple-500', label: 'Catatan' },
+          ].map(leg => (
+            <div key={leg.label} className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${leg.color}`} />
+              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{leg.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Activity History for Selected Date ── */}
+      <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d45] bg-[#141d2e]/50">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-[10px] text-slate-500 font-medium">Pemasukan</span>
+            <CalendarIcon size={16} className="text-blue-400" />
+            <h3 className="text-sm font-bold text-white tracking-tight">Riwayat Aktivitas</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-orange-500" />
-            <span className="text-[10px] text-slate-500 font-medium">Pengeluaran</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-[10px] text-slate-500 font-medium">Hutang</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
-            <span className="text-[10px] text-slate-500 font-medium">Piutang</span>
-          </div>
+          <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700/50 uppercase tracking-widest">
+            {new Date(selectedDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
+        </div>
+
+        <div className="p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+          {(() => {
+            const activities = [
+              ...data.pemasukan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Pemasukan', icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10', path: '/pemasukan', label: i.nama || i.sumber, amount: i.jumlah })),
+              ...data.pengeluaran.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Pengeluaran', icon: TrendingDown, color: 'text-orange-400', bg: 'bg-orange-500/10', path: '/pengeluaran', label: i.kategori || i.nama, amount: i.jumlah })),
+              ...data.hutang.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Hutang', icon: DollarSign, color: 'text-red-400', bg: 'bg-red-500/10', path: '/hutang', label: i.nama, amount: i.jumlah })),
+              ...data.piutang.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Piutang', icon: Coins, color: 'text-blue-400', bg: 'bg-blue-500/10', path: '/piutang', label: i.namaOrang || i.nama, amount: i.jumlah })),
+              ...data.perbaikan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Perbaikan', icon: Wrench, color: 'text-indigo-400', bg: 'bg-indigo-500/10', path: '/perbaikan', label: i.nama, amount: i.biaya })),
+              ...data.catatan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Catatan', icon: BookOpen, color: 'text-purple-400', bg: 'bg-purple-500/10', path: '/catatan', label: i.judul || 'Catatan Singkat' })),
+            ].sort((a, b) => new Date(b.createdAt || b.tanggal) - new Date(a.createdAt || a.tanggal));
+
+            if (activities.length === 0) {
+              return (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-500">
+                  <CalendarIcon size={32} className="opacity-10 mb-2" />
+                  <p className="text-xs font-medium">Tidak ada aktivitas pada tanggal ini</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-1">
+                {activities.map((act, i) => (
+                  <button
+                    key={i}
+                    onClick={() => navigate(act.path)}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-white/[0.03] rounded-xl transition-all group border border-transparent hover:border-[#1e2d45]"
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${act.bg} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
+                      <act.icon size={16} className={act.color} />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${act.color}`}>{act.category}</span>
+                        <span className="text-[10px] text-slate-600">•</span>
+                        <span className="text-[9px] text-slate-500 font-medium">
+                          {act.createdAt ? new Date(act.createdAt).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-200 truncate group-hover:text-white transition-colors">{act.label}</p>
+                    </div>
+                    {act.amount !== undefined && (
+                      <div className="text-right shrink-0">
+                        <p className={`text-sm font-black ${act.category === 'Pemasukan' || act.category === 'Piutang' ? 'text-emerald-400' : 'text-orange-400'}`}>
+                          {act.category === 'Pemasukan' || act.category === 'Piutang' ? '+' : '-'}{formatCurrency(parseFloat(act.amount))}
+                        </p>
+                      </div>
+                    )}
+                    <ChevronRight size={14} className="text-slate-700 group-hover:text-slate-400 transition-colors ml-1" />
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

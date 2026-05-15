@@ -409,7 +409,7 @@ export default function Pengeluaran() {
       </div>
 
       {/* Daftar Pengeluaran */}
-      <div className="space-y-3">
+      <div className="card-grid-responsive">
         {sortedData.length > 0 ? (
           sortedData.map((item, i) => {
             const total = parseFloat(item.jumlah) || 0;
@@ -457,7 +457,7 @@ export default function Pengeluaran() {
                       {formatCurrency(total)}
                     </div>
                   </div>
-                  {item.catatan && (
+                   {item.catatan && (
                     <div className="text-right max-w-[50%]">
                       <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5 text-right">Catatan</div>
                       <div className="text-[10px] text-slate-400 italic truncate text-right">
@@ -468,21 +468,20 @@ export default function Pengeluaran() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-2 no-export">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="flex-1 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border border-blue-500/20 font-bold"
-                  >
-                    <Pencil size={12} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="flex-1 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border border-red-500/20 font-bold"
-                  >
-                    <Trash2 size={12} />
-                    Hapus
-                  </button>
+                <div className="flex items-center gap-2 no-export mt-1">
+                  {[
+                    { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+                    { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+                  ].map((btn, idx) => (
+                    <button
+                      key={idx}
+                      onClick={btn.onClick}
+                      className={`btn-action-compact btn-action-${btn.color}`}
+                    >
+                      <btn.icon size={12} />
+                      {btn.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             );

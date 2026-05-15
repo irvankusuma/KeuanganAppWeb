@@ -311,32 +311,23 @@ export default function Piutang() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
           {[
             { icon: Wallet, label: "Terima", color: "emerald", onClick: () => openBayarModal(item) },
             { icon: Plus, label: "Tambah", color: "orange", onClick: () => handleAdd(item) },
-            { icon: History, label: "Histori", count: historyPembayaran.length, color: "violet", onClick: () => setActiveHistoryId(activeHistoryId === item.id ? null : item.id) },
+            { icon: History, label: "Histori", count: historyPembayaran.length, color: "indigo", onClick: () => setActiveHistoryId(activeHistoryId === item.id ? null : item.id) },
             { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
             { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
-          ].map((btn) => {
-            const colors = {
-              emerald: "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-              orange: "bg-orange-500/5 hover:bg-orange-500/10 text-orange-400 border-orange-500/20",
-              violet: "bg-violet-500/5 hover:bg-violet-500/10 text-violet-400 border-violet-500/20",
-              blue: "bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 border-blue-500/20",
-              red: "bg-red-500/5 hover:bg-red-500/10 text-red-400 border-red-500/20",
-            };
-            return (
-              <button
-                key={btn.label}
-                onClick={btn.onClick}
-                className={`${colors[btn.color]} text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border shrink-0 font-bold`}
-              >
-                <btn.icon size={12} />
-                <span>{btn.label} {btn.count > 0 ? `(${btn.count})` : ""}</span>
-              </button>
-            );
-          })}
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              onClick={btn.onClick}
+              className={`btn-action-compact btn-action-${btn.color} shrink-0`}
+            >
+              <btn.icon size={12} />
+              <span>{btn.label}{btn.count > 0 ? ` (${btn.count})` : ""}</span>
+            </button>
+          ))}
         </div>
 
         {activeHistoryId === item.id && (
@@ -728,11 +719,11 @@ export default function Piutang() {
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="card-grid-responsive">
         {activePiutang.length > 0 ? (
           activePiutang.map((item) => renderPiutangCard(item))
         ) : (
-          <div className="text-center py-12 bg-[#0c1220]/50 border border-dashed border-[#1e2d45] rounded-2xl">
+          <div className="text-center py-12 bg-[#0c1220]/50 border border-dashed border-[#1e2d45] rounded-2xl w-full col-span-full">
             <p className="text-slate-500 text-sm">Tidak ada piutang aktif.</p>
           </div>
         )}
@@ -748,7 +739,7 @@ export default function Piutang() {
               Riwayat Piutang Selesai ({lunasPiutang.length})
             </button>
             {showLunasHistory && (
-              <div className="mt-4 space-y-4 opacity-70 hover:opacity-100 transition-opacity">
+              <div className="mt-4 card-grid-responsive opacity-70 hover:opacity-100 transition-opacity">
                 {lunasPiutang.map(item => renderPiutangCard(item))}
               </div>
             )}

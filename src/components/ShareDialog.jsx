@@ -20,9 +20,19 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
     // Small delay to ensure any open menus are closed
     await new Promise(r => setTimeout(r, 100));
     
-    const url = await generateCardImage(cardRef.current);
-    setImageUrl(url);
-    setIsGenerating(false);
+    // Add export class to show full content
+    const element = cardRef.current;
+    if (element) element.classList.add('is-exporting');
+    
+    try {
+      const url = await generateCardImage(element);
+      setImageUrl(url);
+    } catch (err) {
+      console.error("Export error:", err);
+    } finally {
+      if (element) element.classList.remove('is-exporting');
+      setIsGenerating(false);
+    }
   };
 
   if (!isOpen) return null;
