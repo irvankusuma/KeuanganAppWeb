@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Plus,
@@ -13,10 +13,13 @@ import {
   ChevronUp,
   Check,
   Pin,
+  MoreVertical
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import CardActionMenu from "../components/CardActionMenu";
+import ShareDialog from "../components/ShareDialog";
 
 const NOTE_TYPES = {
   STANDARD: "standard",
@@ -47,6 +50,8 @@ export default function Catatan() {
     title: "",
     onConfirm: null,
   });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const cardRefs = useRef({});
 
   const { showToast } = useToast();
 
@@ -409,6 +414,13 @@ export default function Catatan() {
 
   return (
     <div className="space-y-4 pb-28 md:pb-6">
+      <button
+        onClick={() => setShowTypePicker(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-600/40 z-40 transition-all hover:scale-110 active:scale-95"
+        title="Tambah Catatan Baru"
+      >
+        <Plus size={28} />
+      </button>
       <div className="mb-4 bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div
           className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/50 transition"
@@ -501,47 +513,49 @@ export default function Catatan() {
             return (
               <div
                 key={item.id}
-                className="bg-slate-800 border border-slate-700 rounded-xl p-3 cursor-pointer hover:bg-slate-700/50 transition relative"
+                ref={el => cardRefs.current[item.id] = el}
+                className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 cursor-pointer hover:bg-slate-700/20 transition-all group"
                 onClick={() => handleEdit(item)}
               >
-                <div className="flex items-start justify-between gap-3 relative z-10">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-white">
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
                         {item.judul || "Catatan Singkat"}
                       </h3>
-                      <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">
+                      {item.isPinned && <Pin size={10} className="text-blue-400 fill-current" />}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
                         {getTypeLabel(type)}
                       </span>
+                      <span>•</span>
+                      <span className="truncate">{formatDateTime(item).split(',')[0]}</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Terakhir diubah: {formatDateTime(item)}
-                    </p>
                   </div>
                   <div
-                    className="flex gap-1.5"
+                    className="flex gap-1 no-export"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleTogglePin(item.id); }}
-                      className={`p-1.5 rounded-md transition-all ${item.isPinned ? "bg-blue-600/20 text-blue-300" : "bg-slate-700/50 text-slate-500 hover:text-slate-300"}`}
-                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
-                    >
-                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
-                    </button>
+                    <CardActionMenu 
+                      item={item}
+                      onTogglePin={handleTogglePin}
+                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      cardRef={{ current: cardRefs.current[item.id] }}
+                      title={`Catatan: ${item.judul || "Tanpa Judul"}`}
+                      dataString={`${item.judul || "Catatan"}: ${item.isi}`}
+                    />
                     <button
                       onClick={() => handleEdit(item)}
-                      className="p-1.5 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40"
-                      aria-label="Edit catatan"
+                      className="p-1.5 rounded-md text-slate-600 hover:text-blue-400 hover:bg-white/5"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(item)}
-                      className="p-1.5 rounded-md bg-red-600/20 text-red-300 hover:bg-red-600/40"
-                      aria-label="Hapus catatan"
+                      className="p-1.5 rounded-md text-slate-600 hover:text-red-400 hover:bg-white/5"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -632,6 +646,7 @@ export default function Catatan() {
               : "Belum ada catatan. Tambah catatan dari tombol +."}
           </div>
         )}
+      </div>
 
       {showTypePicker && (
         <div
@@ -844,6 +859,12 @@ export default function Catatan() {
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
+      <ShareDialog 
+        isOpen={shareData.isOpen}
+        onClose={() => setShareData({ ...shareData, isOpen: false })}
+        cardRef={shareData.cardRef}
+        title={shareData.title}
       />
     </div>
   );

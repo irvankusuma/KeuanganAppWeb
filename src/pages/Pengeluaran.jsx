@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Plus,
@@ -18,11 +18,14 @@ import {
   Heart,
   Film,
   Pin,
+  MoreHorizontal
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
+import CardActionMenu from "../components/CardActionMenu";
+import ShareDialog from "../components/ShareDialog";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -45,6 +48,8 @@ export default function Pengeluaran() {
     title: "",
     onConfirm: null,
   });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const cardRefs = useRef({});
 
   const { showToast } = useToast();
 
@@ -248,8 +253,15 @@ export default function Pengeluaran() {
       : 0;
 
   return (
-    <div>
-      {/* Ringkasan Total Pengeluaran */}
+    <div className="pb-24">
+      <button
+        onClick={() => setModalVisible(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-600/40 z-40 transition-all hover:scale-110 active:scale-95"
+        title="Tambah Pengeluaran Baru"
+      >
+        <Plus size={28} />
+      </button>
+
       <div className="mb-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-4 shadow-lg text-white">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -403,59 +415,73 @@ export default function Pengeluaran() {
             const total = parseFloat(item.jumlah) || 0;
             return (
               <div
-                key={i}
-                className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 border-l-4 border-l-orange-500 shadow-sm transition-all hover:shadow-md"
+                key={item.id}
+                ref={el => cardRefs.current[item.id] = el}
+                className="bg-[#0c1220] rounded-xl p-3 md:p-4 border border-[#1e2d45] border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-all group"
               >
-                <div className="flex justify-between items-start mb-1.5 gap-2">
-                  <div className="flex-1 truncate">
-                    <h3 className="text-sm font-semibold text-white truncate">{item.nama}</h3>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 text-[10px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full font-medium border border-orange-500/20">
-                      {getKategoriIcon(item.kategori)}
-                      <span>{item.kategori || "Lainnya"}</span>
+                {/* Header Row */}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                        {item.nama}
+                      </h3>
+                      {item.isPinned && <Pin size={10} className="text-blue-400 fill-current" />}
                     </div>
-                    <button 
-                      onClick={() => handleTogglePin(item.id)}
-                      className={`p-1 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
-                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
-                    >
-                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
-                    </button>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50 flex items-center gap-1">
+                        {getKategoriIcon(item.kategori)}
+                        {item.kategori || "Lainnya"}
+                      </span>
+                      <span>•</span>
+                      <span className="truncate">{new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CardActionMenu 
+                      item={item}
+                      onTogglePin={handleTogglePin}
+                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      cardRef={{ current: cardRefs.current[item.id] }}
+                      title={`Pengeluaran: ${item.nama}`}
+                      dataString={`${item.nama} - ${formatCurrency(total)} - ${new Date(item.tanggal).toLocaleDateString("id-ID")}`}
+                    />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs text-slate-500 font-medium">
-                    {new Date(item.tanggal).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                {/* Nominal Row */}
+                <div className="flex items-center justify-between py-2 border-t border-b border-[#1e2d45]/50 my-2">
+                  <div>
+                    <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5">Nominal</div>
+                    <div className="text-base font-bold text-orange-400 tracking-tight leading-none">
+                      {formatCurrency(total)}
+                    </div>
                   </div>
-                  <div className="text-sm font-bold text-orange-400">
-                    {formatCurrency(total)}
-                  </div>
+                  {item.catatan && (
+                    <div className="text-right max-w-[50%]">
+                      <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5 text-right">Catatan</div>
+                      <div className="text-[10px] text-slate-400 italic truncate text-right">
+                        {item.catatan}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {item.catatan && (
-                  <div className="text-[11px] text-slate-400 mb-3 italic bg-slate-800/30 p-2 rounded-lg border border-slate-700/30">
-                    "{item.catatan}"
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 pt-3 border-t border-[#1e2d45]/50">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 no-export">
                   <button
                     onClick={() => handleEdit(item)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#141d2e] text-slate-400 hover:text-blue-400 hover:bg-blue-600/15 transition-colors"
+                    className="flex-1 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border border-blue-500/20 font-bold"
                   >
-                    <Pencil size={13} /> Edit
+                    <Pencil size={12} />
+                    Edit
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#141d2e] text-slate-400 hover:text-red-400 hover:bg-red-600/15 transition-colors"
+                    className="flex-1 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border border-red-500/20 font-bold"
                   >
-                    <Trash2 size={13} /> Hapus
+                    <Trash2 size={12} />
+                    Hapus
                   </button>
                 </div>
               </div>
@@ -468,6 +494,7 @@ export default function Pengeluaran() {
               : "Belum ada pengeluaran"}
           </div>
         )}
+      </div>
 
       {/* Modal */}
       {modalVisible && (
@@ -605,6 +632,12 @@ export default function Pengeluaran() {
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
+      <ShareDialog 
+        isOpen={shareData.isOpen}
+        onClose={() => setShareData({ ...shareData, isOpen: false })}
+        cardRef={shareData.cardRef}
+        title={shareData.title}
       />
     </div>
   );

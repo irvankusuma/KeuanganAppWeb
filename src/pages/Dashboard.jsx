@@ -75,12 +75,22 @@ export default function Dashboard() {
 
   // Calculate totals (sisa and total)
   const totalHutang = data.hutang.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalPembayaranHutang = data.pembayaranHutang.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const sisaHutang = totalHutang - totalPembayaranHutang;
+  const totalDibayarHutang = data.pembayaranHutang
+    .filter(i => !i.type || i.type === "bayar")
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const totalPenambahanHutang = data.pembayaranHutang
+    .filter(i => i.type === "tambah")
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const sisaHutang = Math.max(totalHutang + totalPenambahanHutang - totalDibayarHutang, 0);
 
   const totalPiutang = data.piutang.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const totalPembayaranPiutang = data.pembayaranPiutang.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
-  const sisaPiutang = totalPiutang - totalPembayaranPiutang;
+  const totalDibayarPiutang = data.pembayaranPiutang
+    .filter(i => !i.type || i.type === "bayar")
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const totalPenambahanPiutang = data.pembayaranPiutang
+    .filter(i => i.type === "tambah")
+    .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
+  const sisaPiutang = Math.max(totalPiutang + totalPenambahanPiutang - totalDibayarPiutang, 0);
 
   const totalPemasukan = data.pemasukan.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
   const totalPengeluaran = data.pengeluaran.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
@@ -122,6 +132,7 @@ export default function Dashboard() {
     const allTransactions = [
       ...data.pemasukan.map((item) => ({ jenis: "pemasukan", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
       ...data.pengeluaran.map((item) => ({ jenis: "pengeluaran", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
+      // Filter hutang/piutang agar tidak double count jika sudah di-sync ke pemasukan/pengeluaran
       ...data.hutang.map((item) => ({ jenis: "hutang", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
       ...data.piutang.map((item) => ({ jenis: "piutang", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
     ];
@@ -343,49 +354,79 @@ export default function Dashboard() {
         </div>
 
         {/* Pengeluaran Bulan Ini */}
-        <Link to="/pengeluaran" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-orange-500/30 rounded-xl p-4 transition-colors">
+        <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-orange-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-orange-500/10 rounded-lg"><TrendingDown size={16} className="text-orange-400" /></div>
-            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-orange-400 transition-colors" />
+            <Link to="/pengeluaran" className="p-1 text-slate-600 hover:text-orange-400 transition-colors">
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
           <p className="text-xs text-slate-400 mb-1">Pengeluaran (Bulan Ini)</p>
           <p className="text-base font-bold text-orange-400 leading-tight">{formatCurrency(pengeluaranBulanIni)}</p>
-        </Link>
+          <button 
+            onClick={() => navigate("/pengeluaran", { state: { autoAdd: true } })}
+            className="mt-3 w-full py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-orange-500/20 transition-all active:scale-[0.98]"
+          >
+            <Plus size={12} /> Tambah
+          </button>
+        </div>
 
         {/* Pemasukan Terbaru */}
-        <Link to="/pemasukan" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-emerald-500/30 rounded-xl p-4 transition-colors flex flex-col">
+        <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-emerald-500/30 rounded-xl p-4 transition-colors flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-emerald-500/10 rounded-lg"><TrendingUp size={16} className="text-emerald-400" /></div>
-            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+            <Link to="/pemasukan" className="p-1 text-slate-600 hover:text-emerald-400 transition-colors">
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
           <p className="text-xs text-slate-400 mb-1">Pemasukan Terbaru</p>
           <p className="text-base font-bold text-emerald-400 leading-tight">
             {pemasukanTerbaru ? formatCurrency(pemasukanTerbaru.jumlah) : "Rp 0"}
           </p>
-          <p className="text-xs text-slate-500 mt-1 truncate">{pemasukanTerbaru ? pemasukanTerbaru.nama : "-"}</p>
-        </Link>
+          <button 
+            onClick={() => navigate("/pemasukan", { state: { autoAdd: true } })}
+            className="mt-auto pt-3 w-full">
+            <div className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-all active:scale-[0.98]">
+              <Plus size={12} /> Tambah
+            </div>
+          </button>
+        </div>
 
         {/* Hutang Aktif */}
-        <Link to="/hutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-red-500/30 rounded-xl p-4 transition-colors">
+        <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-red-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-red-500/10 rounded-lg"><DollarSign size={16} className="text-red-400" /></div>
-            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-red-400 transition-colors" />
+            <Link to="/hutang" className="p-1 text-slate-600 hover:text-red-400 transition-colors">
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
           <p className="text-xs text-slate-400 mb-1">Hutang Aktif</p>
           <p className="text-base font-bold text-red-400 leading-tight">{formatCurrency(sisaHutang)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.hutang.length} aktif</p>
-        </Link>
+          <button 
+            onClick={() => navigate("/hutang", { state: { autoAdd: true } })}
+            className="mt-3 w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-red-500/20 transition-all active:scale-[0.98]"
+          >
+            <Plus size={12} /> Tambah
+          </button>
+        </div>
 
         {/* Piutang Aktif */}
-        <Link to="/piutang" className="group bg-[#0e1523] border border-[#1e2d45] hover:border-blue-500/30 rounded-xl p-4 transition-colors">
+        <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-blue-500/30 rounded-xl p-4 transition-colors">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-blue-500/10 rounded-lg"><Coins size={16} className="text-blue-400" /></div>
-            <ArrowUpRight size={14} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
+            <Link to="/piutang" className="p-1 text-slate-600 hover:text-blue-400 transition-colors">
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
           <p className="text-xs text-slate-400 mb-1">Piutang Aktif</p>
           <p className="text-base font-bold text-blue-400 leading-tight">{formatCurrency(sisaPiutang)}</p>
-          <p className="text-xs text-slate-500 mt-1">{data.piutang.length} aktif</p>
-        </Link>
+          <button 
+            onClick={() => navigate("/piutang", { state: { autoAdd: true } })}
+            className="mt-3 w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-blue-500/20 transition-all active:scale-[0.98]"
+          >
+            <Plus size={12} /> Tambah
+          </button>
+        </div>
 
         {/* Target Tabungan */}
         <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 flex flex-col justify-between relative group">
@@ -551,7 +592,6 @@ export default function Dashboard() {
         )}
 
         </div>
-      </div>
 
       {/* ── Finance Calendar ── */}
       <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4">

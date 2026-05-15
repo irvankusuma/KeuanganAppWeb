@@ -1,23 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Plus,
   Pencil,
   Trash2,
   X,
-  Calculator,
-  Wrench,
-  Filter,
+  XCircle,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Settings,
   ChevronDown,
   ChevronUp,
   History,
-  CheckCircle,
   Pin,
+  TrendingUp,
+  MoreHorizontal,
+  Wrench,
+  Filter
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
+import CardActionMenu from "../components/CardActionMenu";
+import ShareDialog from "../components/ShareDialog";
 
 export default function Perbaikan() {
   const [perbaikan, setPerbaikan] = useState([]);
@@ -59,6 +66,8 @@ export default function Perbaikan() {
     message: "",
     onConfirm: null,
   });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const cardRefs = useRef({});
 
   const location = useLocation();
 
@@ -296,6 +305,20 @@ export default function Perbaikan() {
       title: "Hapus Perbaikan",
       message: `Apakah "${item.nama}" mau dihapus?`,
       onConfirm: () => {
+        // 1. Hapus histori servis (anak)
+        const history = getHistory(item.id);
+        history.forEach((h) => {
+          LocalStorageService.deleteRow(SHEETS.PERBAIKAN, h.id);
+          const exp = findPengeluaranByRef(h.id);
+          if (exp) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, exp.id);
+        });
+
+        // 2. Hapus pengeluaran terkait item utama (jika ada biaya di awal)
+        const rootExp = findPengeluaranByRef(item.id);
+        if (rootExp)
+          LocalStorageService.deleteRow(SHEETS.PENGELUARAN, rootExp.id);
+
+        // 3. Hapus item utama
         LocalStorageService.deleteRow(SHEETS.PERBAIKAN, item.id);
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
@@ -417,8 +440,15 @@ export default function Perbaikan() {
   const labelCls = "block text-xs text-gray-400 mb-1";
 
   return (
-    <div>
-      {/* Ringkasan */}
+    <div className="pb-24">
+      <button
+        onClick={() => setModalVisible(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-600/40 z-40 transition-all hover:scale-110 active:scale-95"
+        title="Tambah Servis/Perbaikan"
+      >
+        <Plus size={28} />
+      </button>
+
       <div className="mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <div>
@@ -501,92 +531,89 @@ export default function Perbaikan() {
             const sisa = kmB - latest.km_saat_ini;
             const status = getStatus(latest);
             const cfg = statusCfg[status];
-            const hari = Math.ceil(sisa / 50);
             const history = getHistory(item.id);
             const showHistory = activeHistoryId === item.id;
-
             return (
               <div
-                key={i}
-                className={`bg-[#0c1220] rounded-2xl border border-[#1e2d45] border-l-4 ${cfg.border} p-4 md:p-5 shadow-sm hover:shadow-md transition-all`}
+                key={item.id}
+                ref={el => cardRefs.current[item.id] = el}
+                className={`bg-[#0c1220] rounded-xl p-3 md:p-4 border border-[#1e2d45] border-l-4 ${cfg.border} shadow-sm hover:shadow-md transition-all group`}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-white tracking-tight">
-                      {item.nama}
-                    </h3>
-                    <span className="text-xs text-slate-400 font-medium">
-                      KM Saat Ini: {fmtN(latest.km_saat_ini)} → {fmtN(kmB)}
-                    </span>
+                {/* Header Row */}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                        {item.nama}
+                      </h3>
+                      {item.isPinned && <Pin size={10} className="text-blue-400 fill-current" />}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
+                        {item.tipe}
+                      </span>
+                      <span>•</span>
+                      <span className="truncate">Update: {new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${cfg.badge}`}>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight ${cfg.badge} border border-current opacity-80`}>
                       {cfg.text}
-                    </span>
-                    <button 
-                      onClick={() => handleTogglePin(item.id)}
-                      className={`p-1.5 rounded-full transition-all ${item.isPinned ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:bg-white/5 hover:text-slate-400"}`}
-                      title={item.isPinned ? "Lepas Pin" : "Pin Item"}
-                    >
-                      <Pin size={14} className={item.isPinned ? "fill-current" : ""} />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="flex items-end justify-between mb-2">
-                  <div className="text-slate-400 text-xs">Sisa Jarak Servis</div>
-                  <div className={`text-2xl font-bold tracking-tight ${cfg.km}`}>
-                    {sisa > 0 ? fmtN(sisa) : `−${fmtN(Math.abs(sisa))}`} km
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-4 pb-4 border-b border-[#1e2d45]">
-                  <div>
-                    Update: <span className="text-slate-300 font-medium">{new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
-                  </div>
-                  {latest.biaya > 0 && (
-                    <div>
-                      Biaya: <span className="text-orange-400 font-medium">{fmtC(latest.biaya)}</span>
                     </div>
-                  )}
-                  {history.length > 0 && (
-                    <div className="text-purple-400 font-medium ml-auto">
-                      {history.length} Servis
-                    </div>
-                  )}
+                    <CardActionMenu 
+                      item={item}
+                      onTogglePin={handleTogglePin}
+                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      cardRef={{ current: cardRefs.current[item.id] }}
+                      title={`Perbaikan: ${item.nama}`}
+                      dataString={`${item.nama} - Sisa Jarak: ${fmtN(sisa)} km - Terakhir: ${new Date(latest.tanggal).toLocaleDateString("id-ID")}`}
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-5 gap-2">
-                  <button
-                    onClick={() => handleOpenTambah(item)}
-                    className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-purple-500/30"
-                  >
-                    <Plus size={14} /> <span className="whitespace-nowrap font-medium">Tambah</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveHistoryId(showHistory ? null : item.id)}
-                    className={`${showHistory ? "bg-violet-500/20 text-violet-300 border-violet-500/30" : "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-transparent hover:border-violet-500/30"} text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border`}
-                  >
-                    <History size={14} /> <span className="whitespace-nowrap font-medium">Histori</span>
-                  </button>
-                  <button
-                    onClick={() => handleToggleSelesai(item)}
-                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-emerald-500/30"
-                  >
-                    <CheckCircle size={14} className="lucide lucide-check-circle" /> <span className="whitespace-nowrap font-medium">Selesai</span>
-                  </button>
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-blue-500/30"
-                  >
-                    <Pencil size={14} /> <span className="whitespace-nowrap font-medium">Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] md:text-xs py-2 px-1 rounded-xl flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all border border-transparent hover:border-red-500/30"
-                  >
-                    <Trash2 size={14} /> <span className="whitespace-nowrap font-medium">Hapus</span>
-                  </button>
+                {/* Nominal/KM Row */}
+                <div className="flex items-center justify-between py-2 border-t border-b border-[#1e2d45]/50 my-2">
+                  <div>
+                    <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5">Sisa Jarak</div>
+                    <div className={`text-base font-bold tracking-tight leading-none ${cfg.km}`}>
+                      {sisa > 0 ? fmtN(sisa) : `−${fmtN(Math.abs(sisa))}`} <span className="text-[10px] font-medium opacity-70">km</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5">Biaya Terakhir</div>
+                    <div className="text-xs font-semibold text-orange-400">
+                      {latest.biaya > 0 ? fmtC(latest.biaya) : "Rp 0"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export">
+                  {[
+                    { icon: Plus, label: "Tambah", color: "purple", onClick: () => handleOpenTambah(item) },
+                    { icon: History, label: "Histori", count: history.length, color: "violet", onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
+                    { icon: CheckCircle, label: "Selesai", color: "emerald", onClick: () => handleToggleSelesai(item) },
+                    { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+                    { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+                  ].map((btn) => {
+                    const colors = {
+                      purple: "bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 border-purple-500/20",
+                      emerald: "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                      violet: "bg-violet-500/5 hover:bg-violet-500/10 text-violet-400 border-violet-500/20",
+                      blue: "bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 border-blue-500/20",
+                      red: "bg-red-500/5 hover:bg-red-500/10 text-red-400 border-red-500/20",
+                    };
+                    return (
+                      <button
+                        key={btn.label}
+                        onClick={btn.onClick}
+                        className={`${colors[btn.color]} text-[10px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all border shrink-0 font-bold`}
+                      >
+                        <btn.icon size={12} />
+                        <span>{btn.label} {btn.count > 0 ? `(${btn.count})` : ""}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* History panel */}
@@ -649,6 +676,7 @@ export default function Perbaikan() {
             </p>
           </div>
         )}
+      </div>
 
         {selesaiRoots.length > 0 && (
           <div className="mt-8 pt-6 border-t border-[#1e2d45]">
@@ -901,6 +929,12 @@ export default function Perbaikan() {
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal((p) => ({ ...p, visible: false }))}
+      />
+      <ShareDialog 
+        isOpen={shareData.isOpen}
+        onClose={() => setShareData({ ...shareData, isOpen: false })}
+        cardRef={shareData.cardRef}
+        title={shareData.title}
       />
     </div>
   );

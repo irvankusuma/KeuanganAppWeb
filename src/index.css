@@ -153,3 +153,38 @@ input:-webkit-autofill:focus {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* ============================================
+   CUSTOM ANIMATIONS (Action Menu & Dialog)
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-in {
+  animation-duration: 0.15s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+.zoom-in-95 {
+  animation-name: zoomIn;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
