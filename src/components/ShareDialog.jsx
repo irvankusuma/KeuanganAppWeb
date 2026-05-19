@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, Copy, Send, MessageCircle, Instagram, Facebook, Loader2 } from 'lucide-react';
 import { downloadImage, generateCardImage } from '../utils/shareUtils';
+import { useToast } from '../context/ToastContext';
 
 const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
   const [imageUrl, setImageUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (isOpen && cardRef?.current) {
@@ -18,81 +20,142 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
   const handleGenerate = async () => {
     setIsGenerating(true);
     // Small delay to ensure any open menus are closed
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 150));
     
-    // Add export class to show full content
     const element = cardRef.current;
-    if (element) element.classList.add('is-exporting');
+    if (element) {
+      element.classList.add('is-exporting');
+      // Hide internal elements
+      const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .action-buttons, .fab-button, .dropdown, .interactive-element');
+      elementsToHide.forEach(el => el.style.setProperty('display', 'none', 'important'));
+    }
     
     try {
       const url = await generateCardImage(element);
+      if (!url) {
+        throw new Error("Render canvas returned empty url.");
+      }
       setImageUrl(url);
     } catch (err) {
       console.error("Export error:", err);
+      showToast("Gagal menghasilkan gambar kartu, silakan gunakan Salin Teks.", "error");
     } finally {
-      if (element) element.classList.remove('is-exporting');
+      if (element) {
+        element.classList.remove('is-exporting');
+        const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .action-buttons, .fab-button, .dropdown, .interactive-element');
+        elementsToHide.forEach(el => el.style.removeProperty('display'));
+      }
       setIsGenerating(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const handleNativeShare = async () => {
-    if (!imageUrl) return;
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `${title.replace(/\s+/g, '_')}.jpg`, { type: 'image/jpeg' });
-      
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: title,
-          text: caption || title,
-        });
-      } else {
-        downloadImage(imageUrl, title);
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      downloadImage(imageUrl, title);
-    }
-  };
-
-  const handleCopyImage = async () => {
-    if (!imageUrl) return;
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const item = new ClipboardItem({ 'image/png': blob }); 
-      await navigator.clipboard.write([item]);
-      alert('Gambar berhasil disalin ke papan klip!');
-    } catch (error) {
-      console.error('Error copying image:', error);
-      alert('Gagal menyalin gambar.');
-    }
-  };
-
-  const handleCopyCaption = async () => {
+  const handleCopyText = async (isFallback = false) => {
     if (!caption) return;
     try {
       await navigator.clipboard.writeText(caption);
-      alert('Keterangan/Caption berhasil disalin ke papan klip!');
+      if (isFallback) {
+        showToast("Gambar disimpan & keterangan disalin ke clipboard!", "success");
+      } else {
+        showToast("Keterangan berhasil disalin ke clipboard!", "success");
+      }
     } catch (error) {
-      console.error('Error copying caption:', error);
-      alert('Gagal menyalin keterangan.');
+      console.error('Error copying text:', error);
+      showToast("Gagal menyalin teks ke clipboard.", "error");
     }
   };
 
-  const handleSocialClick = async (app, url) => {
+  const handleNativeShare = async () => {
+    if (!imageUrl) {
+      showToast("Gambar belum siap. Menyalin teks saja...", "warning");
+      await handleCopyText();
+      return;
+    }
+    
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error("Gagal mengambil data URL gambar.");
+      const blob = await response.blob();
+      if (!blob || blob.size === 0) throw new Error("Blob gambar tidak valid.");
+      
+      const cleanTitle = title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp';
+      const file = new File([blob], `${cleanTitle}.jpg`, { type: 'image/jpeg' });
+      
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: title || "Bagikan",
+            text: caption || "",
+          });
+          showToast("Berhasil dibagikan!", "success");
+        } catch (shareError) {
+          if (shareError.name === 'AbortError') {
+            showToast("Berbagi dibatalkan", "info");
+          } else {
+            console.error("Native share error, falling back...", shareError);
+            downloadImage(imageUrl, cleanTitle);
+            await handleCopyText(true);
+          }
+        }
+      } else {
+        downloadImage(imageUrl, cleanTitle);
+        await handleCopyText(true);
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      showToast("Gagal membagikan. Menyimpan gambar & menyalin teks...", "error");
+      const cleanTitle = title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp';
+      downloadImage(imageUrl, cleanTitle);
+      await handleCopyText(true);
+    }
+  };
+
+  const shareWithImage = async (fallbackUrl, platformName) => {
+    const cleanTitle = title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp';
+    
+    if (navigator.share && imageUrl) {
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `${cleanTitle}.jpg`, { type: 'image/jpeg' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: title || "Bagikan",
+              text: caption || "",
+            });
+            showToast(`Berhasil dibagikan ke ${platformName}!`, "success");
+            return;
+          } catch (shareError) {
+            if (shareError.name === 'AbortError') {
+              showToast("Berbagi dibatalkan", "info");
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Native share error:', error);
+      }
+    }
+    
     if (caption) {
       try {
         await navigator.clipboard.writeText(caption);
+        showToast(`Teks disalin! Silakan tempel di ${platformName}.`, "success");
       } catch (e) {
         console.error("Could not auto copy caption:", e);
       }
     }
-    window.open(url, '_blank');
+    
+    if (fallbackUrl) {
+      window.open(fallbackUrl, '_blank');
+    } else {
+      if (imageUrl) downloadImage(imageUrl, cleanTitle);
+    }
   };
 
   const socialActions = [
@@ -100,38 +163,25 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
       name: 'WhatsApp', 
       icon: MessageCircle, 
       color: 'bg-emerald-500', 
-      onClick: () => handleSocialClick('WhatsApp', `https://wa.me/?text=${encodeURIComponent(caption || title)}`) 
+      onClick: () => shareWithImage(`https://wa.me/?text=${encodeURIComponent(caption || title)}`, 'WhatsApp')
     },
     { 
       name: 'Telegram', 
       icon: Send, 
       color: 'bg-blue-500', 
-      onClick: () => handleSocialClick('Telegram', `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(caption || title)}`) 
+      onClick: () => shareWithImage(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(caption || title)}`, 'Telegram')
     },
     { 
       name: 'Instagram', 
       icon: Instagram, 
       color: 'bg-pink-600', 
-      onClick: () => {
-        handleCopyImage();
-        if (caption) {
-          navigator.clipboard.writeText(caption).then(() => {
-            alert('Gambar & Caption berhasil disalin! Silakan tempel di postingan Instagram Anda.');
-          });
-        }
-      }
+      onClick: () => shareWithImage(null, 'Instagram')
     },
     { 
       name: 'Facebook', 
       icon: Facebook, 
       color: 'bg-blue-700', 
-      onClick: () => {
-        if (caption) {
-          navigator.clipboard.writeText(caption);
-          alert('Caption disalin! Membuka Facebook...');
-        }
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
-      }
+      onClick: () => shareWithImage(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, 'Facebook')
     },
   ];
 
@@ -160,7 +210,7 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
               <>
                 <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-2" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button onClick={() => downloadImage(imageUrl, title)} className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/20">
+                  <button onClick={() => downloadImage(imageUrl, title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp')} className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/20">
                     <Download size={24} />
                   </button>
                 </div>
@@ -189,14 +239,14 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <button 
-                onClick={handleCopyImage}
-                disabled={isGenerating || !imageUrl}
+                onClick={() => handleCopyText(false)}
+                disabled={isGenerating || !caption}
                 className="flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-2xl text-xs font-bold border border-slate-700 transition-all active:scale-95"
               >
-                <Copy size={16} /> Salin Gambar
+                <Copy size={16} /> Salin Teks
               </button>
               <button 
-                onClick={() => downloadImage(imageUrl, title)}
+                onClick={() => downloadImage(imageUrl, title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp')}
                 disabled={isGenerating || !imageUrl}
                 className="flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-2xl text-xs font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
               >
@@ -204,25 +254,13 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
               </button>
             </div>
 
-            {caption && (
-              <button 
-                onClick={handleCopyCaption}
-                disabled={isGenerating}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-2xl text-xs font-bold border border-slate-700 transition-all"
-              >
-                <Copy size={14} /> Salin Keterangan (Caption)
-              </button>
-            )}
-
-            {navigator.share && (
-              <button 
-                onClick={handleNativeShare}
-                disabled={isGenerating || !imageUrl}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-2xl text-xs font-bold border border-white/10 transition-all"
-              >
-                <Share2 size={16} /> Berbagi Lainnya
-              </button>
-            )}
+            <button 
+              onClick={handleNativeShare}
+              disabled={isGenerating || !imageUrl}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-2xl text-xs font-bold border border-white/10 transition-all"
+            >
+              <Share2 size={16} /> Berbagi Lainnya (Share)
+            </button>
           </div>
         </div>
       </div>

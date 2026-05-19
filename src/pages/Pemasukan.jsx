@@ -388,9 +388,14 @@ export default function Pemasukan() {
                       item={item}
                       onTogglePin={handleTogglePin}
                       onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
-                      cardRef={{ current: cardRefs.current[item.id] }}
+                      cardRef={{ get current() { return cardRefs.current[item.id]; } }}
                       title={`Pemasukan: ${item.nama}`}
-                      caption={`*PEMASUKAN RENCANA KEUANGAN*\nNama: ${item.nama}\nSaldo Aktif: ${fmtC(saldoAktif)}\nAwal: ${fmtC(item.jumlah)}\nTanggal: ${new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
+                      caption={`${item.nama}
+Saldo Aktif: ${fmtC(saldoAktif)}
+Awal: ${fmtC(item.jumlah)}
+Tanggal: ${new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+
+${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                       dataString={`${item.nama} - Saldo: ${fmtC(saldoAktif)} - Tanggal: ${new Date(item.tanggal).toLocaleDateString("id-ID")}`}
                     />
                   </div>

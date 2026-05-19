@@ -1,47 +1,36 @@
-import { toJpeg } from 'html-to-image';
+import html2canvas from 'html2canvas';
 
 export const generateCardImage = async (element) => {
   if (!element) return null;
   
   try {
-    // Advanced filtering to exclude non-data elements
-    const filter = (node) => {
-      if (node.classList) {
-        const skipClasses = [
-          'card-action-menu-trigger',
-          'btn-action',
-          'action-buttons',
-          'no-export',
-          'fab-button',
-          'dropdown',
-          'interactive-element'
-        ];
-        if (skipClasses.some(cls => node.classList.contains(cls))) return false;
-      }
-      return true;
-    };
-
-    // Fast generation with optimized settings
-    const dataUrl = await toJpeg(element, {
-      quality: 0.85,
-      pixelRatio: 2, // Sharpness without excessive weight
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
       backgroundColor: '#0c1220',
-      filter: filter,
-      cacheBust: true,
-      includeGraphics: true,
-      fontEmbedCSS: true,
-      style: {
-        padding: '16px',
-        borderRadius: '16px',
-        boxShadow: 'none',
-        transform: 'scale(1)',
+      logging: false,
+      ignoreElements: (node) => {
+        if (node.classList) {
+          const skipClasses = [
+            'card-action-menu-trigger',
+            'btn-action',
+            'action-buttons',
+            'no-export',
+            'fab-button',
+            'dropdown',
+            'interactive-element'
+          ];
+          if (skipClasses.some(cls => node.classList.contains(cls))) return true;
+        }
+        return false;
       }
     });
     
-    return dataUrl;
+    return canvas.toDataURL('image/jpeg', 0.85);
   } catch (error) {
     console.error('Error generating card image:', error);
-    return null;
+    throw error;
   }
 };
 

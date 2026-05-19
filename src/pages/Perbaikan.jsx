@@ -564,9 +564,15 @@ export default function Perbaikan() {
                       item={item}
                       onTogglePin={handleTogglePin}
                       onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
-                      cardRef={{ current: cardRefs.current[item.id] }}
+                      cardRef={{ get current() { return cardRefs.current[item.id]; } }}
                       title={`Perbaikan: ${item.nama}`}
-                      caption={`*PERBAIKAN / SERVIS RENCANA KEUANGAN*\nNama Item: ${item.nama}\nTipe/Kategori: ${item.tipe}\nSisa Jarak Rekomendasi: ${sisa > 0 ? fmtN(sisa) : `−${fmtN(Math.abs(sisa))}`} km\nKM Terakhir: ${fmtN(latest.km_saat_ini)} km\nKM Target Berikutnya: ${fmtN(kmB)} km\nBiaya Servis Terakhir: ${latest.biaya > 0 ? fmtC(latest.biaya) : "Rp 0"}\nStatus Rekomendasi: ${cfg.text.toUpperCase()}\nTanggal Terakhir: ${new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
+                      caption={`${item.nama}
+Biaya: ${latest.biaya > 0 ? fmtC(latest.biaya) : "Rp 0"}
+Tipe: ${item.tipe}
+KM Terakhir: ${fmtN(latest.km_saat_ini)} km
+KM Target: ${fmtN(kmB)} km
+
+${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                       dataString={`${item.nama} - Sisa Jarak: ${fmtN(sisa)} km - Terakhir: ${new Date(latest.tanggal).toLocaleDateString("id-ID")}`}
                     />
                   </div>

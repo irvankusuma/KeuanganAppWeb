@@ -315,9 +315,14 @@ export default function Hutang() {
               item={item}
               onTogglePin={handleTogglePin}
               onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
-              cardRef={{ current: cardRefs.current[item.id] }}
+              cardRef={{ get current() { return cardRefs.current[item.id]; } }}
               title={`Hutang: ${item.nama}`}
-              caption={`*HUTANG RENCANA KEUANGAN*\nNama: ${item.nama}\nTipe: ${item.tipe}\nSisa Hutang: ${formatCurrency(sisa)}\nTotal Pinjaman: ${formatCurrency(total)}\nSudah Dibayar: ${formatCurrency(totalDibayar)}\nJatuh Tempo: ${getJatuhTempoDate(item)?.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) || "-"}\nStatus: ${statusText.toUpperCase()}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
+              caption={`${item.nama}
+Sisa Hutang: ${formatCurrency(sisa)}
+Total: ${formatCurrency(total)}
+Jatuh Tempo: ${getJatuhTempoDate(item)?.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) || "-"}
+
+${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               dataString={`${item.nama} - Sisa: ${formatCurrency(sisa)} - Jatuh Tempo: ${getJatuhTempoDate(item)?.toLocaleDateString("id-ID")}`}
             />
           </div>

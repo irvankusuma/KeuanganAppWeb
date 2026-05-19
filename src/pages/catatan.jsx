@@ -553,7 +553,10 @@ export default function Catatan() {
                       onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
                       cardRef={{ current: cardRefs.current[item.id] }}
                       title={`Catatan: ${item.judul || "Tanpa Judul"}`}
-                      caption={`*CATATAN RENCANA KEUANGAN*\nJudul: ${item.judul || "Catatan Singkat"}\nTipe: ${getTypeLabel(type)}\n\n${item.isi}\n\n---\nDicatat dengan KeuanganApp`}
+                      caption={`${item.judul || "Catatan"}
+Tipe: ${getTypeLabel(type)}
+
+${item.isi}`.trim()}
                       dataString={`${item.judul || "Catatan"}: ${item.isi}`}
                     />
                   </div>

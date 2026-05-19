@@ -445,10 +445,11 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Tagihan Belum Bayar */}
+        {/* Tagihan Bulan Ini */}
         {(() => {
-          const tagihanBelumBayar = data.tagihan.filter(t => !t.isPaid);
-          const totalTagihanBelum = tagihanBelumBayar.reduce((s,t) => s+(parseFloat(t.nominal)||0), 0);
+          const thisMonth = new Date().toISOString().slice(0,7);
+          const tagihanBulanIni = data.pembayaranTagihan.filter(t => t.bulan === thisMonth || (t.tanggal && t.tanggal.startsWith(thisMonth)));
+          const totalTagihanBulanIni = tagihanBulanIni.reduce((s,t) => s+(parseFloat(t.jumlah)||0), 0);
           return (
             <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-violet-500/30 rounded-xl p-4 transition-colors">
               <div className="flex items-center justify-between mb-3">
@@ -457,8 +458,8 @@ export default function Dashboard() {
                   <ArrowUpRight size={14} />
                 </Link>
               </div>
-              <p className="text-xs text-slate-400 mb-1">Tagihan Belum Bayar</p>
-              <p className="text-base font-bold text-violet-400 leading-tight">{formatCurrency(totalTagihanBelum)}</p>
+              <p className="text-xs text-slate-400 mb-1">Tagihan Bulan Ini</p>
+              <p className="text-base font-bold text-violet-400 leading-tight">{formatCurrency(totalTagihanBulanIni)}</p>
               <button
                 onClick={() => navigate("/tagihan")}
                 className="mt-3 w-full py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-violet-500/20 transition-all active:scale-[0.98]"
