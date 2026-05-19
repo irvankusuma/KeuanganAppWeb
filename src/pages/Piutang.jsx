@@ -73,7 +73,7 @@ export default function Piutang() {
     message: "",
     onConfirm: null,
   });
-  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '', caption: '' });
   const cardRefs = useRef({});
 
   const location = useLocation();
@@ -286,9 +286,10 @@ export default function Piutang() {
             <CardActionMenu 
               item={item}
               onTogglePin={handleTogglePin}
-              onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+              onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
               cardRef={{ current: cardRefs.current[item.id] }}
               title={`Piutang: ${item.namaOrang}`}
+              caption={`*PIUTANG RENCANA KEUANGAN*\nNama Orang: ${item.namaOrang}\nSisa Piutang: ${formatCurrency(sisa)}\nTotal Awal: ${formatCurrency(total)}\nSudah Diterima: ${formatCurrency(totalDiterima)}\nJatuh Tempo: ${new Date(item.jatuhTempo).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\nStatus: ${statusText.toUpperCase()}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
               dataString={`${item.namaOrang} - Sisa: ${formatCurrency(sisa)} - Jatuh Tempo: ${new Date(item.jatuhTempo).toLocaleDateString("id-ID")}`}
             />
           </div>
@@ -331,7 +332,7 @@ export default function Piutang() {
         </div>
 
         {activeHistoryId === item.id && (
-          <div className="mt-4 bg-[#0a0f1a] rounded-xl p-3 border border-[#1e2d45] space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="mt-4 bg-[#0a0f1a] rounded-xl p-3 border border-[#1e2d45] space-y-2 animate-in fade-in slide-in-from-top-2 duration-200 no-export">
             <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">
               Riwayat Transaksi
             </div>
@@ -1039,6 +1040,7 @@ export default function Piutang() {
         onClose={() => setShareData({ ...shareData, isOpen: false })}
         cardRef={shareData.cardRef}
         title={shareData.title}
+        caption={shareData.caption}
       />
     </div>
   );

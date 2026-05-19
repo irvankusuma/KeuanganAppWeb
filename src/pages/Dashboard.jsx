@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, Target, Edit2, Check, Wallet, Search, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wrench, BookOpen } from "lucide-react";
+import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, Target, Edit2, Check, Wallet, Search, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wrench, BookOpen, Receipt } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import { SkeletonDashboard } from "../components/Skeleton";
 import {
@@ -23,6 +23,8 @@ export default function Dashboard() {
     pembayaranPiutang: [],
     catatan: [],
     perbaikan: [],
+    tagihan: [],
+    pembayaranTagihan: [],
   });
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,8 @@ export default function Dashboard() {
       const pembayaranPiutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
       const catatan = LocalStorageService.readSheet(SHEETS.CATATAN);
       const perbaikan = LocalStorageService.readSheet(SHEETS.PERBAIKAN);
+      const tagihan = LocalStorageService.readSheet(SHEETS.TAGIHAN);
+      const pembayaranTagihan = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_TAGIHAN);
 
       setData({
         hutang,
@@ -67,6 +71,8 @@ export default function Dashboard() {
         pembayaranPiutang,
         catatan,
         perbaikan,
+        tagihan,
+        pembayaranTagihan,
       });
     } catch (error) {
       console.error("Error loading data:", error);
@@ -248,8 +254,13 @@ export default function Dashboard() {
         results.push({ ...i, type: 'catatan', label: i.judul || 'Catatan', path: '/catatan' });
       }
     });
+    data.tagihan.forEach(i => {
+      if ((i.nama||'').toLowerCase().includes(query) || (i.kategori||'').toLowerCase().includes(query)) {
+        results.push({ ...i, type: 'tagihan', label: i.nama, path: '/tagihan' });
+      }
+    });
     
-    setSearchResults(results.slice(0, 10)); // Limit results
+    setSearchResults(results.slice(0, 10));
   }, [searchQuery, data]);
 
   if (loading) {
@@ -261,6 +272,8 @@ export default function Dashboard() {
     pengeluaran:{ color: "text-orange-400",  bg: "bg-orange-500/10",  icon: TrendingDown, sign: "-" },
     hutang:     { color: "text-red-400",     bg: "bg-red-500/10",     icon: DollarSign,   sign: "-" },
     piutang:    { color: "text-blue-400",    bg: "bg-blue-500/10",    icon: Coins,        sign: "+" },
+    tagihan:    { color: "text-violet-400",  bg: "bg-violet-500/10",  icon: Receipt,      sign: "-" },
+    catatan:    { color: "text-purple-400",  bg: "bg-purple-500/10",  icon: BookOpen,     sign: "" },
   };
 
   return (
@@ -431,6 +444,30 @@ export default function Dashboard() {
             <Plus size={12} /> Tambah
           </button>
         </div>
+
+        {/* Tagihan Belum Bayar */}
+        {(() => {
+          const tagihanBelumBayar = data.tagihan.filter(t => !t.isPaid);
+          const totalTagihanBelum = tagihanBelumBayar.reduce((s,t) => s+(parseFloat(t.nominal)||0), 0);
+          return (
+            <div className="group bg-[#0e1523] border border-[#1e2d45] hover:border-violet-500/30 rounded-xl p-4 transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-violet-500/10 rounded-lg"><Receipt size={16} className="text-violet-400" /></div>
+                <Link to="/tagihan" className="p-1 text-slate-600 hover:text-violet-400 transition-colors">
+                  <ArrowUpRight size={14} />
+                </Link>
+              </div>
+              <p className="text-xs text-slate-400 mb-1">Tagihan Belum Bayar</p>
+              <p className="text-base font-bold text-violet-400 leading-tight">{formatCurrency(totalTagihanBelum)}</p>
+              <button
+                onClick={() => navigate("/tagihan")}
+                className="mt-3 w-full py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-violet-500/20 transition-all active:scale-[0.98]"
+              >
+                <Plus size={12} /> Tagihan
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Target Tabungan */}
         <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 flex flex-col justify-between relative group">
@@ -655,6 +692,7 @@ export default function Dashboard() {
                 ...data.piutang.filter(i => i.tanggal === dateStr).map(() => 'bg-blue-500'),
                 ...data.perbaikan.filter(i => i.tanggal === dateStr).map(() => 'bg-indigo-500'),
                 ...data.catatan.filter(i => i.tanggal === dateStr).map(() => 'bg-purple-500'),
+                ...data.pembayaranTagihan.filter(i => i.tanggal === dateStr).map(() => 'bg-violet-500'),
               ].slice(0, 3);
 
               days.push(
@@ -687,6 +725,7 @@ export default function Dashboard() {
             { color: 'bg-blue-500', label: 'Piutang' },
             { color: 'bg-indigo-500', label: 'Perbaikan' },
             { color: 'bg-purple-500', label: 'Catatan' },
+            { color: 'bg-violet-500', label: 'Tagihan' },
           ].map(leg => (
             <div key={leg.label} className="flex items-center gap-1.5">
               <div className={`w-1.5 h-1.5 rounded-full ${leg.color}`} />
@@ -717,6 +756,7 @@ export default function Dashboard() {
               ...data.piutang.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Piutang', icon: Coins, color: 'text-blue-400', bg: 'bg-blue-500/10', path: '/piutang', label: i.namaOrang || i.nama, amount: i.jumlah })),
               ...data.perbaikan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Perbaikan', icon: Wrench, color: 'text-indigo-400', bg: 'bg-indigo-500/10', path: '/perbaikan', label: i.nama, amount: i.biaya })),
               ...data.catatan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Catatan', icon: BookOpen, color: 'text-purple-400', bg: 'bg-purple-500/10', path: '/catatan', label: i.judul || 'Catatan Singkat' })),
+              ...data.pembayaranTagihan.filter(i => i.tanggal === selectedDate).map(i => ({ ...i, category: 'Tagihan', icon: Receipt, color: 'text-violet-400', bg: 'bg-violet-500/10', path: '/tagihan', label: i.namaTagihan || 'Tagihan', amount: i.jumlah })),
             ].sort((a, b) => new Date(b.createdAt || b.tanggal) - new Date(a.createdAt || a.tanggal));
 
             if (activities.length === 0) {
@@ -751,8 +791,8 @@ export default function Dashboard() {
                     </div>
                     {act.amount !== undefined && (
                       <div className="text-right shrink-0">
-                        <p className={`text-sm font-black ${act.category === 'Pemasukan' || act.category === 'Piutang' ? 'text-emerald-400' : 'text-orange-400'}`}>
-                          {act.category === 'Pemasukan' || act.category === 'Piutang' ? '+' : '-'}{formatCurrency(parseFloat(act.amount))}
+                        <p className={`text-sm font-black ${act.category === 'Pemasukan' || act.category === 'Piutang' ? 'text-emerald-400' : act.category === 'Catatan' ? 'text-purple-400' : 'text-orange-400'}`}>
+                          {act.category === 'Pemasukan' || act.category === 'Piutang' ? '+' : act.category === 'Catatan' ? '' : '-'}{formatCurrency(parseFloat(act.amount))}
                         </p>
                       </div>
                     )}

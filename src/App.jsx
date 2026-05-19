@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Plus,
+  Receipt,
 } from "lucide-react";
 
 // Pages
@@ -33,6 +34,7 @@ import Pemasukan from "./pages/Pemasukan";
 import Pengeluaran from "./pages/Pengeluaran";
 import Perbaikan from "./pages/Perbaikan";
 import Catatan from "./pages/catatan";
+import Tagihan from "./pages/Tagihan";
 import LoginPage from "./pages/Login";
 
 // Components
@@ -44,6 +46,7 @@ const NAV_ITEMS = [
   { path: "/",            icon: Home,         label: "Beranda"     },
   { path: "/hutang",      icon: DollarSign,   label: "Hutang"      },
   { path: "/piutang",     icon: Coins,        label: "Piutang"     },
+  { path: "/tagihan",     icon: Receipt,      label: "Tagihan"     },
   { path: "/perbaikan",   icon: Wrench,       label: "Perbaikan"   },
   { path: "/pemasukan",   icon: TrendingUp,   label: "Pemasukan"   },
   { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
@@ -274,38 +277,50 @@ function Layout({ children }) {
 
         {/* ── Top bar (mobile only — shows hamburger + page title) ── */}
         <header className="md:hidden sticky top-0 z-30 bg-[#0c1220]/90 backdrop-blur-md border-b border-[#1e2d45]">
-          <div className="h-14 px-4 flex items-center gap-2">
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-              aria-label="Buka menu"
-            >
-              <Menu size={20} />
-            </button>
-            <span className="text-xs font-bold text-white truncate shrink-0">{currentPage}</span>
+          <div className="h-14 px-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+                aria-label="Buka menu"
+              >
+                <Menu size={20} />
+              </button>
+              <span className="text-xs font-bold text-white truncate">{currentPage}</span>
+            </div>
             
-            <div className="flex-1 flex justify-center min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+                title="Unduhan"
+              >
+                <Download size={18} />
+              </button>
               <RealtimeClock />
             </div>
-
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="p-2 -mr-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-            >
-              <Download size={18} />
-            </button>
           </div>
         </header>
 
         {/* ── Desktop page header (breadcrumb style) ── */}
-        <header className="hidden md:block sticky top-0 z-20 bg-[#0a0f1a]/80 backdrop-blur-md border-b border-[#1e2d45]/60">
-          <div className="h-14 px-6 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+        <header className="hidden md:block sticky top-0 z-20 bg-[#0a0f1a]/85 backdrop-blur-md border-b border-[#1e2d45]/60">
+          <div className="h-14 px-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
               <span>KeuanganApp</span>
-              <ChevronRight size={12} />
-              <span className="text-slate-300 font-medium">{currentPage}</span>
+              <ChevronRight size={12} className="shrink-0" />
+              <span className="text-slate-300 font-medium truncate">{currentPage}</span>
             </div>
-            <RealtimeClock />
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors flex items-center gap-1.5 text-xs font-semibold border border-[#1e2d45] bg-[#0c1220]/50"
+                title="Unduhan (Ekspor / Impor)"
+              >
+                <Download size={14} />
+                <span>Unduhan</span>
+              </button>
+              <RealtimeClock />
+            </div>
           </div>
         </header>
 
@@ -363,6 +378,7 @@ export default function App() {
                 <Route path="/"            element={<Dashboard />}   />
                 <Route path="/hutang"      element={<Hutang />}      />
                 <Route path="/piutang"     element={<Piutang />}     />
+                <Route path="/tagihan"     element={<Tagihan />}     />
                 <Route path="/pemasukan"   element={<Pemasukan />}   />
                 <Route path="/pengeluaran" element={<Pengeluaran />} />
                 <Route path="/catatan"     element={<Catatan />}     />

@@ -260,12 +260,24 @@ input:-webkit-autofill:focus {
   text-overflow: clip !important;
 }
 
-.is-exporting .is-export-only-date {
-  display: block !important;
-}
-
 .is-exporting {
   height: auto !important;
   max-height: none !important;
-  width: 400px !important; /* Fixed width for consistent export look */
+  width: 420px !important; /* Standard premium card width */
+  padding: 24px !important;
+  background-color: #0c1220 !important;
+  border-radius: 20px !important;
+  border: 1px solid #1e2d45 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
+.is-exporting .no-export,
+.is-exporting .card-action-menu-trigger,
+.is-exporting .btn-action-compact,
+.is-exporting .btn-action,
+.is-exporting .action-buttons,
+.is-exporting .fab-button,
+.is-exporting .dropdown,
+.is-exporting .interactive-element {
+  display: none !important;
 }

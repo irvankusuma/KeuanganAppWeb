@@ -10,6 +10,8 @@ const SHEETS = {
   PENGELUARAN: 'Pengeluaran',
   PERBAIKAN: 'Perbaikan',
   CATATAN: 'Catatan',
+  TAGIHAN: 'Tagihan',
+  PEMBAYARAN_TAGIHAN: 'PembayaranTagihan',
 };
 
 class LocalStorageService {
@@ -104,7 +106,8 @@ class LocalStorageService {
       SHEETS.PEMASUKAN,
       SHEETS.PENGELUARAN,
       SHEETS.PERBAIKAN,
-      SHEETS.CATATAN
+      SHEETS.CATATAN,
+      SHEETS.TAGIHAN
     ];
     
     sheetsToCheck.forEach(sheet => {
@@ -244,6 +247,17 @@ class LocalStorageService {
           type: 'perbaikan',
           title: item.nama,
           amount: parseFloat(item.biaya) || 0,
+          date: item.tanggal,
+          createdAt: item.createdAt,
+        });
+      });
+
+      const tagihanHistory = this.readSheet(SHEETS.PEMBAYARAN_TAGIHAN);
+      tagihanHistory.forEach(item => {
+        history.push({
+          type: 'tagihan',
+          title: item.namaTagihan,
+          amount: parseFloat(item.jumlah) || 0,
           date: item.tanggal,
           createdAt: item.createdAt,
         });

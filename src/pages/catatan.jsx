@@ -50,7 +50,7 @@ export default function Catatan() {
     title: "",
     onConfirm: null,
   });
-  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '', caption: '' });
   const cardRefs = useRef({});
 
   const { showToast } = useToast();
@@ -550,9 +550,10 @@ export default function Catatan() {
                     <CardActionMenu 
                       item={item}
                       onTogglePin={handleTogglePin}
-                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
                       cardRef={{ current: cardRefs.current[item.id] }}
                       title={`Catatan: ${item.judul || "Tanpa Judul"}`}
+                      caption={`*CATATAN RENCANA KEUANGAN*\nJudul: ${item.judul || "Catatan Singkat"}\nTipe: ${getTypeLabel(type)}\n\n${item.isi}\n\n---\nDicatat dengan KeuanganApp`}
                       dataString={`${item.judul || "Catatan"}: ${item.isi}`}
                     />
                   </div>
@@ -874,6 +875,7 @@ export default function Catatan() {
         onClose={() => setShareData({ ...shareData, isOpen: false })}
         cardRef={shareData.cardRef}
         title={shareData.title}
+        caption={shareData.caption}
       />
     </div>
   );

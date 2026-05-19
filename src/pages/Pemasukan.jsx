@@ -69,7 +69,7 @@ export default function Pemasukan() {
   const [confirmModal, setConfirmModal] = useState({
     visible: false, title: "", message: "", onConfirm: null,
   });
-  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '', caption: '' });
   const cardRefs = useRef({});
 
   const { showToast } = useToast();
@@ -387,9 +387,10 @@ export default function Pemasukan() {
                     <CardActionMenu 
                       item={item}
                       onTogglePin={handleTogglePin}
-                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
                       cardRef={{ current: cardRefs.current[item.id] }}
                       title={`Pemasukan: ${item.nama}`}
+                      caption={`*PEMASUKAN RENCANA KEUANGAN*\nNama: ${item.nama}\nSaldo Aktif: ${fmtC(saldoAktif)}\nAwal: ${fmtC(item.jumlah)}\nTanggal: ${new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
                       dataString={`${item.nama} - Saldo: ${fmtC(saldoAktif)} - Tanggal: ${new Date(item.tanggal).toLocaleDateString("id-ID")}`}
                     />
                   </div>
@@ -619,6 +620,7 @@ export default function Pemasukan() {
         onClose={() => setShareData({ ...shareData, isOpen: false })}
         cardRef={shareData.cardRef}
         title={shareData.title}
+        caption={shareData.caption}
       />
     </div>
   );

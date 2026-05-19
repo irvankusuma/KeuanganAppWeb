@@ -66,7 +66,7 @@ export default function Perbaikan() {
     message: "",
     onConfirm: null,
   });
-  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '' });
+  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '', caption: '' });
   const cardRefs = useRef({});
 
   const location = useLocation();
@@ -563,9 +563,10 @@ export default function Perbaikan() {
                     <CardActionMenu 
                       item={item}
                       onTogglePin={handleTogglePin}
-                      onShare={(ref, t) => setShareData({ isOpen: true, cardRef: ref, title: t })}
+                      onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
                       cardRef={{ current: cardRefs.current[item.id] }}
                       title={`Perbaikan: ${item.nama}`}
+                      caption={`*PERBAIKAN / SERVIS RENCANA KEUANGAN*\nNama Item: ${item.nama}\nTipe/Kategori: ${item.tipe}\nSisa Jarak Rekomendasi: ${sisa > 0 ? fmtN(sisa) : `−${fmtN(Math.abs(sisa))}`} km\nKM Terakhir: ${fmtN(latest.km_saat_ini)} km\nKM Target Berikutnya: ${fmtN(kmB)} km\nBiaya Servis Terakhir: ${latest.biaya > 0 ? fmtC(latest.biaya) : "Rp 0"}\nStatus Rekomendasi: ${cfg.text.toUpperCase()}\nTanggal Terakhir: ${new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}\n${item.catatan ? `Catatan: ${item.catatan}\n` : ""}\n---\nDikelola secara profesional dengan KeuanganApp`}
                       dataString={`${item.nama} - Sisa Jarak: ${fmtN(sisa)} km - Terakhir: ${new Date(latest.tanggal).toLocaleDateString("id-ID")}`}
                     />
                   </div>
@@ -609,7 +610,7 @@ export default function Perbaikan() {
 
                 {/* History panel */}
                 {showHistory && (
-                  <div className="mt-4 bg-[#0a0f1a] rounded-xl border border-[#1e2d45] p-3">
+                  <div className="mt-4 bg-[#0a0f1a] rounded-xl border border-[#1e2d45] p-3 no-export">
                     <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">
                       Riwayat Servis
                     </div>
@@ -926,6 +927,7 @@ export default function Perbaikan() {
         onClose={() => setShareData({ ...shareData, isOpen: false })}
         cardRef={shareData.cardRef}
         title={shareData.title}
+        caption={shareData.caption}
       />
     </div>
   );

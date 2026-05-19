@@ -7,8 +7,9 @@ const CardActionMenu = ({
   onTogglePin, 
   onShare, 
   cardRef,
-  dataString, // A string representing the card data for copying
-  title 
+  dataString,
+  title,
+  caption   // structured text for sharing
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -38,12 +39,12 @@ const CardActionMenu = ({
   const handleShareClick = () => {
     setIsOpen(false);
     if (cardRef && cardRef.current) {
-      onShare(cardRef, title);
+      onShare(cardRef, title, caption);
     }
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative no-export" ref={menuRef}>
       <button
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
         className={`p-1 rounded-md transition-all ${isOpen ? 'bg-white/10 text-white' : 'text-slate-600 hover:text-slate-400 hover:bg-white/5'} card-action-menu-trigger`}

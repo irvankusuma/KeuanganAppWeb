@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, Copy, Send, MessageCircle, Instagram, Facebook, Loader2 } from 'lucide-react';
 import { downloadImage, generateCardImage } from '../utils/shareUtils';
 
-const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
+const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
   const [imageUrl, setImageUrl] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -47,8 +47,8 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Bagikan Data Keuangan',
-          text: title,
+          title: title,
+          text: caption || title,
         });
       } else {
         downloadImage(imageUrl, title);
@@ -66,11 +66,33 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
       const blob = await response.blob();
       const item = new ClipboardItem({ 'image/png': blob }); 
       await navigator.clipboard.write([item]);
-      alert('Gambar berhasil disalin!');
+      alert('Gambar berhasil disalin ke papan klip!');
     } catch (error) {
       console.error('Error copying image:', error);
       alert('Gagal menyalin gambar.');
     }
+  };
+
+  const handleCopyCaption = async () => {
+    if (!caption) return;
+    try {
+      await navigator.clipboard.writeText(caption);
+      alert('Keterangan/Caption berhasil disalin ke papan klip!');
+    } catch (error) {
+      console.error('Error copying caption:', error);
+      alert('Gagal menyalin keterangan.');
+    }
+  };
+
+  const handleSocialClick = async (app, url) => {
+    if (caption) {
+      try {
+        await navigator.clipboard.writeText(caption);
+      } catch (e) {
+        console.error("Could not auto copy caption:", e);
+      }
+    }
+    window.open(url, '_blank');
   };
 
   const socialActions = [
@@ -78,25 +100,38 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
       name: 'WhatsApp', 
       icon: MessageCircle, 
       color: 'bg-emerald-500', 
-      onClick: () => window.open(`https://wa.me/?text=${encodeURIComponent(title)}`, '_blank') 
+      onClick: () => handleSocialClick('WhatsApp', `https://wa.me/?text=${encodeURIComponent(caption || title)}`) 
     },
     { 
       name: 'Telegram', 
       icon: Send, 
       color: 'bg-blue-500', 
-      onClick: () => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(title)}`, '_blank') 
+      onClick: () => handleSocialClick('Telegram', `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(caption || title)}`) 
     },
     { 
       name: 'Instagram', 
       icon: Instagram, 
       color: 'bg-pink-600', 
-      onClick: handleCopyImage 
+      onClick: () => {
+        handleCopyImage();
+        if (caption) {
+          navigator.clipboard.writeText(caption).then(() => {
+            alert('Gambar & Caption berhasil disalin! Silakan tempel di postingan Instagram Anda.');
+          });
+        }
+      }
     },
     { 
       name: 'Facebook', 
       icon: Facebook, 
       color: 'bg-blue-700', 
-      onClick: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank') 
+      onClick: () => {
+        if (caption) {
+          navigator.clipboard.writeText(caption);
+          alert('Caption disalin! Membuka Facebook...');
+        }
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
+      }
     },
   ];
 
@@ -107,7 +142,7 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-5 py-4 border-b border-[#1e2d45]">
-          <h3 className="text-sm font-bold text-white tracking-tight">Bagikan Kartu</h3>
+          <h3 className="text-sm font-bold text-white tracking-tight">Bagikan Kartu Keuangan</h3>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-colors">
             <X size={18} />
           </button>
@@ -168,6 +203,16 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title }) => {
                 <Download size={16} /> Simpan JPG
               </button>
             </div>
+
+            {caption && (
+              <button 
+                onClick={handleCopyCaption}
+                disabled={isGenerating}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-2xl text-xs font-bold border border-slate-700 transition-all"
+              >
+                <Copy size={14} /> Salin Keterangan (Caption)
+              </button>
+            )}
 
             {navigator.share && (
               <button 
