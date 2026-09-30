@@ -11,10 +11,89 @@ import {
   FileSpreadsheet,
   FileJson,
 } from "lucide-react";
-import LocalStorageService from "../services/LocalStorageService";
+import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import { useToast } from "../context/ToastContext";
 import ConfirmModal from "./ConfirmModal";
 import * as XLSX from "xlsx";
+import { formatCurrency } from "../utils/format";
+
+// Nama sheet di file TXT ditulis kapital semua, jadi perlu dipetakan balik.
+const TXT_SHEET_NAMES = Object.values(SHEETS).reduce((acc, name) => {
+  acc[name.toUpperCase()] = name;
+  return acc;
+}, {});
+
+const TXT_ID_KEYS = ["id", "parent_id", "sourceRef", "piutangId", "hutangId", "tagihanId"];
+
+const coerceTxtValue = (key, raw) => {
+  const value = raw.trim();
+  if (value === "null" || value === "undefined") return null;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (TXT_ID_KEYS.includes(key)) return value;
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return value;
+};
+
+const parseTxtRow = (line) => {
+  const body = line.replace(/^\s*\d+\.\s*/, "").replace(/,\s*$/, "");
+  const marks = [];
+  const keyPattern = /(^|, )([A-Za-z0-9_]+): /g;
+  let match;
+  while ((match = keyPattern.exec(body)) !== null) {
+    marks.push({ key: match[2], start: match.index + match[0].length, sepIndex: match.index });
+  }
+  if (marks.length === 0) return null;
+
+  return marks.reduce((item, mark, i) => {
+    const end = i + 1 < marks.length ? marks[i + 1].sepIndex : body.length;
+    item[mark.key] = coerceTxtValue(mark.key, body.slice(mark.start, end));
+    return item;
+  }, {});
+};
+
+const parseTXT = (text) => {
+  if (!text || !/^\s*LAPORAN KEUANGAN/m.test(text)) return null;
+
+  const data = Object.values(SHEETS).reduce((acc, name) => {
+    acc[name] = [];
+    return acc;
+  }, {});
+  let currentSheet = null;
+
+  text.split(/\r?\n/).forEach((line) => {
+    const header = line.match(/^\s*===\s*([A-Za-z0-9_]+)\s*===\s*$/);
+    if (header) {
+      currentSheet = TXT_SHEET_NAMES[header[1].toUpperCase()] || null;
+      return;
+    }
+    if (!currentSheet || !/^\s*\d+\.\s+/.test(line)) return;
+    const row = parseTxtRow(line);
+    if (row) data[currentSheet].push(row);
+  });
+
+  const hasRows = Object.values(data).some((rows) => rows.length > 0);
+  if (!hasRows) return null;
+
+  return {
+    exportDate: new Date().toISOString(),
+    version: "1.0",
+    appName: "KeuanganApp",
+    data,
+  };
+};
+
+const downloadBlob = (blob, fileName) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Ditunda agar browser sempat memulai unduhan sebelum URL dibatalkan.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 export default function ExportImportModal({ visible, onClose }) {
   const { showToast } = useToast();
@@ -58,19 +137,23 @@ export default function ExportImportModal({ visible, onClose }) {
 
     const months = [
       ...new Set(
-        data.map((item) => {
-          const date = new Date(item.date);
-          return date.getMonth() + 1;
-        }),
+        data
+          .map((item) => {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? null : date.getMonth() + 1;
+          })
+          .filter((m) => m !== null),
       ),
     ].sort((a, b) => a - b);
 
     const years = [
       ...new Set(
-        data.map((item) => {
-          const date = new Date(item.date);
-          return date.getFullYear();
-        }),
+        data
+          .map((item) => {
+            const date = new Date(item.date);
+            return isNaN(date.getTime()) ? null : date.getFullYear();
+          })
+          .filter((y) => y !== null),
       ),
     ].sort((a, b) => b - a);
 
@@ -157,13 +240,7 @@ export default function ExportImportModal({ visible, onClose }) {
 
   const exportJSON = (data) => {
     const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = getFileName("json");
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([json], { type: "application/json" }), getFileName("json"));
   };
 
   const exportExcel = (sheets) => {
@@ -206,24 +283,17 @@ export default function ExportImportModal({ visible, onClose }) {
         text += "(Kosong)\n";
       } else {
         sheetData.forEach((item, index) => {
-          text += `\n${index + 1}. `;
-          Object.keys(item).forEach((key) => {
-            text += `${key}: ${item[key]}, `;
-          });
-          text = text.slice(0, -2);
-          text += "\n";
+          const pairs = Object.keys(item)
+            .filter((key) => item[key] !== undefined)
+            // Baris baru dipecah jadi satu baris agar file tetap bisa diimpor ulang.
+            .map((key) => `${key}: ${String(item[key]).replace(/\r?\n/g, " / ")}`);
+          text += `\n${index + 1}. ${pairs.join(", ")}\n`;
         });
       }
       text += "\n";
     });
 
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = getFileName("txt");
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([text], { type: "text/plain" }), getFileName("txt"));
   };
 
   // ==================== IMPORT ====================
@@ -323,13 +393,7 @@ export default function ExportImportModal({ visible, onClose }) {
         text += `   Tanggal: ${formatDate(item.date)}\n`;
         text += `----------------------------------------------------\n`;
       });
-      const blob = new Blob([text], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = getFileName("txt", "History");
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(new Blob([text], { type: "text/plain" }), getFileName("txt", "History"));
       showToast("Riwayat berhasil diunduh sebagai TXT!", "success");
     } catch {
       showToast("Gagal mengunduh TXT.", "error");
@@ -349,8 +413,6 @@ export default function ExportImportModal({ visible, onClose }) {
     return prefix ? `${prefix} ${baseName}.${ext}` : `${baseName}.${ext}`;
   };
 
-  const formatCurrency = (n) => "Rp " + n.toLocaleString("id-ID");
-
   const getTypeLabel = (type) => {
     const labels = {
       hutang: "Hutang",
@@ -358,6 +420,7 @@ export default function ExportImportModal({ visible, onClose }) {
       pemasukan: "Pemasukan",
       pengeluaran: "Pengeluaran",
       perbaikan: "Perbaikan",
+      tagihan: "Tagihan",
     };
     return labels[type] || type;
   };
@@ -369,12 +432,14 @@ export default function ExportImportModal({ visible, onClose }) {
       pemasukan: "text-emerald-500",
       pengeluaran: "text-orange-500",
       perbaikan: "text-blue-500",
+      tagihan: "text-purple-500",
     };
     return colors[type] || "text-gray-500";
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
     return date.toLocaleDateString("id-ID", {
       day: "numeric",
       month: "short",
@@ -458,30 +523,32 @@ export default function ExportImportModal({ visible, onClose }) {
                       id: "json",
                       label: "JSON",
                       icon: FileJson,
-                      color: "yellow",
+                      activeCls: "border-yellow-500 bg-yellow-500/10 text-yellow-300",
                     },
                     {
                       id: "excel",
                       label: "Excel",
                       icon: FileSpreadsheet,
-                      color: "green",
+                      activeCls: "border-green-500 bg-green-500/10 text-green-300",
                     },
-                    { id: "txt", label: "TXT", icon: FileText, color: "blue" },
+                    {
+                      id: "txt",
+                      label: "TXT",
+                      icon: FileText,
+                      activeCls: "border-blue-500 bg-blue-500/10 text-blue-300",
+                    },
                   ].map((format) => (
                     <button
                       key={format.id}
                       onClick={() => setExportFormat(format.id)}
-                      className={`p-2 rounded-lg border flex flex-col items-center gap-1 ${
+                      className={`p-2 rounded-lg border flex flex-col items-center gap-1 transition-colors ${
                         exportFormat === format.id
-                          ? `border-${format.color}-500 bg-${format.color}-500/10`
-                          : "border-slate-700 bg-slate-700/30"
+                          ? format.activeCls
+                          : "border-slate-700 bg-slate-700/30 text-gray-400 hover:text-gray-200"
                       }`}
                     >
-                      <format.icon
-                        size={20}
-                        className={`text-${format.color}-400`}
-                      />
-                      <span className="text-[10px]">{format.label}</span>
+                      <format.icon size={20} />
+                      <span className="text-[10px] font-medium">{format.label}</span>
                     </button>
                   ))}
                 </div>
@@ -616,6 +683,7 @@ export default function ExportImportModal({ visible, onClose }) {
                         <option value="pemasukan">Pemasukan</option>
                         <option value="pengeluaran">Pengeluaran</option>
                         <option value="perbaikan">Perbaikan</option>
+                        <option value="tagihan">Tagihan</option>
                       </select>
                     </div>
 

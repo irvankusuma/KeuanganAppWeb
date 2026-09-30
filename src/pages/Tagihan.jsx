@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  Plus, Pencil, Trash2, X, Receipt, History,
-  Pin, Filter, Search, CheckCircle,
-  ChevronDown, ChevronUp
+  Plus, Pencil, Trash2, X, Receipt,
+  Pin, Filter, Search, Calendar, Check
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import { todayStr, monthStr } from "../utils/dateUtils";
 import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { formatCurrency as fmtC } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 
 const KATEGORI = ["Listrik", "Air", "Pulsa/Data", "Wifi/Internet", "Langganan", "Lainnya"];
 
@@ -20,10 +22,15 @@ const emptyForm = {
   catatan: ""
 };
 
-const fmtC = (n) => n ? "Rp " + Number(n).toLocaleString("id-ID") : "Rp 0";
+const emptyHistForm = {
+  id: "",
+  bulan: monthStr(),
+  jumlah: "",
+  catatan: ""
+};
 
 const nextMonth = (ym) => {
-  if (!ym) return new Date().toISOString().slice(0, 7);
+  if (!ym) return monthStr();
   const [y, m] = ym.split("-").map(Number);
   const d = new Date(y, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -32,34 +39,32 @@ const nextMonth = (ym) => {
 const fmtBulan = (ym) => {
   if (!ym) return "-";
   const [y, m] = ym.split("-");
-  return new Date(y, m - 1).toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  return new Date(y, m - 1).toLocaleDateString("id-ID", { month: "short", year: "numeric" });
 };
 
 export default function Tagihan() {
-  const [tagihan, setTagihan] = useState([]);
-  const [riwayat, setRiwayat] = useState([]);
-  const [modal, setModal] = useState(false);
+  const [tagihan, setTagihan]   = useState([]);
+  const [riwayat, setRiwayat]   = useState([]);
+  
+  // Category Modal
+  const [modal, setModal]       = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId]     = useState(null);
+  const [form, setForm]         = useState(emptyForm);
 
-  // History modal states
-  const [histModal, setHistModal] = useState(false);
+  // History Modal
+  const [histModal, setHistModal]       = useState(false);
   const [histEditMode, setHistEditMode] = useState(false);
   const [activeTagihan, setActiveTagihan] = useState(null);
-  const [histForm, setHistForm] = useState({
-    id: "",
-    bulan: new Date().toISOString().slice(0, 7),
-    jumlah: "",
-    catatan: ""
-  });
+  const [histForm, setHistForm]         = useState(emptyHistForm);
 
-  const [historyId, setHistoryId] = useState(null);
-  const [search, setSearch] = useState("");
-  const [showFilter, setShowFilter] = useState(false);
-  const [filterKat, setFilterKat] = useState("all");
-  const [confirm, setConfirm] = useState({ visible: false, title: "", message: "", onConfirm: null });
-  const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: "", caption: "" });
+  // Search & Filter
+  const [search, setSearch]             = useState("");
+  const [showFilter, setShowFilter]     = useState(false);
+  const [filterKat, setFilterKat]       = useState("all");
+
+  const [confirm, setConfirm]           = useState({ visible: false, title: "", message: "", onConfirm: null });
+  const [shareData, setShareData]       = useState({ isOpen: false, cardRef: null, title: "", caption: "" });
 
   const cardRefs = useRef({});
   const { showToast } = useToast();
@@ -80,6 +85,7 @@ export default function Tagihan() {
     setForm(emptyForm);
   };
 
+  // ─── Sync helpers to Pengeluaran ────────────────────────────
   const syncHistoryToPengeluaran = (histItem, tagihanName) => {
     const pengeluarans = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
     const existing = pengeluarans.find(p => p.sourceRef === histItem.id.toString() && p.sourceType === "tagihan_bayar");
@@ -88,7 +94,7 @@ export default function Tagihan() {
       nama: `Tagihan: ${tagihanName}`,
       kategori: "Tagihan",
       jumlah: parseFloat(histItem.jumlah) || 0,
-      tanggal: histItem.tanggal || new Date().toISOString().split("T")[0],
+      tanggal: histItem.tanggal || todayStr(),
       catatan: histItem.catatan || `Pembayaran ${tagihanName} ${fmtBulan(histItem.bulan)}`,
       sourceRef: histItem.id.toString(),
       sourceType: "tagihan_bayar"
@@ -109,12 +115,10 @@ export default function Tagihan() {
     }
   };
 
+  // ─── Handlers: Parent Tagihan Category ─────────────────────
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.nama) {
-      showToast("Nama tagihan harus diisi", "error");
-      return;
-    }
+    if (!form.nama.trim()) { showToast("Nama tagihan harus diisi", "error"); return; }
 
     const payload = {
       nama: form.nama.trim(),
@@ -125,7 +129,7 @@ export default function Tagihan() {
 
     if (editMode && editId) {
       LocalStorageService.updateRow(SHEETS.TAGIHAN, editId, payload);
-      // Update historical names
+      // Sync names of all historical records in Pengeluaran
       const parentHistories = riwayat.filter(r => r.tagihanId === editId.toString());
       parentHistories.forEach(h => {
         const updatedH = LocalStorageService.updateRow(SHEETS.PEMBAYARAN_TAGIHAN, h.id, { namaTagihan: form.nama.trim() });
@@ -134,7 +138,7 @@ export default function Tagihan() {
       showToast("Tagihan diperbarui", "success");
     } else {
       LocalStorageService.appendRow(SHEETS.TAGIHAN, payload);
-      showToast("Kategori tagihan ditambahkan", "success");
+      showToast("Kategori tagihan berhasil ditambahkan", "success");
     }
     resetForm();
     load();
@@ -156,7 +160,7 @@ export default function Tagihan() {
     setConfirm({
       visible: true,
       title: "Hapus Tagihan",
-      message: `Hapus tagihan "${item.nama}" beserta seluruh riwayat pembayarannya?`,
+      message: `Hapus tagihan "${item.nama}" beserta seluruh riwayat pembayarannya? Data terkait di Pengeluaran juga akan terhapus.`,
       onConfirm: () => {
         const parentHistories = riwayat.filter(r => r.tagihanId === item.id.toString());
         parentHistories.forEach(h => {
@@ -171,25 +175,21 @@ export default function Tagihan() {
     });
   };
 
-  const handlePin = (id) => {
-    const r = LocalStorageService.togglePin(SHEETS.TAGIHAN, id);
-    if (r.success) load();
-    else showToast(r.message, "warning");
-  };
+  const handlePin = makeTogglePin(SHEETS.TAGIHAN, load, showToast);
 
-  // History controls
+  // ─── Handlers: History Pembayaran ──────────────────────────
   const openAddHist = (parentItem) => {
     setActiveTagihan(parentItem);
     setHistEditMode(false);
     
-    // Find next month based on last payment or current month
+    // Auto-calculate next month payment
     const parentHistories = riwayat.filter(r => r.tagihanId === parentItem.id.toString())
       .sort((a,b) => (b.bulan || "").localeCompare(a.bulan || ""));
-    const lastMonth = parentHistories.length > 0 ? parentHistories[0].bulan : new Date().toISOString().slice(0, 7);
+    const lastMonth = parentHistories.length > 0 ? parentHistories[0].bulan : monthStr();
     
     setHistForm({
       id: "",
-      bulan: parentHistories.length > 0 ? nextMonth(lastMonth) : new Date().toISOString().slice(0, 7),
+      bulan: parentHistories.length > 0 ? nextMonth(lastMonth) : monthStr(),
       jumlah: parentItem.nominal || "",
       catatan: ""
     });
@@ -201,7 +201,7 @@ export default function Tagihan() {
     setHistEditMode(true);
     setHistForm({
       id: histItem.id,
-      bulan: histItem.bulan || new Date().toISOString().slice(0, 7),
+      bulan: histItem.bulan || monthStr(),
       jumlah: histItem.jumlah || "",
       catatan: histItem.catatan || ""
     });
@@ -210,10 +210,8 @@ export default function Tagihan() {
 
   const handleHistSubmit = (e) => {
     e.preventDefault();
-    if (!histForm.jumlah || !histForm.bulan) {
-      showToast("Bulan dan nominal pembayaran harus diisi", "error");
-      return;
-    }
+    if (!histForm.jumlah || !histForm.bulan) { showToast("Bulan dan nominal pembayaran harus diisi", "error"); return; }
+    
     const amt = parseFloat(histForm.jumlah) || 0;
 
     if (histEditMode && histForm.id) {
@@ -230,7 +228,7 @@ export default function Tagihan() {
         namaTagihan: activeTagihan.nama,
         bulan: histForm.bulan,
         jumlah: amt,
-        tanggal: new Date().toISOString().split("T")[0],
+        tanggal: todayStr(),
         catatan: histForm.catatan.trim()
       });
       syncHistoryToPengeluaran(newH, activeTagihan.nama);
@@ -244,7 +242,7 @@ export default function Tagihan() {
     setConfirm({
       visible: true,
       title: "Hapus Riwayat Pembayaran",
-      message: `Hapus pembayaran bulan ${fmtBulan(histItem.bulan)} sebesar ${fmtC(histItem.jumlah)}? (Akan menghapus catatan pengeluaran terkait)`,
+      message: `Hapus pembayaran bulan ${fmtBulan(histItem.bulan)} sebesar ${fmtC(histItem.jumlah)}? (Akan menghapus pengeluaran terkait)`,
       onConfirm: () => {
         deleteHistoryPengeluaran(histItem.id);
         LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_TAGIHAN, histItem.id);
@@ -268,13 +266,12 @@ export default function Tagihan() {
         return true;
       })
       .sort((a, b) => {
-        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        return a.nama.localeCompare(b.nama);
+        return pinnedFirst(a, b) || a.nama.localeCompare(b.nama);
       });
   }, [tagihan, search, filterKat]);
 
   const stats = useMemo(() => {
-    const thisMonth = new Date().toISOString().slice(0, 7);
+    const thisMonth = monthStr();
     const paidThisMonth = riwayat
       .filter(r => r.bulan === thisMonth)
       .reduce((s, r) => s + (parseFloat(r.jumlah) || 0), 0);
@@ -286,36 +283,39 @@ export default function Tagihan() {
     };
   }, [tagihan, riwayat]);
 
+  // ─── Render Card ──────────────────────────────────────────
   const renderCard = (item) => {
     const hist = getHistory(item.id);
     const histLines = hist.map(h => `${fmtBulan(h.bulan)} - ${fmtC(h.jumlah)}`).join("\n");
-    const caption = `${item.nama}
-${item.nominal > 0 ? fmtC(item.nominal) : item.kategori}
+    const caption = `${item.nama} [${item.kategori}]
+Estimasi: ${item.nominal > 0 ? fmtC(item.nominal) : "-"}
+Total Dibayar: ${fmtC(hist.reduce((s, h) => s + (parseFloat(h.jumlah) || 0), 0))}
 
 ${item.catatan ? `Catatan:\n${item.catatan}\n` : ""}
 ${hist.length > 0 ? `Riwayat Pembayaran:\n${histLines}` : ""}`.trim();
 
     const totalTerbayar = hist.reduce((s, h) => s + (parseFloat(h.jumlah) || 0), 0);
+    const lastPayment = hist.length > 0 ? hist[0] : null;
 
     return (
       <div
         key={item.id}
         ref={el => cardRefs.current[item.id] = el}
-        className="bg-[#0c1220] rounded-2xl p-5 border border-[#1e2d45] border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden"
+        className="bg-[#0c1220] rounded-2xl p-3 border border-[#1e2d45] border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden"
       >
         {/* Header */}
-        <div className="flex justify-between items-start gap-2 mb-3">
+        <div className="flex justify-between items-start gap-1.5 mb-2 shrink-0">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-sm font-bold text-white truncate">{item.nama}</h3>
-              {item.isPinned && <Pin size={10} className="text-blue-400 fill-current shrink-0" />}
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <h3 className="text-xs font-bold text-white truncate">{item.nama}</h3>
+              {item.isPinned && <Pin size={9} className="text-blue-400 fill-current shrink-0 animate-pulse" />}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] bg-slate-800 border border-slate-700/50 px-1.5 py-0.5 rounded text-slate-400 font-bold uppercase tracking-wide">{item.kategori}</span>
-              {item.nominal > 0 && <span className="text-[10px] text-slate-500">Estimasi: {fmtC(item.nominal)}</span>}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8px] bg-slate-800 border border-slate-700/50 px-1.5 py-0.5 rounded text-slate-400 font-extrabold uppercase tracking-wider">{item.kategori}</span>
+              {item.catatan && <span className="text-[9px] text-slate-500 truncate max-w-[120px] italic">{item.catatan}</span>}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="shrink-0">
             <CardActionMenu
               item={item}
               onTogglePin={handlePin}
@@ -328,175 +328,208 @@ ${hist.length > 0 ? `Riwayat Pembayaran:\n${histLines}` : ""}`.trim();
           </div>
         </div>
 
-        {/* Info */}
-        <div className="flex items-center justify-between py-2 border-t border-b border-[#1e2d45]/50 mb-3 text-xs">
-          <div>
-            <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5">Total Pembayaran</div>
-            <div className="text-sm font-bold text-emerald-400">{fmtC(totalTerbayar)}</div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2 py-1.5 border-t border-b border-[#1e2d45]/40 mb-2 shrink-0 text-left">
+          <div className="min-w-0">
+            <div className="text-[8px] text-slate-500 uppercase font-extrabold tracking-wider mb-0.5">Total Dibayar</div>
+            <div className="text-xs font-extrabold text-emerald-400 truncate tabular-nums">{fmtC(totalTerbayar)}</div>
           </div>
-          <div className="text-right">
-            <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-0.5">Frekuensi</div>
-            <div className="text-xs font-semibold text-slate-300">{hist.length}x Bayar</div>
+          <div className="min-w-0 border-l border-[#1e2d45]/30 pl-2">
+            <div className="text-[8px] text-slate-500 uppercase font-extrabold tracking-wider mb-0.5">Terakhir</div>
+            {lastPayment ? (
+              <div className="truncate">
+                <span className="text-[10px] font-bold text-slate-300 tabular-nums">{fmtC(lastPayment.jumlah)}</span>
+                <span className="text-[8px] text-slate-500 block leading-none">{fmtBulan(lastPayment.bulan)}</span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-slate-600 italic">-</span>
+            )}
+          </div>
+          <div className="min-w-0 border-l border-[#1e2d45]/30 pl-2">
+            <div className="text-[8px] text-slate-500 uppercase font-extrabold tracking-wider mb-0.5">Estimasi</div>
+            <div className="text-[10px] font-bold text-slate-400 truncate tabular-nums">{item.nominal > 0 ? fmtC(item.nominal) : "-"}</div>
           </div>
         </div>
-
-        {item.catatan && <p className="text-xs text-slate-500 italic mb-3 leading-relaxed">{item.catatan}</p>}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 flex-wrap no-export mt-auto pt-2">
-          <button onClick={() => openAddHist(item)} className="btn-action-compact btn-action-emerald shrink-0">
-            <Plus size={12} /><span>Tambah Histori</span>
+        <div className="flex items-center gap-1 no-export mb-2 shrink-0">
+          <button onClick={() => openAddHist(item)} className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/10 text-[9px] font-bold transition-all active:scale-95">
+            <Plus size={10} /><span>Catat Bayar</span>
           </button>
-          <button onClick={() => setHistoryId(historyId === item.id ? null : item.id)} className={`btn-action-compact ${historyId === item.id ? 'btn-action-purple' : 'btn-action-indigo'} shrink-0`}>
-            <History size={12} /><span>Riwayat{hist.length > 0 ? ` (${hist.length})` : ""}</span>
+          <button onClick={() => handleEdit(item)} className="py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 text-[9px] font-bold transition-all active:scale-95" title="Edit Tagihan">
+            <Pencil size={10} />
           </button>
-          <button onClick={() => handleEdit(item)} className="btn-action-compact btn-action-blue shrink-0">
-            <Pencil size={12} /><span>Edit</span>
-          </button>
-          <button onClick={() => handleDelete(item)} className="btn-action-compact btn-action-red shrink-0">
-            <Trash2 size={12} /><span>Hapus</span>
+          <button onClick={() => handleDelete(item)} className="py-1 px-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/10 text-[9px] font-bold transition-all active:scale-95" title="Hapus Tagihan">
+            <Trash2 size={10} />
           </button>
         </div>
 
-        {/* History Area */}
-        {((historyId === item.id) || (shareData.isOpen && shareData.cardRef?.current === cardRefs.current[item.id])) && (
-          <div className="mt-4 bg-[#0a0f1a] rounded-xl p-3 border border-[#1e2d45] overflow-hidden">
-            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-2 pb-1 border-b border-[#1e2d45]/50 flex justify-between items-center">
-              <span>Riwayat Pembayaran</span>
-              <span className="text-slate-400 lowercase italic">{hist.length} entri</span>
-            </div>
-            <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
-              {hist.length > 0 ? hist.map((h) => (
-                <div key={h.id} className="flex justify-between items-center py-1.5 border-b border-[#1e2d45]/20 last:border-0 text-xs">
-                  <div className="min-w-0 pr-2">
-                    <div className="text-slate-200 font-bold text-xs truncate">{fmtBulan(h.bulan)}</div>
-                    <div className="text-slate-500 text-[9px] flex items-center gap-1.5 flex-wrap mt-0.5">
-                      <span>{h.tanggal}</span>
-                      {h.catatan && <span className="text-slate-600 truncate max-w-[120px]">({h.catatan})</span>}
+        {/* History — selalu tampil inline */}
+        <div className="bg-[#0a0f1a] rounded-xl border border-[#1e2d45]/60 overflow-hidden flex-1 flex flex-col min-h-[100px]">
+          <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#1e2d45]/40 shrink-0 bg-slate-900/50">
+            <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider">Riwayat Pembayaran</span>
+            <span className="text-[8px] text-slate-600 italic font-semibold">{hist.length} entri</span>
+          </div>
+          {hist.length > 0 ? (
+            <div className="divide-y divide-[#1e2d45]/20 max-h-[140px] overflow-y-auto custom-scrollbar flex-1">
+              {hist.map((h) => (
+                <div key={h.id} className="flex justify-between items-center px-2.5 py-1.5 hover:bg-white/[0.01] transition-all group">
+                  <div className="min-w-0 flex-1 pr-1.5">
+                    <div className="text-[10px] text-slate-300 font-medium truncate flex items-center gap-1">
+                      <Calendar size={8} className="text-slate-600 shrink-0" />
+                      <span>{fmtBulan(h.bulan)}</span>
                     </div>
+                    {h.catatan && (
+                      <div className="text-[8px] text-slate-600 truncate max-w-[150px] mt-0.5 leading-none italic">{h.catatan}</div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="font-bold text-emerald-400 text-xs">{fmtC(h.jumlah)}</span>
-                    <div className="flex items-center gap-1 no-export">
-                      <button onClick={() => openEditHist(item, h)} className="p-1 hover:bg-[#141d2e] text-slate-500 hover:text-blue-400 rounded transition-colors" title="Edit Riwayat">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-bold text-emerald-400 text-[10px] tabular-nums">{fmtC(h.jumlah)}</span>
+                    <div className="flex items-center gap-1 no-export opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditHist(item, h)}
+                        className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-blue-400 rounded transition-colors"
+                        title="Edit Riwayat"
+                      >
                         <Pencil size={11} />
                       </button>
-                      <button onClick={() => handleDeleteHist(h)} className="p-1 hover:bg-[#141d2e] text-slate-500 hover:text-red-400 rounded transition-colors" title="Hapus Riwayat">
+                      <button
+                        onClick={() => handleDeleteHist(h)}
+                        className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-red-400 rounded transition-colors"
+                        title="Hapus Riwayat"
+                      >
                         <Trash2 size={11} />
                       </button>
                     </div>
                   </div>
                 </div>
-              )) : (
-                <p className="text-[11px] text-slate-600 italic text-center py-4">Belum ada riwayat pembayaran.</p>
-              )}
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 text-center flex-1">
+              <p className="text-[9px] text-slate-600 italic">Belum ada riwayat.</p>
+              <button
+                onClick={() => openAddHist(item)}
+                className="mt-1 text-[9px] text-blue-400 hover:underline font-semibold"
+              >
+                Catat Pembayaran
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-4 pb-28 md:pb-6">
+    <div className="space-y-3 pb-24 md:pb-6">
       {/* FAB */}
       <button onClick={() => setModal(true)}
         className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-600/40 z-40 transition-all hover:scale-110 active:scale-95"
         title="Tambah Layanan Tagihan">
-        <Plus size={28} />
+        <Plus size={24} />
       </button>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-gradient-to-r from-blue-600/80 to-indigo-600/80 rounded-2xl p-4 border border-blue-500/20 text-white">
-          <div className="text-[10px] text-blue-100 uppercase font-bold tracking-wider mb-1">Total Pembayaran (Semua)</div>
-          <div className="text-2xl font-bold">{fmtC(stats.totalAllTime)}</div>
-          <div className="text-xs text-blue-200 mt-1">{stats.totalCount} kategori tagihan dipantau</div>
+      {/* Mini Stats Banner */}
+      <div className="grid grid-cols-2 gap-2 text-left">
+        <div className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 flex flex-col justify-center">
+          <div className="text-[8px] text-slate-500 uppercase font-extrabold tracking-wider mb-0.5">Total Pembayaran (Semua)</div>
+          <div className="text-lg font-extrabold text-blue-400 tracking-tight tabular-nums">{fmtC(stats.totalAllTime)}</div>
+          <div className="text-[9px] text-slate-500 mt-0.5">{stats.totalCount} kategori tagihan dipantau</div>
         </div>
-        <div className="bg-gradient-to-r from-emerald-600/80 to-teal-600/80 rounded-2xl p-4 border border-emerald-500/20 text-white">
-          <div className="text-[10px] text-emerald-100 uppercase font-bold tracking-wider mb-1">Terbayar Bulan Ini</div>
-          <div className="text-2xl font-bold">{fmtC(stats.paidThisMonth)}</div>
-          <div className="text-xs text-emerald-200 mt-1">Otomatis tercatat ke Pengeluaran</div>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3 top-3.5 text-slate-500" />
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Cari nama layanan, kategori..." 
-          className="w-full bg-[#0c1220] border border-[#1e2d45] rounded-xl pl-9 pr-4 py-3 text-xs text-white placeholder-slate-600 focus:border-blue-500 outline-none transition-colors" />
-      </div>
-
-      {/* Filter */}
-      <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
-        <div className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-700/40 transition-colors" onClick={() => setShowFilter(!showFilter)}>
-          <div className="flex items-center gap-2">
-            <Filter size={15} className="text-blue-400 shrink-0" />
-            <span className="text-xs font-bold text-white uppercase tracking-tight">Filter Kategori</span>
-            {filterKat !== "all" && (
-              <span className="text-[10px] text-blue-400 font-semibold">• Aktif</span>
-            )}
+        <div className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 flex flex-col justify-center">
+          <div className="text-[8px] text-slate-500 uppercase font-extrabold tracking-wider mb-0.5">Terbayar Bulan Ini</div>
+          <div className="text-lg font-extrabold text-emerald-400 tracking-tight tabular-nums">{fmtC(stats.paidThisMonth)}</div>
+          <div className="text-[9px] text-slate-500 mt-0.5 flex items-center gap-1 font-medium">
+            <Check size={8} className="text-emerald-400" />
+            Auto sync ke Pengeluaran
           </div>
-          {showFilter ? <ChevronUp size={15} className="text-slate-400" /> : <ChevronDown size={15} className="text-slate-400" />}
         </div>
-        {showFilter && (
-          <div className="p-4 pt-0 border-t border-slate-700 space-y-4">
-            <div className="pt-3">
-              <div className="flex flex-wrap gap-1.5">
-                {["all", ...KATEGORI].map(c => (
-                  <button key={c} onClick={() => setFilterKat(c)}
-                    className={`px-3 py-1 text-xs rounded-full font-semibold transition-all ${filterKat === c ? "bg-blue-600 text-white" : "bg-slate-700/60 text-slate-300 hover:bg-slate-700"}`}>
-                    {c === "all" ? "Semua" : c}
-                  </button>
-                ))}
-              </div>
+      </div>
+
+      {/* Compact Search & Filter */}
+      <div className="flex gap-2 shrink-0">
+        <div className="relative flex-1">
+          <Search size={13} className="absolute left-2.5 top-2.5 text-slate-500" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Cari nama layanan, kategori..." 
+            className="w-full bg-[#0c1220] border border-[#1e2d45] rounded-xl pl-8 pr-3 py-2 text-[11px] text-white placeholder-slate-600 focus:border-blue-500 outline-none transition-colors" />
+        </div>
+        <button
+          onClick={() => setShowFilter(!showFilter)}
+          className={`px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-1 transition-all ${
+            showFilter || filterKat !== "all"
+              ? "bg-blue-600/10 text-blue-400 border-blue-500/30"
+              : "bg-[#0c1220] text-slate-400 border-[#1e2d45] hover:text-slate-200"
+          }`}
+        >
+          <Filter size={12} />
+          <span>Filter</span>
+        </button>
+      </div>
+
+      {/* Compact Filter Panel */}
+      {showFilter && (
+        <div className="bg-[#0c1220] border border-[#1e2d45] rounded-xl p-3 space-y-2 text-left animate-in fade-in duration-200">
+          <div>
+            <div className="text-[8px] text-slate-500 uppercase font-extrabold mb-1">Kategori</div>
+            <div className="flex flex-wrap gap-1">
+              {["all", ...KATEGORI].map(c => (
+                <button key={c} onClick={() => setFilterKat(c)}
+                  className={`px-2 py-0.5 text-[9px] rounded-md font-bold transition-all ${filterKat === c ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                  {c === "all" ? "Semua" : c}
+                </button>
+              ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Card list */}
-      <div className="card-grid-responsive">
+      {/* Grid List */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {filtered.length > 0 ? filtered.map(item => renderCard(item)) : (
-          <div className="text-center py-14 bg-[#0c1220]/50 border border-dashed border-[#1e2d45] rounded-2xl col-span-full">
-            <Receipt size={28} className="mx-auto text-slate-600 mb-2" />
-            <p className="text-slate-400 text-sm font-medium">Belum ada layanan tagihan.</p>
-            <p className="text-slate-500 text-xs mt-1">Buat layanan tagihan baru dengan tombol + di kanan bawah.</p>
+          <div className="text-center py-10 bg-[#0c1220]/30 border border-dashed border-[#1e2d45] rounded-xl col-span-full">
+            <Receipt size={20} className="mx-auto text-slate-600 mb-1" />
+            <p className="text-slate-400 text-xs font-semibold">Belum ada layanan tagihan.</p>
+            <p className="text-slate-500 text-[10px] mt-0.5">Buat kategori tagihan baru dengan tombol + di kanan bawah.</p>
           </div>
         )}
       </div>
 
-      {/* Modal Tambah/Edit Parent */}
+      {/* Modal: Tambah/Edit Parent */}
       {modal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={resetForm}>
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-700 flex justify-between items-center">
-              <h2 className="text-sm font-bold text-white uppercase tracking-tight">{editMode ? "Edit Kategori Tagihan" : "Tambah Kategori Tagihan"}</h2>
-              <button onClick={resetForm} className="p-1.5 hover:bg-slate-700 rounded-full transition-colors"><X size={18} className="text-slate-400" /></button>
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" onClick={resetForm}>
+          <div className="bg-[#0c1220] border border-[#1e2d45] rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-150 text-left" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-[#1e2d45] flex justify-between items-center shrink-0">
+              <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">{editMode ? "Edit Kategori Tagihan" : "Tambah Kategori Tagihan"}</h2>
+              <button onClick={resetForm} className="p-1 hover:bg-slate-800 rounded-full transition-colors"><X size={14} className="text-slate-400" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Nama Layanan <span className="text-red-500">*</span></label>
+                <label className="text-[8px] font-extrabold text-slate-500 uppercase block mb-1">Nama Layanan <span className="text-red-500">*</span></label>
                 <input type="text" value={form.nama} onChange={e => setForm({ ...form, nama: e.target.value })} required
                   placeholder="Contoh: Listrik PLN, Tagihan Wifi, Air PDAM"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none transition-colors" />
+                  className="w-full bg-slate-900 border border-[#1e2d45] rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-blue-500 outline-none" />
               </div>
               <NumericInput label="Estimasi / Rata-rata Nominal (Opsional)" value={form.nominal} onChange={v => setForm({ ...form, nominal: v ? Number(v) : "" })} />
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Kategori</label>
-                <select value={form.kategori} onChange={e => setForm({ ...form, kategori: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none transition-colors">
-                  {KATEGORI.map(k => <option key={k} value={k}>{k}</option>)}
-                </select>
+                <label className="text-[8px] font-extrabold text-slate-500 uppercase block mb-1">Kategori</label>
+                <div className="flex flex-wrap gap-1">
+                  {KATEGORI.map(k => (
+                    <button key={k} type="button" onClick={() => setForm({ ...form, kategori: k })}
+                      className={`px-2.5 py-1 text-[10px] rounded-lg font-bold border transition-all ${form.kategori === k ? "bg-blue-600 text-white border-blue-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700/50 hover:border-slate-600"}`}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Catatan / No. Pelanggan (opsional)</label>
-                <textarea value={form.catatan} onChange={e => setForm({ ...form, catatan: e.target.value })} rows={2}
-                  placeholder="Contoh: No. Meteran, ID Pelanggan, Keterangan..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none transition-colors resize-none" />
+                <label className="text-[8px] font-extrabold text-slate-500 uppercase block mb-1">Catatan / No. Pelanggan (opsional)</label>
+                <input type="text" value={form.catatan} onChange={e => setForm({ ...form, catatan: e.target.value })}
+                  placeholder="Contoh: No. Meteran, ID Pelanggan"
+                  className="w-full bg-slate-900 border border-[#1e2d45] rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-blue-500 outline-none" />
               </div>
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs transition-all active:scale-[0.98] mt-2">
                 {editMode ? "Simpan Perubahan" : "Buat Kategori Tagihan"}
               </button>
             </form>
@@ -504,34 +537,35 @@ ${hist.length > 0 ? `Riwayat Pembayaran:\n${histLines}` : ""}`.trim();
         </div>
       )}
 
-      {/* Modal Tambah/Edit Histori Pembayaran */}
+      {/* Modal: Tambah/Edit Histori Pembayaran */}
       {histModal && activeTagihan && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={() => setHistModal(false)}>
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-700 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" onClick={() => setHistModal(false)}>
+          <div className="bg-[#0c1220] border border-[#1e2d45] rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-150 text-left" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-[#1e2d45] flex justify-between items-center shrink-0">
               <div>
-                <h2 className="text-sm font-bold text-white uppercase tracking-tight">{histEditMode ? "Edit Riwayat Pembayaran" : "Catat Pembayaran Tagihan"}</h2>
-                <p className="text-xs text-slate-400 mt-0.5">{activeTagihan.nama}</p>
+                <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">{histEditMode ? "Edit Riwayat Pembayaran" : "Catat Pembayaran Tagihan"}</h2>
+                <p className="text-[9px] text-slate-400 leading-none mt-0.5">Tagihan: {activeTagihan.nama}</p>
               </div>
-              <button onClick={() => setHistModal(false)} className="p-1.5 hover:bg-slate-700 rounded-full transition-colors"><X size={18} className="text-slate-400" /></button>
+              <button onClick={() => setHistModal(false)} className="p-1 hover:bg-slate-800 rounded-full transition-colors"><X size={14} className="text-slate-400" /></button>
             </div>
-            <form onSubmit={handleHistSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleHistSubmit} className="p-4 space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Bulan Pembayaran <span className="text-red-500">*</span></label>
+                <label className="text-[8px] font-extrabold text-slate-500 uppercase block mb-1">Bulan Pembayaran <span className="text-red-500">*</span></label>
                 <input type="month" value={histForm.bulan} onChange={e => setHistForm({ ...histForm, bulan: e.target.value })} required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none transition-colors" />
+                  className="w-full bg-slate-900 border border-[#1e2d45] rounded-lg p-2 text-xs text-white focus:border-blue-500 outline-none"
+                  style={{ colorScheme: "dark" }} />
               </div>
               <NumericInput label="Jumlah yang Dibayar" value={histForm.jumlah} onChange={v => setHistForm({ ...histForm, jumlah: v ? Number(v) : "" })} required />
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Keterangan / Catatan (opsional)</label>
-                <textarea value={histForm.catatan} onChange={e => setHistForm({ ...histForm, catatan: e.target.value })} rows={2}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none transition-colors resize-none"
-                  placeholder="Keterangan tambahan untuk pembayaran ini..." />
+                <label className="text-[8px] font-extrabold text-slate-500 uppercase block mb-1">Keterangan / Catatan (opsional)</label>
+                <input type="text" value={histForm.catatan} onChange={e => setHistForm({ ...histForm, catatan: e.target.value })}
+                  className="w-full bg-slate-900 border border-[#1e2d45] rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-blue-500 outline-none"
+                  placeholder="Keterangan tambahan untuk pembayaran..." />
               </div>
-              <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-3 text-[11px] text-blue-300 leading-relaxed">
-                💡 Pencatatan histori ini akan otomatis tersinkronisasi sebagai <strong>Pengeluaran</strong>.
+              <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-2.5 text-[10px] text-blue-300">
+                💡 Pembayaran tagihan ini akan otomatis tersinkronkan sebagai <strong>Pengeluaran</strong>.
               </div>
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98]">
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-xs transition-all active:scale-[0.98] mt-1">
                 {histEditMode ? "Simpan Perubahan" : "Konfirmasi Pembayaran"}
               </button>
             </form>

@@ -5,7 +5,6 @@ import {
   Pencil,
   Trash2,
   X,
-  Calculator,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -14,8 +13,7 @@ import {
   ChevronUp,
   Wallet,
   History,
-  Pin,
-  MoreHorizontal
+  Pin
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
@@ -23,6 +21,15 @@ import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { todayStr, dateToStr } from "../utils/dateUtils";
+import { formatCurrency } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+
+const plusOneMonth = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return dateToStr(d);
+};
 
 export default function Piutang() {
   const [piutang, setPiutang] = useState([]);
@@ -35,8 +42,8 @@ export default function Piutang() {
   const [formData, setFormData] = useState({
     namaOrang: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
-    jatuhTempo: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
+    jatuhTempo: plusOneMonth(),
     catatan: "",
   });
   const [showPayModal, setShowPayModal] = useState(false);
@@ -47,7 +54,7 @@ export default function Piutang() {
     piutangId: "",
     namaOrang: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [showEditPayModal, setShowEditPayModal] = useState(false);
@@ -58,13 +65,14 @@ export default function Piutang() {
     jumlah: "",
     tanggal: "",
     catatan: "",
+    type: "bayar",
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFormData, setAddFormData] = useState({
     piutangId: "",
     namaOrang: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [confirmModal, setConfirmModal] = useState({
@@ -92,16 +100,39 @@ export default function Piutang() {
     setPembayaranPiutang(pembayaran);
   };
 
+  const syncCreatePengeluaran = (piutangItem) => {
+    const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const existing = allPengeluaran.find(p => p.sourceRef?.toString() === piutangItem.id?.toString() && p.sourceType === "piutang_buat");
+    const payload = {
+      nama: `Beri Piutang: ${piutangItem.namaOrang}`,
+      kategori: "Pinjaman",
+      jumlah: parseFloat(piutangItem.jumlah) || 0,
+      tanggal: piutangItem.tanggal,
+    };
+    if (existing) {
+      LocalStorageService.updateRow(SHEETS.PENGELUARAN, existing.id, payload);
+    } else {
+      LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+        ...payload,
+        catatan: "Dana dipinjamkan (sinkron otomatis)",
+        sourceRef: piutangItem.id,
+        sourceType: "piutang_buat",
+      });
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.namaOrang || !formData.jumlah) {
-      alert("Nama dan jumlah harus diisi!");
+      showToast("Nama dan jumlah harus diisi!", "error");
       return;
     }
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.PIUTANG, editId, formData);
+      const updated = LocalStorageService.updateRow(SHEETS.PIUTANG, editId, formData);
+      syncCreatePengeluaran(updated);
     } else {
-      LocalStorageService.appendRow(SHEETS.PIUTANG, formData);
+      const saved = LocalStorageService.appendRow(SHEETS.PIUTANG, formData);
+      syncCreatePengeluaran(saved);
     }
     resetForm();
     loadData();
@@ -141,9 +172,14 @@ export default function Piutang() {
           }
         });
 
+        // Hapus sync "Beri Piutang" di Pengeluaran
+        const allPengeluaranCreate = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const createRow = allPengeluaranCreate.find(p => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "piutang_buat");
+        if (createRow) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, createRow.id);
+
         LocalStorageService.deleteRow(SHEETS.PIUTANG, item.id);
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal(p => ({ ...p, visible: false }));
       },
     });
   };
@@ -155,15 +191,10 @@ export default function Piutang() {
     setFormData({
       namaOrang: "",
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
-      jatuhTempo: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
+      jatuhTempo: plusOneMonth(),
       catatan: "",
     });
-  };
-
-  const formatCurrency = (num) => {
-    if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
   };
 
   const getTotalDiterima = (piutangId) =>
@@ -192,23 +223,25 @@ export default function Piutang() {
 
   const getDueStatus = (item) => {
     if (getSisa(item) <= 0) return "lunas";
+    if (!item.jatuhTempo) return "upcoming";
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dueDate = new Date(item.jatuhTempo);
+    if (isNaN(dueDate.getTime())) return "upcoming";
     dueDate.setHours(0, 0, 0, 0);
     if (dueDate < today) return "overdue";
     if (dueDate.getTime() === today.getTime()) return "due";
     return "upcoming";
   };
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.PIUTANG, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
+  const fmtTanggal = (d, opts = { day: "numeric", month: "short" }) => {
+    if (!d) return "-";
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("id-ID", opts);
   };
+
+  const handleTogglePin = makeTogglePin(SHEETS.PIUTANG, loadData, showToast);
 
   const sortedData = [...piutang]
     .filter((item) => {
@@ -217,10 +250,10 @@ export default function Piutang() {
       return status === filterStatus;
     })
     .sort((a, b) => {
-      if (a.isPinned !== b.isPinned) {
-        return a.isPinned ? -1 : 1;
-      }
-      return new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0);
+      return (
+        pinnedFirst(a, b) ||
+        new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0)
+      );
     });
 
   const activePiutang = sortedData.filter((item) => getDueStatus(item) !== "lunas");
@@ -276,7 +309,7 @@ export default function Piutang() {
                 Piutang
               </span>
               <span>•</span>
-              <span className="truncate">{new Date(item.jatuhTempo).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
+              <span className="truncate">{fmtTanggal(item.jatuhTempo)}</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -292,10 +325,10 @@ export default function Piutang() {
               caption={`${item.namaOrang}
 Sisa Piutang: ${formatCurrency(sisa)}
 Total: ${formatCurrency(total)}
-Jatuh Tempo: ${new Date(item.jatuhTempo).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+Jatuh Tempo: ${fmtTanggal(item.jatuhTempo, { day: "numeric", month: "long", year: "numeric" })}
 
 ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
-              dataString={`${item.namaOrang} - Sisa: ${formatCurrency(sisa)} - Jatuh Tempo: ${new Date(item.jatuhTempo).toLocaleDateString("id-ID")}`}
+              dataString={`${item.namaOrang} - Sisa: ${formatCurrency(sisa)} - Jatuh Tempo: ${fmtTanggal(item.jatuhTempo)}`}
             />
           </div>
         </div>
@@ -403,27 +436,23 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       piutangId: item.id,
       namaOrang: item.namaOrang,
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
     setShowPayModal(true);
-  };
-
-  const handlePayJumlahChange = (value) => {
-    const raw = value.replace(/[^\d]/g, "");
-    setPayFormData({ ...payFormData, jumlah: raw });
-  };
-
-  const getPayInputDisplay = () => {
-    if (!payFormData.jumlah) return "";
-    return Number(payFormData.jumlah).toLocaleString("id-ID");
   };
 
   const handleSubmitBayar = (e) => {
     e.preventDefault();
     const nominal = parseFloat(payFormData.jumlah) || 0;
     if (!payFormData.piutangId || nominal <= 0) {
-      alert("Data pembayaran belum valid.");
+      showToast("Data pembayaran belum valid.", "error");
+      return;
+    }
+    const target = piutang.find(p => p.id?.toString() === payFormData.piutangId?.toString());
+    const sisa = target ? getSisa(target) : 0;
+    if (nominal > sisa) {
+      showToast(`Nominal melebihi sisa piutang (${formatCurrency(sisa)}).`, "error");
       return;
     }
     const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
@@ -454,8 +483,9 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       piutangId: historyItem.piutangId,
       namaOrang: historyItem.namaOrang,
       jumlah: historyItem.jumlah,
-      tanggal: historyItem.tanggal || new Date().toISOString().split("T")[0],
+      tanggal: historyItem.tanggal || todayStr(),
       catatan: historyItem.catatan || "",
+      type: historyItem.type || "bayar",
     });
     setShowEditPayModal(true);
   };
@@ -464,8 +494,17 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     e.preventDefault();
     const nominal = parseFloat(editPayData.jumlah) || 0;
     if (!editPayData.id || nominal <= 0) {
-      alert("Data pembayaran tidak valid.");
+      showToast("Data pembayaran tidak valid.", "error");
       return;
+    }
+    if (editPayData.type !== "tambah") {
+      const target = piutang.find(p => p.id?.toString() === editPayData.piutangId?.toString());
+      const old = pembayaranPiutang.find(p => p.id?.toString() === editPayData.id?.toString());
+      const batas = (target ? getSisa(target) : 0) + (parseFloat(old?.jumlah) || 0);
+      if (nominal > batas) {
+        showToast(`Nominal melebihi sisa piutang (${formatCurrency(batas)}).`, "error");
+        return;
+      }
     }
     LocalStorageService.updateRow(SHEETS.PEMBAYARAN_PIUTANG, editPayData.id, {
       jumlah: nominal,
@@ -527,7 +566,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         }
 
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal(p => ({ ...p, visible: false }));
       },
     });
   };
@@ -537,7 +576,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       piutangId: item.id,
       namaOrang: item.namaOrang,
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
     setShowAddModal(true);
@@ -547,7 +586,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     e.preventDefault();
     const nominal = parseFloat(addFormData.jumlah) || 0;
     if (!addFormData.piutangId || nominal <= 0) {
-      alert("Data penambahan belum valid.");
+      showToast("Data penambahan belum valid.", "error");
       return;
     }
     const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
@@ -571,16 +610,6 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     });
     setShowAddModal(false);
     loadData();
-  };
-
-  const handleAddJumlahChange = (value) => {
-    const raw = value.replace(/[^\d]/g, "");
-    setAddFormData({ ...addFormData, jumlah: raw });
-  };
-
-  const getAddInputDisplay = () => {
-    if (!addFormData.jumlah) return "";
-    return Number(addFormData.jumlah).toLocaleString("id-ID");
   };
 
   const getActiveFilterLabel = () => {
@@ -675,42 +704,42 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     id: "all",
                     label: "Semua",
                     icon: null,
-                    color: "blue",
+                    activeBg: "bg-blue-600",
                     count: countStatus.all,
                   },
                   {
                     id: "upcoming",
                     label: "Akan Datang",
                     icon: Clock,
-                    color: "green",
+                    activeBg: "bg-green-600",
                     count: countStatus.upcoming,
                   },
                   {
                     id: "due",
                     label: "Hari Ini",
                     icon: CheckCircle,
-                    color: "yellow",
+                    activeBg: "bg-yellow-600",
                     count: countStatus.due,
                   },
                   {
                     id: "overdue",
                     label: "Terlewat",
                     icon: AlertCircle,
-                    color: "red",
+                    activeBg: "bg-red-600",
                     count: countStatus.overdue,
                   },
                   {
                     id: "lunas",
                     label: "Lunas",
                     icon: CheckCircle,
-                    color: "emerald",
+                    activeBg: "bg-emerald-600",
                     count: countStatus.lunas,
                   },
                 ].map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setFilterStatus(s.id)}
-                    className={`px-2.5 py-1 text-xs rounded-full flex items-center gap-1.5 transition ${filterStatus === s.id ? `bg-${s.color}-600 text-white` : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
+                    className={`px-2.5 py-1 text-xs rounded-full flex items-center gap-1.5 transition ${filterStatus === s.id ? `${s.activeBg} text-white` : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
                   >
                     {s.icon && <s.icon size={12} />}
                     {s.label}{" "}
@@ -1038,7 +1067,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onCancel={() => setConfirmModal(p => ({ ...p, visible: false }))}
       />
       <ShareDialog 
         isOpen={shareData.isOpen}

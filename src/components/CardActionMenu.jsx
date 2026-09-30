@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, Pin, Share2, Copy, Archive, Check, Download } from 'lucide-react';
-import { copyToClipboard, generateCardImage } from '../utils/shareUtils';
+import { useState, useRef, useEffect } from 'react';
+import { MoreVertical, Pin, Share2, Copy, Archive, Check } from 'lucide-react';
+import { copyToClipboard } from '../utils/shareUtils';
 
 const CardActionMenu = ({ 
   item, 

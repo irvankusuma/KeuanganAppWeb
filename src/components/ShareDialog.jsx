@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Download, Share2, Copy, Send, MessageCircle, Instagram, Facebook, Loader2 } from 'lucide-react';
 import { downloadImage, generateCardImage } from '../utils/shareUtils';
 import { useToast } from '../context/ToastContext';
@@ -186,9 +186,9 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto" onClick={onClose}>
       <div 
-        className="bg-[#0c1220] border border-[#1e2d45] rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        className="bg-[#0c1220] border border-[#1e2d45] rounded-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-5 py-4 border-b border-[#1e2d45]">
@@ -209,7 +209,8 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
             ) : imageUrl ? (
               <>
                 <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-2" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                {/* Overlay unduh hanya di desktop; di mobile sudah ada tombol "Simpan JPG". */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center hidden md:flex">
                   <button onClick={() => downloadImage(imageUrl, title ? title.replace(/[^a-zA-Z0-9]/g, '_') : 'KeuanganApp')} className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/20">
                     <Download size={24} />
                   </button>

@@ -18,7 +18,7 @@ import {
   Heart,
   Film,
   Pin,
-  MoreHorizontal
+  RefreshCw
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
@@ -26,6 +26,9 @@ import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { todayStr } from "../utils/dateUtils";
+import { formatCurrency, getMonthYear } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -40,12 +43,13 @@ export default function Pengeluaran() {
     nama: "",
     kategori: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
+    message: "",
     onConfirm: null,
   });
   const [shareData, setShareData] = useState({ isOpen: false, cardRef: null, title: '', caption: '' });
@@ -106,7 +110,7 @@ export default function Pengeluaran() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.nama || !formData.jumlah) {
-      alert("Nama dan jumlah harus diisi!");
+      showToast("Nama dan jumlah harus diisi!", "error");
       return;
     }
     const dataToSave = {
@@ -143,7 +147,7 @@ export default function Pengeluaran() {
       onConfirm: () => {
         LocalStorageService.deleteRow(SHEETS.PENGELUARAN, item.id);
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal((p) => ({ ...p, visible: false }));
       },
     });
   };
@@ -156,20 +160,9 @@ export default function Pengeluaran() {
       nama: "",
       kategori: "",
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
-  };
-
-  const formatCurrency = (num) => {
-    if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
-  };
-
-  // Ambil bulan dari tanggal
-  const getMonthYear = (dateString) => {
-    const date = new Date(dateString);
-    return `${date.getMonth() + 1}-${date.getFullYear()}`;
   };
 
   // Filter berdasarkan kategori dan bulan
@@ -185,20 +178,10 @@ export default function Pengeluaran() {
 
   // Urutkan berdasarkan tanggal terbaru
   const sortedData = [...filteredData].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return a.isPinned ? -1 : 1;
-    }
-    return new Date(b.tanggal) - new Date(a.tanggal);
+    return pinnedFirst(a, b) || new Date(b.tanggal) - new Date(a.tanggal);
   });
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.PENGELUARAN, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
-  };
+  const handleTogglePin = makeTogglePin(SHEETS.PENGELUARAN, loadData, showToast);
 
   // Hitung total pengeluaran
   const totalPengeluaran = filteredData.reduce(
@@ -207,10 +190,13 @@ export default function Pengeluaran() {
   );
 
   // Hitung total pemasukan untuk perbandingan
-  const totalPemasukan = pemasukan.reduce(
-    (sum, item) => sum + (parseFloat(item.jumlah) || 0),
-    0,
-  );
+  // (ikut difilter bulan agar "Sisa Saldo" konsisten dengan daftar di bawahnya)
+  const totalPemasukan = pemasukan
+    .filter((item) => filterBulan === "all" || getMonthYear(item.tanggal) === filterBulan)
+    .reduce(
+      (sum, item) => sum + (parseFloat(item.jumlah) || 0),
+      0,
+    );
 
   const sisaSaldo = totalPemasukan - totalPengeluaran;
 
@@ -245,12 +231,6 @@ export default function Pengeluaran() {
     }
     return parts.join(" • ");
   };
-
-  // Pengeluaran terbesar untuk insight
-  const pengeluaranTerbesar =
-    filteredData.length > 0
-      ? Math.max(...filteredData.map((item) => parseFloat(item.jumlah) || 0))
-      : 0;
 
   return (
     <div className="pb-24">
@@ -413,6 +393,7 @@ export default function Pengeluaran() {
         {sortedData.length > 0 ? (
           sortedData.map((item, i) => {
             const total = parseFloat(item.jumlah) || 0;
+            const isSynced = !!item.sourceType;
             return (
               <div
                 key={item.id}
@@ -433,6 +414,11 @@ export default function Pengeluaran() {
                         {getKategoriIcon(item.kategori)}
                         {item.kategori || "Lainnya"}
                       </span>
+                      {isSynced && (
+                        <span className="bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border border-blue-500/20 flex items-center gap-1 shrink-0">
+                          <RefreshCw size={8} /> Otomatis
+                        </span>
+                      )}
                       <span>•</span>
                       <span className="truncate">{new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
                     </div>
@@ -474,6 +460,11 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 </div>
 
                 {/* Action Buttons */}
+                {isSynced ? (
+                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/10 text-[10px] text-blue-300/80 no-export">
+                    Data tersinkron otomatis — kelola dari halaman asalnya (Hutang / Piutang / Pemasukan / Tagihan).
+                  </div>
+                ) : (
                 <div className="flex items-center gap-2 no-export mt-1">
                   {[
                     { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
@@ -489,6 +480,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     </button>
                   ))}
                 </div>
+                )}
               </div>
             );
           })
@@ -600,6 +592,8 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     setFormData({ ...formData, tanggal: e.target.value })
                   }
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
+                  style={{ colorScheme: "dark" }}
+                  required
                 />
               </div>
 
@@ -636,7 +630,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onCancel={() => setConfirmModal((p) => ({ ...p, visible: false }))}
       />
       <ShareDialog 
         isOpen={shareData.isOpen}

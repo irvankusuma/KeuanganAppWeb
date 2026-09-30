@@ -1,9 +1,9 @@
-import html2canvas from 'html2canvas';
-
 export const generateCardImage = async (element) => {
   if (!element) return null;
-  
+
   try {
+    // html2canvas cukup besar, jadi dimuat hanya saat fitur bagikan dipakai.
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
@@ -42,14 +42,6 @@ export const copyToClipboard = async (text) => {
     console.error('Failed to copy text: ', err);
     return false;
   }
-};
-
-export const shareToWhatsApp = (text) => {
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-};
-
-export const shareToTelegram = (text) => {
-  window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`, '_blank');
 };
 
 export const downloadImage = (dataUrl, filename) => {

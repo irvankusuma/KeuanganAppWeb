@@ -6,6 +6,7 @@ const SHEETS = {
   PEMBAYARAN_HUTANG: 'PembayaranHutang',
   PIUTANG: 'Piutang',
   PEMBAYARAN_PIUTANG: 'PembayaranPiutang',
+  PENDAPATAN: 'Pendapatan',
   PEMASUKAN: 'Pemasukan',
   PENGELUARAN: 'Pengeluaran',
   PERBAIKAN: 'Perbaikan',
@@ -103,6 +104,7 @@ class LocalStorageService {
     const sheetsToCheck = [
       SHEETS.HUTANG,
       SHEETS.PIUTANG,
+      SHEETS.PENDAPATAN,
       SHEETS.PEMASUKAN,
       SHEETS.PENGELUARAN,
       SHEETS.PERBAIKAN,
@@ -178,19 +180,6 @@ class LocalStorageService {
     }
   }
 
-  // Clear all data
-  clearAllData() {
-    try {
-      for (const sheetName of Object.values(SHEETS)) {
-        localStorage.removeItem(`@${sheetName}`);
-      }
-      return true;
-    } catch (error) {
-      console.error('Error clearing data:', error);
-      return false;
-    }
-  }
-
   // Get all history
   getAllHistory() {
     try {
@@ -225,7 +214,7 @@ class LocalStorageService {
       pemasukan.forEach(item => {
         history.push({
           type: 'pemasukan',
-          title: item.sumber,
+          title: item.nama || item.sumber,
           amount: parseFloat(item.jumlah) || 0,
           date: item.tanggal,
           createdAt: item.createdAt,
@@ -235,7 +224,7 @@ class LocalStorageService {
       pengeluaran.forEach(item => {
         history.push({
           type: 'pengeluaran',
-          title: item.kategori,
+          title: item.nama || item.kategori,
           amount: parseFloat(item.jumlah) || 0,
           date: item.tanggal,
           createdAt: item.createdAt,

@@ -12,14 +12,15 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
-  Pin,
-  MoreVertical
+  Pin
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { todayStr } from "../utils/dateUtils";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 
 const NOTE_TYPES = {
   STANDARD: "standard",
@@ -88,9 +89,8 @@ export default function Catatan() {
         return judul.includes(keyword) || isi.includes(keyword);
       })
       .sort((a, b) => {
-        if (a.isPinned !== b.isPinned) {
-          return a.isPinned ? -1 : 1;
-        }
+        const pin = pinnedFirst(a, b);
+        if (pin) return pin;
         const dateA = new Date(a.updatedAt || a.createdAt || 0);
         const dateB = new Date(b.updatedAt || b.createdAt || 0);
         return filterSort === "newest" ? dateB - dateA : dateA - dateB;
@@ -269,7 +269,7 @@ export default function Catatan() {
       judul: isShort ? "" : formData.judul.trim(),
       isi: finalIsi,
       jenis: formData.jenis,
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
     };
 
     if (editId) {
@@ -314,19 +314,12 @@ export default function Catatan() {
       onConfirm: () => {
         LocalStorageService.deleteRow(SHEETS.CATATAN, item.id);
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal((p) => ({ ...p, visible: false }));
       },
     });
   };
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.CATATAN, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
-  };
+  const handleTogglePin = makeTogglePin(SHEETS.CATATAN, loadData, showToast);
 
   const formatDateTime = (item) => {
     const raw = item.updatedAt || item.createdAt;
@@ -361,50 +354,44 @@ export default function Catatan() {
       .map((line) => line.trim())
       .filter(Boolean);
 
+  // Marker checkbox boleh diawali spasi dan boleh "[x]" atau "[X]".
+  const CHECKBOX_RE = /^(\s*)\[([ xX])\]\s*/;
+
+  const toggleLineCheckbox = (line) => {
+    const match = line.match(CHECKBOX_RE);
+    if (match) {
+      const rest = line.slice(match[0].length);
+      const mark = match[2].toLowerCase() === "x" ? "[ ]" : "[x]";
+      return `${match[1]}${mark} ${rest}`;
+    }
+    const indent = line.match(/^\s*/)[0];
+    return `${indent}[x] ${line.trim()}`;
+  };
+
   const toggleCheckbox = (item, lineIdx, e) => {
     e.stopPropagation();
     const lines = (item.isi || "").split("\n");
-    const line = lines[lineIdx];
+    if (lines[lineIdx] === undefined) return;
 
-    if (line.trim().startsWith("[x]")) {
-      lines[lineIdx] = line.replace("[x]", "[ ]");
-    } else if (line.trim().startsWith("[ ]")) {
-      lines[lineIdx] = line.replace("[ ]", "[x]");
-    } else {
-      lines[lineIdx] = "[x] " + line;
-    }
-
-    const newIsi = lines.join("\n");
-    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, {
-      ...item,
-      isi: newIsi,
-    });
+    lines[lineIdx] = toggleLineCheckbox(lines[lineIdx]);
+    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, { isi: lines.join("\n") });
     loadData();
   };
 
   const toggleCheckboxInView = (visibleIdx, e) => {
     e.stopPropagation();
     const lines = (formData.isi || "").split("\n");
-    
-    // Map visible lines to original indices
+
+    // Baris kosong tidak dirender, jadi indeks tampilan != indeks asli.
     const visibleToOriginal = [];
     lines.forEach((l, i) => {
       if (l.trim() !== '') visibleToOriginal.push(i);
     });
-    
+
     const actualIdx = visibleToOriginal[visibleIdx];
     if (actualIdx === undefined) return;
 
-    let line = lines[actualIdx];
-    if (line.trim().toLowerCase().startsWith("[x]")) {
-      line = line.replace(/^\[x\]\s*/i, "[ ] ");
-    } else if (line.trim().startsWith("[ ]")) {
-      line = line.replace(/^\[ \]\s*/, "[x] ");
-    } else {
-      line = "[x] " + line;
-    }
-    lines[actualIdx] = line;
-
+    lines[actualIdx] = toggleLineCheckbox(lines[actualIdx]);
     const newIsi = lines.join("\n");
     setFormData({ ...formData, isi: newIsi });
 
@@ -413,7 +400,7 @@ export default function Catatan() {
         judul: formData.judul,
         isi: newIsi,
         jenis: formData.jenis,
-        tanggal: new Date().toISOString().split("T")[0],
+        tanggal: todayStr(),
       });
       loadData();
     }
@@ -551,7 +538,7 @@ export default function Catatan() {
                       item={item}
                       onTogglePin={handleTogglePin}
                       onShare={(ref, t, cap) => setShareData({ isOpen: true, cardRef: ref, title: t, caption: cap })}
-                      cardRef={{ current: cardRefs.current[item.id] }}
+                      cardRef={{ get current() { return cardRefs.current[item.id]; } }}
                       title={`Catatan: ${item.judul || "Tanpa Judul"}`}
                       caption={`${item.judul || "Catatan"}
 Tipe: ${getTypeLabel(type)}
@@ -586,8 +573,8 @@ ${item.isi}`.trim()}
                         .map((line, i) => ({ line, i }))
                         .filter((x) => x.line.trim() !== "")
                         .map(({ line, i }, idx) => {
-                          const isChecked = line.trim().startsWith("[x]");
-                          const text = line.replace(/^\[[x ]\]\s*/i, "");
+                          const isChecked = line.trim().toLowerCase().startsWith("[x]");
+                          const text = line.replace(/^\s*\[[xX ]\]\s*/, "");
 
                           return (
                             <div
@@ -596,7 +583,7 @@ ${item.isi}`.trim()}
                             >
                               <div
                                 onClick={(e) => toggleCheckbox(item, i, e)}
-                                className="mt-0.5 shrink-0 cursor-pointer text-slate-500"
+                                className="-ml-1.5 mt-0.5 shrink-0 cursor-pointer text-slate-500 p-1.5"
                               >
                                 {isChecked ? (
                                   <div className="w-3.5 h-3.5 border border-blue-500 bg-blue-500 rounded-[3px] flex items-center justify-center">
@@ -743,11 +730,11 @@ ${item.isi}`.trim()}
                        <div className="space-y-3">
                          {formData.isi.split('\n').filter(l => l.trim() !== '').map((line, i) => {
                            const isChecked = line.trim().toLowerCase().startsWith("[x]");
-                           const text = line.replace(/^\[[x ]\]\s*/i, "");
+                           const text = line.replace(/^\s*\[[xX ]\]\s*/, "");
                            return (
                              <div key={i} className="flex items-start gap-3 group">
                                <div 
-                                 className="mt-0.5 shrink-0 cursor-pointer"
+                                 className="-ml-1.5 mt-0.5 shrink-0 cursor-pointer p-1.5"
                                  onClick={(e) => toggleCheckboxInView(i, e)}
                                 >
                                  {isChecked ? (
@@ -871,7 +858,7 @@ ${item.isi}`.trim()}
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onCancel={() => setConfirmModal((p) => ({ ...p, visible: false }))}
       />
       <ShareDialog 
         isOpen={shareData.isOpen}

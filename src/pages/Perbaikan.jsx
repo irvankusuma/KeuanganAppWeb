@@ -5,17 +5,11 @@ import {
   Pencil,
   Trash2,
   X,
-  XCircle,
-  AlertCircle,
   CheckCircle,
-  Clock,
-  Settings,
   ChevronDown,
   ChevronUp,
   History,
   Pin,
-  TrendingUp,
-  MoreHorizontal,
   Wrench,
   Filter
 } from "lucide-react";
@@ -25,6 +19,10 @@ import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { todayStr } from "../utils/dateUtils";
+import { formatCurrency as fmtC } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import { inputCls, readonlyCls, labelCls } from "../utils/formStyles";
 
 export default function Perbaikan() {
   const [perbaikan, setPerbaikan] = useState([]);
@@ -38,7 +36,7 @@ export default function Perbaikan() {
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
     nama: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     km_saat_ini: "",
     km_tambahan: "",
     biaya: "",
@@ -52,7 +50,7 @@ export default function Perbaikan() {
   const [tambahForm, setTambahForm] = useState({
     parentId: "",
     nama: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     km_rekomendasi_sebelumnya: 0,
     km_saat_ini: "",
     km_ditentukan: "",
@@ -80,12 +78,15 @@ export default function Perbaikan() {
   const loadData = () =>
     setPerbaikan(LocalStorageService.readSheet(SHEETS.PERBAIKAN));
 
-  const parseN = (val) => parseFloat(val) || 0;
-  const fmtN = (num) => (num || num === 0 ? Number(num).toLocaleString("id-ID") : "");
-  const fmtC = (num) => {
-    if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
+  const parseN = (val) => {
+    if (typeof val === "number") return val;
+    const s = String(val ?? "").trim();
+    if (!s) return 0;
+    const negative = s.startsWith("-") || s.startsWith("−");
+    const n = Number(s.replace(/\D/g, "")) || 0;
+    return negative ? -n : n;
   };
+  const fmtN = (num) => (num || num === 0 ? Number(num).toLocaleString("id-ID") : "");
 
   // Auto-calc KM Berikutnya di form utama
   const getKmBerikutnya = () => {
@@ -155,7 +156,7 @@ export default function Perbaikan() {
     const a = parseN(formData.km_saat_ini),
       b = parseN(formData.km_tambahan);
     if (!formData.nama || !a) {
-      alert("Nama dan KM saat ini harus diisi!");
+      showToast("Nama dan KM saat ini harus diisi!", "error");
       return;
     }
     const data = {
@@ -196,7 +197,7 @@ export default function Perbaikan() {
     setTambahForm({
       parentId: item.id,
       nama: item.nama,
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       km_rekomendasi_sebelumnya: kmRek,
       km_saat_ini: "",
       km_ditentukan: "",
@@ -214,8 +215,8 @@ export default function Perbaikan() {
       nama: histItem.nama,
       tanggal: histItem.tanggal,
       km_rekomendasi_sebelumnya: histItem.km_rekomendasi_sebelumnya || 0,
-      km_saat_ini: fmtN(histItem.km_saat_ini),
-      km_ditentukan: fmtN(histItem.km_tambahan),
+      km_saat_ini: histItem.km_saat_ini ?? "",
+      km_ditentukan: histItem.km_tambahan ?? "",
       biaya: histItem.biaya || "",
       catatan: histItem.catatan || "",
     });
@@ -230,7 +231,7 @@ export default function Perbaikan() {
     const kmBerikutnya = kmSaatIni + kmDitentukan;
     const biaya = tambahForm.biaya ? parseN(tambahForm.biaya) : 0;
     if (!kmSaatIni) {
-      alert("KM Saat Ini harus diisi!");
+      showToast("KM Saat Ini harus diisi!", "error");
       return;
     }
     const data = {
@@ -290,8 +291,8 @@ export default function Perbaikan() {
     const d = {
       nama: item.nama,
       tanggal: item.tanggal,
-      km_saat_ini: fmtN(item.km_saat_ini),
-      km_tambahan: item.km_tambahan ? fmtN(item.km_tambahan) : "",
+      km_saat_ini: item.km_saat_ini ?? "",
+      km_tambahan: item.km_tambahan ?? "",
       biaya: item.biaya || "",
       catatan: item.catatan || "",
     };
@@ -332,14 +333,7 @@ export default function Perbaikan() {
     loadData();
   };
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.PERBAIKAN, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
-  };
+  const handleTogglePin = makeTogglePin(SHEETS.PERBAIKAN, loadData, showToast);
 
   const resetForm = () => {
     setModalVisible(false);
@@ -347,7 +341,7 @@ export default function Perbaikan() {
     setEditId(null);
     setFormData({
       nama: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       km_saat_ini: "",
       km_tambahan: "",
       biaya: "",
@@ -388,12 +382,9 @@ export default function Perbaikan() {
   });
   const sortedData = [...filteredRoots].sort(
     (a, b) => {
-      if (a.isPinned !== b.isPinned) {
-        return a.isPinned ? -1 : 1;
-      }
       const aDate = new Date(getLatestRecord(a).tanggal || a.createdAt || 0);
       const bDate = new Date(getLatestRecord(b).tanggal || b.createdAt || 0);
-      return bDate - aDate;
+      return pinnedFirst(a, b) || bDate - aDate;
     }
   );
 
@@ -432,12 +423,6 @@ export default function Perbaikan() {
       km: "text-red-400",
     },
   };
-
-  const inputCls =
-    "w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white";
-  const readonlyCls =
-    "w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-2.5 text-sm cursor-not-allowed";
-  const labelCls = "block text-xs text-gray-400 mb-1";
 
   return (
     <div className="pb-24">
@@ -550,7 +535,7 @@ export default function Perbaikan() {
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
                       <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
-                        {item.tipe}
+                        {item.tipe || "Servis"}
                       </span>
                       <span>•</span>
                       <span className="truncate">Update: {new Date(latest.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
@@ -568,7 +553,7 @@ export default function Perbaikan() {
                       title={`Perbaikan: ${item.nama}`}
                       caption={`${item.nama}
 Biaya: ${latest.biaya > 0 ? fmtC(latest.biaya) : "Rp 0"}
-Tipe: ${item.tipe}
+Tipe: ${item.tipe || "-"}
 KM Terakhir: ${fmtN(latest.km_saat_ini)} km
 KM Target: ${fmtN(kmB)} km
 
@@ -770,6 +755,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               <div>
                 <NumericInput
                   label="KM Saat Ini"
+                  prefix="KM"
                   value={formData.km_saat_ini}
                   onChange={(val) => setFormData({ ...formData, km_saat_ini: val })}
                   required
@@ -778,6 +764,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               <div>
                 <NumericInput
                   label="+ KM Rekomendasi (Interval)"
+                  prefix="KM"
                   value={formData.km_tambahan}
                   onChange={(val) => setFormData({ ...formData, km_tambahan: val })}
                 />
@@ -878,6 +865,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 <div>
                   <NumericInput
                     label="KM Saat Ini"
+                    prefix="KM"
                     value={tambahForm.km_saat_ini}
                     onChange={(val) => setTambahForm({ ...tambahForm, km_saat_ini: val })}
                     required
@@ -886,6 +874,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 <div>
                   <NumericInput
                     label="KM Ditentukan (Interval)"
+                    prefix="KM"
                     value={tambahForm.km_ditentukan}
                     onChange={(val) => setTambahForm({ ...tambahForm, km_ditentukan: val })}
                   />

@@ -1,15 +1,6 @@
-/**
- * Skeleton loader components
- *
- * Usage:
- *   import { SkeletonCard, SkeletonList, SkeletonDashboard } from "../components/Skeleton";
- *
- *   if (loading) return <SkeletonDashboard />;
- */
-
 /* ─── Primitive ─── */
-function Sk({ className = "" }) {
-  return <div className={`skeleton ${className}`} />;
+function Sk({ className = "", style }) {
+  return <div className={`skeleton ${className}`} style={style} />;
 }
 
 /* ─── Stat Card Skeleton ─── */

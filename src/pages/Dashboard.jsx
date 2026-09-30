@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { DollarSign, Coins, TrendingUp, TrendingDown, ArrowUpRight, Target, Edit2, Check, Wallet, Search, X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Wrench, BookOpen, Receipt } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import { SkeletonDashboard } from "../components/Skeleton";
+import { todayStr, monthStr, dateToStr } from "../utils/dateUtils";
+import { formatCurrency } from "../utils/format";
 import {
   ComposedChart,
   Bar,
@@ -26,7 +28,7 @@ export default function Dashboard() {
     tagihan: [],
     pembayaranTagihan: [],
   });
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(todayStr());
   const [loading, setLoading] = useState(true);
   const [chartPeriod, setChartPeriod] = useState("bulanan"); // 'mingguan', 'bulanan', 'tahunan'
   
@@ -41,7 +43,6 @@ export default function Dashboard() {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,8 +82,6 @@ export default function Dashboard() {
     }
   };
 
-  const formatCurrency = (num) => "Rp " + num.toLocaleString("id-ID");
-
   // Calculate totals (sisa and total)
   const totalHutang = data.hutang.reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
   const totalDibayarHutang = data.pembayaranHutang
@@ -108,7 +107,7 @@ export default function Dashboard() {
   const saldoBersih = totalPemasukan + sisaPiutang - totalPengeluaran - sisaHutang;
 
   // Calculate new stats
-  const currentMonthYear = new Date().toISOString().slice(0, 7);
+  const currentMonthYear = monthStr();
 
   const pemasukanBulanIni = data.pemasukan
     .filter((i) => i.tanggal && i.tanggal.startsWith(currentMonthYear))
@@ -135,16 +134,14 @@ export default function Dashboard() {
     setIsEditingTarget(false);
   };
   
-  const progressTabungan = targetTabungan > 0 ? Math.min((saldoBersih / targetTabungan) * 100, 100) : 0;
+  const progressTabungan = targetTabungan > 0 ? Math.max(0, Math.min((saldoBersih / targetTabungan) * 100, 100)) : 0;
 
-  // Data untuk grafik per periode
+  // Data untuk grafik per periode (arus kas nyata; hutang/piutang sudah tersinkron
+  // sebagai baris pemasukan/pengeluaran sehingga tidak dihitung dua kali)
   const chartData = useMemo(() => {
     const allTransactions = [
       ...data.pemasukan.map((item) => ({ jenis: "pemasukan", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
       ...data.pengeluaran.map((item) => ({ jenis: "pengeluaran", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
-      // Filter hutang/piutang agar tidak double count jika sudah di-sync ke pemasukan/pengeluaran
-      ...data.hutang.map((item) => ({ jenis: "hutang", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
-      ...data.piutang.map((item) => ({ jenis: "piutang", jumlah: parseFloat(item.jumlah) || 0, tanggal: item.tanggal })),
     ];
 
     const grouped = {};
@@ -154,9 +151,9 @@ export default function Dashboard() {
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split("T")[0];
+        const dateStr = dateToStr(d);
         const label = d.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "numeric" });
-        grouped[dateStr] = { label, key: dateStr, pemasukan: 0, pengeluaran: 0, hutang: 0, piutang: 0 };
+        grouped[dateStr] = { label, key: dateStr, pemasukan: 0, pengeluaran: 0 };
       }
       
       allTransactions.forEach(item => {
@@ -169,7 +166,7 @@ export default function Dashboard() {
         if (!item.tanggal) return;
         const year = new Date(item.tanggal).getFullYear().toString();
         if (!grouped[year]) {
-          grouped[year] = { label: year, key: year, pemasukan: 0, pengeluaran: 0, hutang: 0, piutang: 0 };
+          grouped[year] = { label: year, key: year, pemasukan: 0, pengeluaran: 0 };
         }
         grouped[year][item.jenis] += item.jumlah;
       });
@@ -180,7 +177,7 @@ export default function Dashboard() {
         d.setMonth(d.getMonth() - i);
         const yearMonth = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
         const label = d.toLocaleDateString("id-ID", { month: "short", year: "numeric" });
-        grouped[yearMonth] = { label, key: yearMonth, pemasukan: 0, pengeluaran: 0, hutang: 0, piutang: 0 };
+        grouped[yearMonth] = { label, key: yearMonth, pemasukan: 0, pengeluaran: 0 };
       }
 
       allTransactions.forEach(item => {
@@ -349,7 +346,9 @@ export default function Dashboard() {
             <span>Kewajiban: <span className="text-white font-medium">{formatCurrency(totalPengeluaran + sisaHutang)}</span></span>
             <span className="ml-auto hidden sm:block">
               Rasio: <span className="text-white font-medium">
-                {((totalPemasukan + sisaPiutang) / Math.max(totalPengeluaran + sisaHutang, 1)).toFixed(2)}×
+                {(totalPengeluaran + sisaHutang) > 0
+                  ? ((totalPemasukan + sisaPiutang) / (totalPengeluaran + sisaHutang)).toFixed(2) + "×"
+                  : "—"}
               </span>
             </span>
           </div>
@@ -447,7 +446,7 @@ export default function Dashboard() {
 
         {/* Tagihan Bulan Ini */}
         {(() => {
-          const thisMonth = new Date().toISOString().slice(0,7);
+          const thisMonth = monthStr();
           const tagihanBulanIni = data.pembayaranTagihan.filter(t => t.bulan === thisMonth || (t.tanggal && t.tanggal.startsWith(thisMonth)));
           const totalTagihanBulanIni = tagihanBulanIni.reduce((s,t) => s+(parseFloat(t.jumlah)||0), 0);
           return (
@@ -522,7 +521,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             {/* Legend */}
             <div className="hidden sm:flex items-center gap-3">
-              {[["#10b981","Pemasukan"],["#f97316","Pengeluaran"],["#ef4444","Hutang"],["#3b82f6","Piutang"]].map(([c,l]) => (
+              {[["#10b981","Pemasukan"],["#f97316","Pengeluaran"]].map(([c,l]) => (
                 <div key={l} className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-sm" style={{background:c}} />
                   <span className="text-xs text-slate-400">{l}</span>
@@ -581,8 +580,6 @@ export default function Dashboard() {
                 />
                 <Bar dataKey="pemasukan"   name="Pemasukan"   fill="#10b981" radius={[4,4,0,0]} maxBarSize={20} />
                 <Bar dataKey="pengeluaran" name="Pengeluaran" fill="#f97316" radius={[4,4,0,0]} maxBarSize={20} />
-                <Bar dataKey="hutang"      name="Hutang"      fill="#ef4444" radius={[4,4,0,0]} maxBarSize={20} />
-                <Bar dataKey="piutang"     name="Piutang"     fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={20} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

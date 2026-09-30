@@ -8,11 +8,12 @@ import {
   History,
   Pin,
   ChevronDown,
+  ChevronUp,
   ArrowUpCircle,
   ArrowDownCircle,
-  MoreHorizontal,
   TrendingUp,
-  Filter
+  Filter,
+  RefreshCw
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import NumericInput from "../components/NumericInput";
@@ -21,6 +22,10 @@ import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
 import { SkeletonListPage } from "../components/Skeleton";
+import { todayStr } from "../utils/dateUtils";
+import { formatCurrency as fmtC, getMonthYear } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import { inputCls, labelCls } from "../utils/formStyles";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -32,7 +37,7 @@ export default function Pemasukan() {
   const [editId, setEditId] = useState(null);
   const [formData, setFormData] = useState({
     nama: "", jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
 
@@ -41,7 +46,7 @@ export default function Pemasukan() {
   const [editSubMode, setEditSubMode] = useState(false);
   const [editSubId, setEditSubId] = useState(null);
   const [subForm, setSubForm] = useState({
-    parentId: "", tanggal: new Date().toISOString().split("T")[0],
+    parentId: "", tanggal: todayStr(),
     jumlah: "", catatan: "",
   });
 
@@ -52,7 +57,7 @@ export default function Pemasukan() {
   const [keluarParentId, setKeluarParentId] = useState(null);
   const [keluarParentNama, setKeluarParentNama] = useState("");
   const [keluarForm, setKeluarForm] = useState({
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     jumlah: "", catatan: "",
   });
 
@@ -90,11 +95,6 @@ export default function Pemasukan() {
     setPengeluaran(LocalStorageService.readSheet(SHEETS.PENGELUARAN));
   };
 
-  // ===== FORMAT HELPERS =====
-  const fmtC = (num) => "Rp " + (Number(num) || 0).toLocaleString("id-ID");
-  const fmtN = (num) => num ? Number(num).toLocaleString("id-ID") : "";
-  const parseN = (str) => Number(String(str || "").replace(/\./g, "")) || 0;
-
   // ===== DATA RELATIONS =====
   const rootItems = pemasukan.filter((i) => !i.parent_id);
 
@@ -124,7 +124,6 @@ export default function Pemasukan() {
   const sisaSaldo = totalPemasukan - totalPengeluaran;
 
   // ===== FILTER =====
-  const getMonthYear = (d) => { const dt = new Date(d); return `${dt.getMonth() + 1}-${dt.getFullYear()}`; };
   const uniqueBulan = [...new Set(rootItems.map((i) => getMonthYear(i.tanggal)))].sort((a, b) => {
     const [mA, yA] = a.split("-").map(Number);
     const [mB, yB] = b.split("-").map(Number);
@@ -132,28 +131,15 @@ export default function Pemasukan() {
   });
   const filteredRoots = rootItems.filter((i) => filterBulan === "all" || getMonthYear(i.tanggal) === filterBulan);
   const sortedRoots = [...filteredRoots].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return a.isPinned ? -1 : 1;
-    }
-    return new Date(b.tanggal) - new Date(a.tanggal);
+    return pinnedFirst(a, b) || new Date(b.tanggal) - new Date(a.tanggal);
   });
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.PEMASUKAN, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
-  };
-
-  const inputCls = "w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white";
-  const labelCls = "block text-xs text-gray-400 mb-1";
+  const handleTogglePin = makeTogglePin(SHEETS.PEMASUKAN, loadData, showToast);
 
   // ===== HANDLERS: ROOT PEMASUKAN =====
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.nama || !formData.jumlah) { alert("Nama dan saldo harus diisi!"); return; }
+    if (!formData.nama || !formData.jumlah) { showToast("Nama dan saldo harus diisi!", "error"); return; }
     if (editMode && editId) {
       LocalStorageService.updateRow(SHEETS.PEMASUKAN, editId, formData);
     } else {
@@ -185,13 +171,13 @@ export default function Pemasukan() {
 
   const resetForm = () => {
     setModalVisible(false); setEditMode(false); setEditId(null);
-    setFormData({ nama: "", jumlah: "", tanggal: new Date().toISOString().split("T")[0], catatan: "" });
+    setFormData({ nama: "", jumlah: "", tanggal: todayStr(), catatan: "" });
   };
 
   // ===== HANDLERS: SUB-TAMBAH =====
   const handleOpenSub = (item) => {
     setEditSubMode(false); setEditSubId(null);
-    setSubForm({ parentId: item.id, tanggal: new Date().toISOString().split("T")[0], jumlah: "", catatan: "" });
+    setSubForm({ parentId: item.id, tanggal: todayStr(), jumlah: "", catatan: "" });
     setShowTambahSubModal(true);
   };
 
@@ -204,8 +190,9 @@ export default function Pemasukan() {
   const handleSubmitSub = (e) => {
     e.preventDefault();
     const jumlahNum = parseFloat(subForm.jumlah) || 0;
-    if (!jumlahNum) { alert("Saldo harus diisi!"); return; }
-    const data = { parent_id: subForm.parentId, jumlah: jumlahNum, tanggal: subForm.tanggal, catatan: subForm.catatan || "" };
+    if (!jumlahNum) { showToast("Saldo harus diisi!", "error"); return; }
+    const parent = pemasukan.find(p => p.id?.toString() === subForm.parentId?.toString());
+    const data = { nama: `Tambah Saldo: ${parent?.nama || ""}`.trim(), parent_id: subForm.parentId, jumlah: jumlahNum, tanggal: subForm.tanggal, catatan: subForm.catatan || "" };
     if (editSubMode && editSubId) {
       LocalStorageService.updateRow(SHEETS.PEMASUKAN, editSubId, data);
     } else {
@@ -229,7 +216,7 @@ export default function Pemasukan() {
   const handleOpenKeluar = (item) => {
     setEditKeluarMode(false); setEditKeluarId(null);
     setKeluarParentId(item.id); setKeluarParentNama(item.nama);
-    setKeluarForm({ tanggal: new Date().toISOString().split("T")[0], jumlah: "", catatan: "" });
+    setKeluarForm({ tanggal: todayStr(), jumlah: "", catatan: "" });
     setShowKeluarModal(true);
   };
 
@@ -243,7 +230,18 @@ export default function Pemasukan() {
   const handleSubmitKeluar = (e) => {
     e.preventDefault();
     const jumlahNum = parseFloat(keluarForm.jumlah) || 0;
-    if (!jumlahNum) { alert("Saldo harus diisi!"); return; }
+    if (!jumlahNum) { showToast("Saldo harus diisi!", "error"); return; }
+    const parent = pemasukan.find(p => p.id?.toString() === keluarParentId?.toString());
+    if (parent) {
+      const saldo = getSaldoAktif(parent);
+      const oldJumlah = editKeluarMode && editKeluarId
+        ? (parseFloat((pengeluaran.find(k => k.id?.toString() === editKeluarId?.toString()) || {}).jumlah) || 0)
+        : 0;
+      if (jumlahNum > saldo + oldJumlah) {
+        showToast(`Saldo tidak cukup. Saldo aktif: ${fmtC(saldo + oldJumlah)}`, "error");
+        return;
+      }
+    }
     const data = {
       nama: `Keluar: ${keluarParentNama}`,
       kategori: "Keluar Pemasukan",
@@ -359,6 +357,7 @@ export default function Pemasukan() {
             const showHistory  = activeHistoryId === item.id;
             const historyCount = subTambah.length + keluarList.length;
             const menuOpen     = activeMenu === item.id;
+            const isSynced     = !!item.sourceType;
 
             return (
               <div
@@ -379,6 +378,11 @@ export default function Pemasukan() {
                       <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
                         Pemasukan
                       </span>
+                      {isSynced && (
+                        <span className="bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border border-blue-500/20 flex items-center gap-1 shrink-0">
+                          <RefreshCw size={8} /> Otomatis
+                        </span>
+                      )}
                       <span>•</span>
                       <span className="truncate">{new Date(item.tanggal).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}</span>
                     </div>
@@ -418,6 +422,11 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 </div>
 
                 {/* Action Buttons */}
+                {isSynced ? (
+                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/10 text-[10px] text-blue-300/80 no-export">
+                    Data tersinkron otomatis — kelola dari halaman asalnya (Hutang / Piutang / Pendapatan).
+                  </div>
+                ) : (
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
                   {[
                     { icon: ArrowUpCircle, label: "Tambah", color: "emerald", onClick: () => handleOpenSub(item) },
@@ -436,6 +445,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     </button>
                   ))}
                 </div>
+                )}
 
                 {/* ── History panel ── */}
                 {showHistory && (
@@ -455,8 +465,8 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-xs font-semibold text-emerald-400">{fmtC(s.jumlah)}</span>
-                              <button onClick={() => handleEditSub(s)} className="p-1 rounded text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={11} /></button>
-                              <button onClick={() => handleDeleteSub(s)} className="p-1 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={11} /></button>
+                              <button onClick={() => handleEditSub(s)} className="p-1.5 rounded text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={13} /></button>
+                              <button onClick={() => handleDeleteSub(s)} className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={13} /></button>
                             </div>
                           </div>
                         ))}
@@ -472,8 +482,8 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-xs font-semibold text-orange-400">-{fmtC(k.jumlah)}</span>
-                              <button onClick={() => handleEditKeluar(k, item)} className="p-1 rounded text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={11} /></button>
-                              <button onClick={() => handleDeleteKeluar(k)} className="p-1 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={11} /></button>
+                              <button onClick={() => handleEditKeluar(k, item)} className="p-1.5 rounded text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"><Pencil size={13} /></button>
+                              <button onClick={() => handleDeleteKeluar(k)} className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={13} /></button>
                             </div>
                           </div>
                         ))}
@@ -512,7 +522,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 <label className={labelCls}>Tanggal</label>
                 <input type="date" value={formData.tanggal}
                   onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
-                  className={inputCls} style={{ colorScheme: "dark" }} />
+                  className={inputCls} style={{ colorScheme: "dark" }} required />
               </div>
               <div>
                 <NumericInput
@@ -549,7 +559,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 <label className={labelCls}>Tanggal</label>
                 <input type="date" value={subForm.tanggal}
                   onChange={(e) => setSubForm({ ...subForm, tanggal: e.target.value })}
-                  className={inputCls} style={{ colorScheme: "dark" }} />
+                  className={inputCls} style={{ colorScheme: "dark" }} required />
               </div>
               <div>
                 <NumericInput
@@ -589,7 +599,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 <label className={labelCls}>Tanggal</label>
                 <input type="date" value={keluarForm.tanggal}
                   onChange={(e) => setKeluarForm({ ...keluarForm, tanggal: e.target.value })}
-                  className={inputCls} style={{ colorScheme: "dark" }} />
+                  className={inputCls} style={{ colorScheme: "dark" }} required />
               </div>
               <div>
                 <NumericInput
@@ -618,7 +628,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onCancel={() => setConfirmModal((p) => ({ ...p, visible: false }))}
       />
       <ShareDialog 
         isOpen={shareData.isOpen}

@@ -5,7 +5,8 @@ export default function NumericInput({
   onChange, 
   placeholder = "0", 
   label, 
-  required = false 
+  required = false,
+  prefix = "Rp"
 }) {
   const inputRef = useRef(null);
 
@@ -31,7 +32,7 @@ export default function NumericInput({
       <div 
         className="relative flex items-center bg-[#141d2e]/50 border border-[#1e2d45] rounded-xl transition-all hover:border-slate-600 focus-within:border-blue-500/50 focus-within:bg-[#141d2e] focus-within:ring-4 focus-within:ring-blue-500/10 shadow-inner"
       >
-        <span className="pl-4 pr-2 text-slate-500 font-bold text-sm select-none">Rp</span>
+        {prefix && <span className="pl-4 pr-2 text-slate-500 font-bold text-sm select-none">{prefix}</span>}
         <input
           ref={inputRef}
           type="text"

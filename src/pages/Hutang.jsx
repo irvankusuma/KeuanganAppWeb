@@ -5,7 +5,6 @@ import {
   Pencil,
   Trash2,
   X,
-  Calculator,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -14,8 +13,7 @@ import {
   ChevronUp,
   Wallet,
   History,
-  Pin,
-  MoreHorizontal
+  Pin
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
@@ -23,6 +21,9 @@ import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
+import { todayStr } from "../utils/dateUtils";
+import { formatCurrency } from "../utils/format";
+import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 
 export default function Hutang() {
   const [hutang, setHutang] = useState([]);
@@ -38,7 +39,7 @@ export default function Hutang() {
     tipe: "",
     jumlah: "",
     periode: "12",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [showPayModal, setShowPayModal] = useState(false);
@@ -49,7 +50,7 @@ export default function Hutang() {
     hutangId: "",
     namaHutang: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [showAddModal, setShowAddModal] = useState(false);
@@ -57,7 +58,7 @@ export default function Hutang() {
     hutangId: "",
     namaHutang: "",
     jumlah: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tanggal: todayStr(),
     catatan: "",
   });
   const [showEditPayModal, setShowEditPayModal] = useState(false);
@@ -68,6 +69,7 @@ export default function Hutang() {
     jumlah: "",
     tanggal: "",
     catatan: "",
+    type: "bayar",
   });
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
@@ -94,17 +96,40 @@ export default function Hutang() {
     setPembayaranHutang(pembayaran);
   };
 
+  const syncCreatePemasukan = (hutangItem) => {
+    const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const existing = allPemasukan.find(p => p.sourceRef?.toString() === hutangItem.id?.toString() && p.sourceType === "hutang_buat");
+    if (existing) {
+      LocalStorageService.updateRow(SHEETS.PEMASUKAN, existing.id, {
+        nama: `Terima Hutang: ${hutangItem.nama}`,
+        jumlah: parseFloat(hutangItem.jumlah) || 0,
+        tanggal: hutangItem.tanggal,
+      });
+    } else {
+      LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+        nama: `Terima Hutang: ${hutangItem.nama}`,
+        jumlah: parseFloat(hutangItem.jumlah) || 0,
+        tanggal: hutangItem.tanggal,
+        catatan: "Dana pinjaman diterima (sinkron otomatis)",
+        sourceRef: hutangItem.id,
+        sourceType: "hutang_buat",
+      });
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.nama || !formData.jumlah) {
-      alert("Nama dan jumlah harus diisi!");
+      showToast("Nama dan jumlah harus diisi!", "error");
       return;
     }
     const dataToSave = { ...formData, tipe: formData.tipe || "Lainnya" };
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.HUTANG, editId, dataToSave);
+      const updated = LocalStorageService.updateRow(SHEETS.HUTANG, editId, dataToSave);
+      syncCreatePemasukan(updated);
     } else {
-      LocalStorageService.appendRow(SHEETS.HUTANG, dataToSave);
+      const saved = LocalStorageService.appendRow(SHEETS.HUTANG, dataToSave);
+      syncCreatePemasukan(saved);
     }
     resetForm();
     loadData();
@@ -145,9 +170,14 @@ export default function Hutang() {
           }
         });
 
+        // Hapus sync "Terima Hutang" di Pemasukan
+        const allPemasukanCreate = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const createRow = allPemasukanCreate.find(p => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "hutang_buat");
+        if (createRow) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, createRow.id);
+
         LocalStorageService.deleteRow(SHEETS.HUTANG, item.id);
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal(p => ({ ...p, visible: false }));
       },
     });
   };
@@ -161,14 +191,9 @@ export default function Hutang() {
       tipe: "",
       jumlah: "",
       periode: "12",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
-  };
-
-  const formatCurrency = (num) => {
-    if (!num) return "Rp 0";
-    return "Rp " + Number(num).toLocaleString("id-ID");
   };
 
   const getJatuhTempoDate = (item) => {
@@ -225,14 +250,7 @@ export default function Hutang() {
     return "upcoming";
   };
 
-  const handleTogglePin = (id) => {
-    const result = LocalStorageService.togglePin(SHEETS.HUTANG, id);
-    if (result.success) {
-      loadData();
-    } else {
-      showToast(result.message, "warning");
-    }
-  };
+  const handleTogglePin = makeTogglePin(SHEETS.HUTANG, loadData, showToast);
 
   const sortedData = [...hutang]
     .filter((item) => {
@@ -244,11 +262,10 @@ export default function Hutang() {
       return true;
     })
     .sort((a, b) => {
-      // Prioritize isPinned
-      if (a.isPinned !== b.isPinned) {
-        return a.isPinned ? -1 : 1;
-      }
-      return new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0);
+      return (
+        pinnedFirst(a, b) ||
+        new Date(b.tanggal || b.createdAt || 0) - new Date(a.tanggal || a.createdAt || 0)
+      );
     });
 
   const activeHutang = sortedData.filter((item) => getStatus(item) !== "lunas");
@@ -433,27 +450,23 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       hutangId: item.id,
       namaHutang: item.nama,
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
     setShowPayModal(true);
-  };
-
-  const handlePayJumlahChange = (value) => {
-    const raw = value.replace(/[^\d]/g, "");
-    setPayFormData({ ...payFormData, jumlah: raw });
-  };
-
-  const getPayInputDisplay = () => {
-    if (!payFormData.jumlah) return "";
-    return Number(payFormData.jumlah).toLocaleString("id-ID");
   };
 
   const handleSubmitBayar = (e) => {
     e.preventDefault();
     const nominal = parseFloat(payFormData.jumlah) || 0;
     if (!payFormData.hutangId || nominal <= 0) {
-      alert("Data pembayaran belum valid.");
+      showToast("Data pembayaran belum valid.", "error");
+      return;
+    }
+    const target = hutang.find(h => h.id?.toString() === payFormData.hutangId?.toString());
+    const sisa = target ? getSisa(target) : 0;
+    if (nominal > sisa) {
+      showToast(`Nominal melebihi sisa hutang (${formatCurrency(sisa)}).`, "error");
       return;
     }
     const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
@@ -486,8 +499,9 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       hutangId: historyItem.hutangId,
       namaHutang: historyItem.namaHutang,
       jumlah: historyItem.jumlah,
-      tanggal: historyItem.tanggal || new Date().toISOString().split("T")[0],
+      tanggal: historyItem.tanggal || todayStr(),
       catatan: historyItem.catatan || "",
+      type: historyItem.type || "bayar",
     });
     setShowEditPayModal(true);
   };
@@ -496,8 +510,17 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     e.preventDefault();
     const nominal = parseFloat(editPayData.jumlah) || 0;
     if (!editPayData.id || nominal <= 0) {
-      alert("Data pembayaran tidak valid.");
+      showToast("Data pembayaran tidak valid.", "error");
       return;
+    }
+    if (editPayData.type !== "tambah") {
+      const target = hutang.find(h => h.id?.toString() === editPayData.hutangId?.toString());
+      const old = pembayaranHutang.find(p => p.id?.toString() === editPayData.id?.toString());
+      const sisaLama = target ? getSisa(target) : 0;
+      if (nominal > sisaLama + (parseFloat(old?.jumlah) || 0)) {
+        showToast(`Nominal melebihi sisa hutang (${formatCurrency(sisaLama + (parseFloat(old?.jumlah) || 0))}).`, "error");
+        return;
+      }
     }
     LocalStorageService.updateRow(SHEETS.PEMBAYARAN_HUTANG, editPayData.id, {
       jumlah: nominal,
@@ -556,7 +579,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         }
 
         loadData();
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal(p => ({ ...p, visible: false }));
       },
     });
   };
@@ -566,7 +589,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       hutangId: item.id,
       namaHutang: item.nama,
       jumlah: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: todayStr(),
       catatan: "",
     });
     setShowAddModal(true);
@@ -576,7 +599,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     e.preventDefault();
     const nominal = parseFloat(addFormData.jumlah) || 0;
     if (!addFormData.hutangId || nominal <= 0) {
-      alert("Data penambahan belum valid.");
+      showToast("Data penambahan belum valid.", "error");
       return;
     }
     const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
@@ -600,16 +623,6 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
 
     setShowAddModal(false);
     loadData();
-  };
-
-  const handleAddJumlahChange = (value) => {
-    const raw = value.replace(/[^\d]/g, "");
-    setAddFormData({ ...addFormData, jumlah: raw });
-  };
-
-  const getAddInputDisplay = () => {
-    if (!addFormData.jumlah) return "";
-    return Number(addFormData.jumlah).toLocaleString("id-ID");
   };
 
   const getActiveFilterLabel = () => {
@@ -710,42 +723,42 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     id: "all",
                     label: "Semua",
                     icon: null,
-                    color: "blue",
+                    activeBg: "bg-blue-600",
                     count: countStatus.all,
                   },
                   {
                     id: "upcoming",
                     label: "Akan Datang",
                     icon: Clock,
-                    color: "green",
+                    activeBg: "bg-green-600",
                     count: countStatus.upcoming,
                   },
                   {
                     id: "due",
                     label: "Hari Ini",
                     icon: CheckCircle,
-                    color: "yellow",
+                    activeBg: "bg-yellow-600",
                     count: countStatus.due,
                   },
                   {
                     id: "overdue",
                     label: "Terlambat",
                     icon: AlertCircle,
-                    color: "red",
+                    activeBg: "bg-red-600",
                     count: countStatus.overdue,
                   },
                   {
                     id: "lunas",
                     label: "Lunas",
                     icon: CheckCircle,
-                    color: "emerald",
+                    activeBg: "bg-emerald-600",
                     count: countStatus.lunas,
                   },
                 ].map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setFilterStatus(s.id)}
-                    className={`px-2.5 py-1 text-xs rounded-full flex items-center gap-1.5 transition ${filterStatus === s.id ? `bg-${s.color}-600 text-white` : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
+                    className={`px-2.5 py-1 text-xs rounded-full flex items-center gap-1.5 transition ${filterStatus === s.id ? `${s.activeBg} text-white` : "bg-slate-700 text-gray-300 hover:bg-slate-600"}`}
                   >
                     {s.icon && <s.icon size={12} />}
                     {s.label}{" "}
@@ -882,6 +895,8 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                   </label>
                   <input
                     type="number"
+                    min="1"
+                    step="1"
                     value={formData.periode}
                     onChange={(e) =>
                       setFormData({ ...formData, periode: e.target.value })
@@ -1110,7 +1125,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         title={confirmModal.title}
         message={confirmModal.message}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        onCancel={() => setConfirmModal(p => ({ ...p, visible: false }))}
       />
       {/* Share Dialog */}
       <ShareDialog 
