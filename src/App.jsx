@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   Receipt,
   Wallet,
+  Cloud,
 } from "lucide-react";
 
 // Pages — dimuat malas agar bundle awal tetap ringan
@@ -36,7 +37,9 @@ const Perbaikan = lazy(() => import("./pages/Perbaikan"));
 const Catatan = lazy(() => import("./pages/catatan"));
 const Tagihan = lazy(() => import("./pages/Tagihan"));
 const Pendapatan = lazy(() => import("./pages/Pendapatan"));
+const Backup = lazy(() => import("./pages/Backup"));
 import LoginPage from "./pages/Login";
+import { getCloudEngine } from "./hooks/useCloudSync";
 
 // Components
 const ExportImportModal = lazy(() => import("./components/ExportImportModal"));
@@ -61,6 +64,7 @@ const NAV_ITEMS = [
   { path: "/pemasukan",   icon: TrendingUp,   label: "Pemasukan"   },
   { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
   { path: "/catatan",     icon: BookOpen,     label: "Catatan"     },
+  { path: "/backup",      icon: Cloud,        label: "Backup Cloud" },
 ];
 
 // ─── Sidebar nav link ─────────────────────────────────────────
@@ -446,6 +450,7 @@ function ProtectedLayout({ children }) {
 
 // ─── App root ─────────────────────────────────────────────────
 export default function App() {
+  getCloudEngine();
   return (
     <BrowserRouter>
       <Routes>
@@ -464,6 +469,7 @@ export default function App() {
                 <Route path="/pengeluaran" element={<Pengeluaran />} />
                 <Route path="/catatan"     element={<Catatan />}     />
                 <Route path="/perbaikan"   element={<Perbaikan />}   />
+                <Route path="/backup"      element={<Backup />}      />
               </Routes>
             </ProtectedLayout>
           }

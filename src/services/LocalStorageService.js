@@ -31,6 +31,9 @@ class LocalStorageService {
   writeSheet(sheetName, data) {
     try {
       localStorage.setItem(`@${sheetName}`, JSON.stringify(data));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("kua:data-changed", { detail: { sheet: sheetName } }));
+      }
       return true;
     } catch (error) {
       console.error(`Error writing ${sheetName}:`, error);
