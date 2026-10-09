@@ -185,7 +185,7 @@ export default function Backup() {
               <h2 className="font-bold text-sm">Backup cloud AKTIF</h2>
             </div>
             <p className="text-xs text-slate-400">Akun: <span className="text-slate-200 font-semibold">{user.email}</span></p>
-            <p className="text-xs text-slate-400">Setiap perubahan data otomatis dikirim ±3 detik kemudian, dan diulang tiap 5 menit.</p>
+            <p className="text-xs text-slate-400">Setiap perubahan otomatis dikirim ±3 detik kemudian. Data dari perangkat lain masuk otomatis tiap ±1 menit.</p>
           </div>
 
           <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 space-y-2 text-xs">
@@ -212,8 +212,9 @@ export default function Backup() {
           <div className="bg-[#0e1523] border border-[#1e2d45] rounded-xl p-4 flex gap-2.5">
             <RefreshCw size={14} className="text-slate-500 shrink-0 mt-0.5" />
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Di perangkat baru: install aplikasi ini, buka menu Backup Cloud, masuk dengan email yang sama.
-              Jika perangkat baru masih kosong, data dari cloud dipulihkan otomatis saat masuk.
+              Sinkronisasi berjalan dua arah otomatis selama Anda masuk. Tombol di atas hanya untuk memaksa
+              kirim/ambil saat itu juga. Di perangkat baru: buka menu Backup Cloud, masuk dengan email yang sama —
+              data langsung terisi sendiri.
             </p>
           </div>
         </div>

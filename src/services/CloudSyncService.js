@@ -38,7 +38,15 @@ const AUTH_ERRORS = {
 };
 
 export function friendlyAuthError(err) {
-  return AUTH_ERRORS[err?.code] || err?.message || "Terjadi kesalahan tidak diketahui.";
+  const code = err?.code || "";
+  const msg = err?.message || "";
+  if (code === "permission-denied" || msg.includes("Missing or insufficient permissions")) {
+    return "Akses database ditolak. Di Firebase Console: buat Firestore Database (lokasi singapore), lalu publish aturan keamanan yang tertera di halaman Backup Cloud.";
+  }
+  if (code === "unavailable") {
+    return "Tidak bisa terhubung ke server Firebase. Periksa koneksi internet.";
+  }
+  return AUTH_ERRORS[code] || msg || "Terjadi kesalahan tidak diketahui.";
 }
 
 export function onAuthChange(cb) {
@@ -125,5 +133,8 @@ export async function restoreFromCloud() {
   for (const [sheet, rows] of Object.entries(cloud.data)) {
     if (Array.isArray(rows)) LocalStorageService.writeSheet(sheet, rows);
   }
+  const ms = Number(cloud.updatedAtMs) || Date.now();
+  localStorage.setItem("kua:lastAppliedCloudMs", String(ms));
+  localStorage.setItem("kua:lastChangeMs", String(ms));
   return cloud;
 }
