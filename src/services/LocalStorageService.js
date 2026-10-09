@@ -6,13 +6,15 @@ const SHEETS = {
   PEMBAYARAN_HUTANG: 'PembayaranHutang',
   PIUTANG: 'Piutang',
   PEMBAYARAN_PIUTANG: 'PembayaranPiutang',
-  PENDAPATAN: 'Pendapatan',
+  // NOTE: PENDAPATAN is removed — data migrated to PEMASUKAN via src/utils/migrations.js
   PEMASUKAN: 'Pemasukan',
   PENGELUARAN: 'Pengeluaran',
   PERBAIKAN: 'Perbaikan',
   CATATAN: 'Catatan',
   TAGIHAN: 'Tagihan',
   PEMBAYARAN_TAGIHAN: 'PembayaranTagihan',
+  BUDGETS: 'Budgets',
+  RECURRING_TRANSACTIONS: 'RecurringTransactions',
 };
 
 class LocalStorageService {
@@ -107,7 +109,6 @@ class LocalStorageService {
     const sheetsToCheck = [
       SHEETS.HUTANG,
       SHEETS.PIUTANG,
-      SHEETS.PENDAPATAN,
       SHEETS.PEMASUKAN,
       SHEETS.PENGELUARAN,
       SHEETS.PERBAIKAN,

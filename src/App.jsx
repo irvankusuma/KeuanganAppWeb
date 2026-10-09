@@ -25,6 +25,9 @@ import {
   Receipt,
   Wallet,
   Cloud,
+  BarChart3,
+  RepeatIcon,
+  PiggyBank,
 } from "lucide-react";
 
 // Pages — dimuat malas agar bundle awal tetap ringan
@@ -36,8 +39,10 @@ const Pengeluaran = lazy(() => import("./pages/Pengeluaran"));
 const Perbaikan = lazy(() => import("./pages/Perbaikan"));
 const Catatan = lazy(() => import("./pages/catatan"));
 const Tagihan = lazy(() => import("./pages/Tagihan"));
-const Pendapatan = lazy(() => import("./pages/Pendapatan"));
 const Backup = lazy(() => import("./pages/Backup"));
+const Budget = lazy(() => import("./pages/Budget"));
+const Recurring = lazy(() => import("./pages/Recurring"));
+const Reports = lazy(() => import("./pages/Reports"));
 import LoginPage from "./pages/Login";
 import { getCloudEngine } from "./hooks/useCloudSync";
 
@@ -55,16 +60,18 @@ function PageFallback() {
 
 // ─── Shared nav config ───────────────────────────────────────
 const NAV_ITEMS = [
-  { path: "/",            icon: Home,         label: "Beranda"     },
-  { path: "/pendapatan",  icon: Wallet,        label: "Pendapatan"  },
-  { path: "/hutang",      icon: DollarSign,   label: "Hutang"      },
-  { path: "/piutang",     icon: Coins,        label: "Piutang"     },
-  { path: "/tagihan",     icon: Receipt,      label: "Tagihan"     },
-  { path: "/perbaikan",   icon: Wrench,       label: "Perbaikan"   },
-  { path: "/pemasukan",   icon: TrendingUp,   label: "Pemasukan"   },
-  { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran" },
-  { path: "/catatan",     icon: BookOpen,     label: "Catatan"     },
-  { path: "/backup",      icon: Cloud,        label: "Backup Cloud" },
+  { path: "/",            icon: Home,         label: "Beranda"         },
+  { path: "/pemasukan",   icon: TrendingUp,   label: "Pemasukan"       },
+  { path: "/pengeluaran", icon: TrendingDown, label: "Pengeluaran"     },
+  { path: "/hutang",      icon: DollarSign,   label: "Hutang"          },
+  { path: "/piutang",     icon: Coins,        label: "Piutang"         },
+  { path: "/tagihan",     icon: Receipt,      label: "Tagihan"         },
+  { path: "/budget",      icon: PiggyBank,    label: "Budget"          },
+  { path: "/recurring",   icon: RepeatIcon,   label: "Transaksi Rutin" },
+  { path: "/reports",     icon: BarChart3,    label: "Laporan"         },
+  { path: "/perbaikan",   icon: Wrench,       label: "Perbaikan"       },
+  { path: "/catatan",     icon: BookOpen,     label: "Catatan"         },
+  { path: "/backup",      icon: Cloud,        label: "Backup Cloud"    },
 ];
 
 // ─── Sidebar nav link ─────────────────────────────────────────
@@ -461,7 +468,6 @@ export default function App() {
             <ProtectedLayout>
               <Routes>
                 <Route path="/"            element={<Dashboard />}   />
-                <Route path="/pendapatan"  element={<Pendapatan />}  />
                 <Route path="/hutang"      element={<Hutang />}      />
                 <Route path="/piutang"     element={<Piutang />}     />
                 <Route path="/tagihan"     element={<Tagihan />}     />
@@ -470,6 +476,11 @@ export default function App() {
                 <Route path="/catatan"     element={<Catatan />}     />
                 <Route path="/perbaikan"   element={<Perbaikan />}   />
                 <Route path="/backup"      element={<Backup />}      />
+                <Route path="/budget"      element={<Budget />}      />
+                <Route path="/recurring"   element={<Recurring />}   />
+                <Route path="/reports"     element={<Reports />}     />
+                {/* Legacy redirect: old /pendapatan path → /pemasukan */}
+                <Route path="/pendapatan"  element={<Navigate to="/pemasukan" replace />} />
               </Routes>
             </ProtectedLayout>
           }

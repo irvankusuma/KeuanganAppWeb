@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Plus,
@@ -13,17 +13,21 @@ import {
   ChevronUp,
   Wallet,
   History,
-  Pin
+  Pin,
+  Calendar,
+  Sparkles
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import ErrorMessage from "../components/ErrorMessage";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr } from "../utils/dateUtils";
 import { formatCurrency } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import { hutangValidator, validatePaymentAmount } from "../utils/validators";
 
 export default function Hutang() {
   const [hutang, setHutang] = useState([]);
@@ -34,6 +38,8 @@ export default function Hutang() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [payErrors, setPayErrors] = useState({});
   const [formData, setFormData] = useState({
     nama: "",
     tipe: "",
@@ -117,19 +123,35 @@ export default function Hutang() {
     }
   };
 
+  const monthlyIncome = useMemo(() => {
+    const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const curMonth = todayStr().slice(0, 7);
+    const thisMonth = pemasukan
+      .filter((p) => p.tanggal?.startsWith(curMonth))
+      .reduce((s, p) => s + (parseFloat(p.jumlah) || 0), 0);
+    if (thisMonth > 0) return thisMonth;
+    const total = pemasukan.reduce((s, p) => s + (parseFloat(p.jumlah) || 0), 0);
+    return total > 0 ? total : 0;
+  }, [pembayaranHutang, hutang]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.nama || !formData.jumlah) {
-      showToast("Nama dan jumlah harus diisi!", "error");
+    const errors = hutangValidator(formData);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToast("Periksa kembali form isian!", "error");
       return;
     }
+    setFormErrors({});
     const dataToSave = { ...formData, tipe: formData.tipe || "Lainnya" };
     if (editMode && editId) {
       const updated = LocalStorageService.updateRow(SHEETS.HUTANG, editId, dataToSave);
       syncCreatePemasukan(updated);
+      showToast("Hutang berhasil diperbarui", "success");
     } else {
       const saved = LocalStorageService.appendRow(SHEETS.HUTANG, dataToSave);
       syncCreatePemasukan(saved);
+      showToast("Hutang berhasil ditambahkan", "success");
     }
     resetForm();
     loadData();
@@ -138,11 +160,12 @@ export default function Hutang() {
   const handleEdit = (item) => {
     setEditMode(true);
     setEditId(item.id);
+    setFormErrors({});
     setFormData({
       nama: item.nama,
       tipe: item.tipe,
       jumlah: item.jumlah,
-      periode: item.periode,
+      periode: item.periode || "12",
       tanggal: item.tanggal,
       catatan: item.catatan || "",
     });
@@ -155,29 +178,34 @@ export default function Hutang() {
       title: "Hapus Hutang",
       message: `Apakah "${item.nama}" mau dihapus? Semua riwayat juga akan dihapus.`,
       onConfirm: () => {
-        // Hapus history dan sync data
-        const historyHutang = pembayaranHutang.filter(p => p.hutangId?.toString() === item.id?.toString());
-        historyHutang.forEach(hist => {
+        const historyHutang = pembayaranHutang.filter((p) => p.hutangId?.toString() === item.id?.toString());
+        historyHutang.forEach((hist) => {
           LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, hist.id);
           if (hist.type === "tambah") {
             const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
-            const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_tambah");
+            const pExisting = allPemasukan.find(
+              (p) => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_tambah"
+            );
             if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
           } else {
             const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
-            const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_bayar");
+            const pExisting = allPengeluaran.find(
+              (p) => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_bayar"
+            );
             if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
           }
         });
 
-        // Hapus sync "Terima Hutang" di Pemasukan
         const allPemasukanCreate = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
-        const createRow = allPemasukanCreate.find(p => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "hutang_buat");
+        const createRow = allPemasukanCreate.find(
+          (p) => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "hutang_buat"
+        );
         if (createRow) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, createRow.id);
 
         LocalStorageService.deleteRow(SHEETS.HUTANG, item.id);
         loadData();
-        setConfirmModal(p => ({ ...p, visible: false }));
+        showToast("Hutang berhasil dihapus", "success");
+        setConfirmModal((p) => ({ ...p, visible: false }));
       },
     });
   };
@@ -186,6 +214,7 @@ export default function Hutang() {
     setModalVisible(false);
     setEditMode(false);
     setEditId(null);
+    setFormErrors({});
     setFormData({
       nama: "",
       tipe: "",
@@ -194,6 +223,30 @@ export default function Hutang() {
       tanggal: todayStr(),
       catatan: "",
     });
+  };
+
+  const getPaymentPlan = (item) => {
+    const sisa = getSisa(item);
+    if (sisa <= 0) return null;
+
+    let remainingMonths = parseInt(item.periode, 10) || 12;
+    if (item.tanggal && item.periode) {
+      const start = new Date(item.tanggal);
+      const now = new Date();
+      const diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+      remainingMonths = Math.max(1, (parseInt(item.periode, 10) || 12) - Math.max(0, diffMonths));
+    }
+
+    const monthlyPayment = Math.ceil(sisa / remainingMonths);
+    const isHighBurden = monthlyIncome > 0 && monthlyPayment > monthlyIncome * 0.5;
+    const dtiPercent = monthlyIncome > 0 ? (monthlyPayment / monthlyIncome) * 100 : 0;
+
+    return {
+      remainingMonths,
+      monthlyPayment,
+      isHighBurden,
+      dtiPercent,
+    };
   };
 
   const getJatuhTempoDate = (item) => {
@@ -360,6 +413,40 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
             </div>
           </div>
         </div>
+
+        {/* Task 2.2: Suggested Payment Plan */}
+        {status !== "lunas" && (() => {
+          const plan = getPaymentPlan(item);
+          if (!plan) return null;
+          return (
+            <div
+              className={`my-2 p-2.5 rounded-xl border text-xs ${
+                plan.isHighBurden
+                  ? "bg-rose-950/30 border-rose-500/30 text-rose-300"
+                  : "bg-[#0a0f1a] border-[#1e2d45] text-slate-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <Sparkles size={11} className={plan.isHighBurden ? "text-rose-400" : "text-blue-400"} />
+                  Rencana Pelunasan
+                </span>
+                <span className="font-bold text-white">
+                  {formatCurrency(plan.monthlyPayment)}
+                  <span className="text-[10px] text-slate-400 font-normal"> / bln</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-slate-400">Sisa waktu: ~{plan.remainingMonths} bln</span>
+                {plan.isHighBurden ? (
+                  <span className="text-rose-400 font-bold">⚠️ &gt;50% Pemasukan</span>
+                ) : (
+                  <span className="text-emerald-400 font-medium">Beban Normal</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
@@ -849,29 +936,54 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               onSubmit={handleSubmit}
               className="p-4 space-y-4 overflow-y-auto"
             >
+              {formData.jumlah && formData.periode > 0 && (
+                <div className="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs text-blue-200">
+                  <div className="flex justify-between items-center">
+                    <span>Estimasi Saran Cicilan:</span>
+                    <strong className="text-white text-sm">
+                      {formatCurrency(
+                        Math.ceil(parseFloat(formData.jumlah) / Math.max(1, parseInt(formData.periode, 10)))
+                      )}
+                      <span className="text-[10px] text-slate-400 font-normal"> / bln</span>
+                    </strong>
+                  </div>
+                  <div className="text-[10px] text-blue-300/70 mt-1 flex justify-between">
+                    <span>Jatuh Tempo: {getTanggalLunas()}</span>
+                    <span>Tenor: {formData.periode} Bulan</span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Nama Hutang
+                  Nama Hutang *
                 </label>
                 <input
                   type="text"
                   value={formData.nama}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nama: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, nama: e.target.value });
+                    if (formErrors.nama) setFormErrors({ ...formErrors, nama: null });
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                   placeholder="Contoh: Cicilan Motor"
                   required
                 />
+                <ErrorMessage message={formErrors.nama} />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 md:col-span-1">
                   <NumericInput
-                    label="Jumlah"
+                    label="Jumlah *"
                     value={formData.jumlah}
-                    onChange={(val) => setFormData({ ...formData, jumlah: val ? Number(val) : "" })}
+                    onChange={(val) => {
+                      setFormData({ ...formData, jumlah: val ? Number(val) : "" });
+                      if (formErrors.jumlah) setFormErrors({ ...formErrors, jumlah: null });
+                    }}
                     required
                   />
+                  <ErrorMessage message={formErrors.jumlah} />
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
@@ -884,10 +996,11 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                       setFormData({ ...formData, tipe: e.target.value })
                     }
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
-                    placeholder="Pribadi/Kredit"
+                    placeholder="Pribadi/Kredit/Bank"
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
@@ -898,27 +1011,32 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     min="1"
                     step="1"
                     value={formData.periode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, periode: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, periode: e.target.value });
+                      if (formErrors.periode) setFormErrors({ ...formErrors, periode: null });
+                    }}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                   />
+                  <ErrorMessage message={formErrors.periode} />
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                    Tanggal
+                    Tanggal Mulai *
                   </label>
                   <input
                     type="date"
                     value={formData.tanggal}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tanggal: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, tanggal: e.target.value });
+                      if (formErrors.tanggal) setFormErrors({ ...formErrors, tanggal: null });
+                    }}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                     required
                   />
+                  <ErrorMessage message={formErrors.tanggal} />
                 </div>
               </div>
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
                   Catatan
@@ -932,6 +1050,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                   placeholder="Keterangan tambahan..."
                 />
               </div>
+
               <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]"
@@ -946,7 +1065,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       {showPayModal && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
-          onClick={() => setShowPayModal(false)}
+          onClick={() => {
+            setShowPayModal(false);
+            setPayErrors({});
+          }}
         >
           <div
             className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl"
@@ -955,7 +1077,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
             <div className="p-4 border-b border-slate-700 flex justify-between items-center">
               <h2 className="text-lg font-bold text-white">Bayar Hutang</h2>
               <button
-                onClick={() => setShowPayModal(false)}
+                onClick={() => {
+                  setShowPayModal(false);
+                  setPayErrors({});
+                }}
                 className="p-2 hover:bg-slate-700 rounded-full transition-colors"
               >
                 <X size={20} className="text-gray-400" />
@@ -970,21 +1095,30 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               </p>
               <div>
                 <NumericInput
-                  label="Nominal Bayar"
+                  label="Nominal Bayar *"
                   value={payFormData.jumlah}
-                  onChange={(val) => setPayFormData({ ...payFormData, jumlah: val })}
+                  onChange={(val) => {
+                    setPayFormData({ ...payFormData, jumlah: val });
+                    if (payErrors.jumlah) setPayErrors({ ...payErrors, jumlah: null });
+                  }}
+                  required
+                />
+                <ErrorMessage message={payErrors.jumlah} />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  Tanggal Bayar *
+                </label>
+                <input
+                  type="date"
+                  value={payFormData.tanggal}
+                  onChange={(e) =>
+                    setPayFormData({ ...payFormData, tanggal: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"
                   required
                 />
               </div>
-              <input
-                type="date"
-                value={payFormData.tanggal}
-                onChange={(e) =>
-                  setPayFormData({ ...payFormData, tanggal: e.target.value })
-                }
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"
-                required
-              />
               <textarea
                 value={payFormData.catatan}
                 onChange={(e) =>
@@ -995,7 +1129,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               />
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
               >
                 Simpan Pembayaran
               </button>

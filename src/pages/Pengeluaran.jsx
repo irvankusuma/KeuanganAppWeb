@@ -11,24 +11,20 @@ import {
   ChevronUp,
   Calendar,
   Tag,
-  ShoppingBag,
-  Coffee,
-  Home,
-  Car,
-  Heart,
-  Film,
   Pin,
   RefreshCw
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import CategoryPicker from "../components/CategoryPicker";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr } from "../utils/dateUtils";
 import { formatCurrency, getMonthYear } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import { getCategoryByType } from "../utils/categories";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -57,38 +53,13 @@ export default function Pengeluaran() {
 
   const { showToast } = useToast();
 
-  // Daftar kategori pengeluaran umum
-  const kategoriOptions = [
-    "Makanan & Minuman",
-    "Transportasi",
-    "Belanja",
-    "Hiburan",
-    "Tagihan",
-    "Kesehatan",
-    "Pendidikan",
-    "Investasi",
-    "Donasi",
-    "Lainnya",
-  ];
+  // Ikon kategori — gunakan emoji dari preset categories
+  const getKategoriEmoji = (kategori) => {
+    return getCategoryByType('expense', kategori)?.emoji || '📌';
+  };
 
-  // Ikon untuk setiap kategori (untuk tampilan)
-  const getKategoriIcon = (kategori) => {
-    switch (kategori) {
-      case "Makanan & Minuman":
-        return <Coffee size={12} />;
-      case "Transportasi":
-        return <Car size={12} />;
-      case "Belanja":
-        return <ShoppingBag size={12} />;
-      case "Hiburan":
-        return <Film size={12} />;
-      case "Tagihan":
-        return <Home size={12} />;
-      case "Kesehatan":
-        return <Heart size={12} />;
-      default:
-        return <Tag size={12} />;
-    }
+  const getKategoriName = (kategori) => {
+    return getCategoryByType('expense', kategori)?.name || kategori || 'Lainnya';
   };
 
   const location = useLocation();
@@ -411,8 +382,8 @@ export default function Pengeluaran() {
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
                       <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50 flex items-center gap-1">
-                        {getKategoriIcon(item.kategori)}
-                        {item.kategori || "Lainnya"}
+                        {getKategoriEmoji(item.kategori)}
+                        {getKategoriName(item.kategori)}
                       </span>
                       {isSynced && (
                         <span className="bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border border-blue-500/20 flex items-center gap-1 shrink-0">
@@ -534,41 +505,11 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               </div>
 
               {/* Kategori */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Kategori
-                </label>
-                <input
-                  type="text"
-                  value={formData.kategori}
-                  onChange={(e) =>
-                    setFormData({ ...formData, kategori: e.target.value })
-                  }
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white"
-                  placeholder="Contoh: Makanan, Transportasi, dll"
-                  list="kategori-options"
-                />
-                <datalist id="kategori-options">
-                  {kategoriOptions.map((opt) => (
-                    <option key={opt} value={opt} />
-                  ))}
-                </datalist>
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {kategoriOptions.map((kat) => (
-                    <button
-                      key={kat}
-                      type="button"
-                      onClick={() =>
-                        setFormData({ ...formData, kategori: kat })
-                      }
-                      className="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded-full flex items-center gap-1"
-                    >
-                      {getKategoriIcon(kat)}
-                      {kat}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <CategoryPicker
+                value={formData.kategori}
+                onChange={(id) => setFormData({ ...formData, kategori: id })}
+                type="expense"
+              />
 
               {/* Jumlah */}
               <div>

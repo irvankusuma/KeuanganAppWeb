@@ -26,6 +26,8 @@ import { todayStr } from "../utils/dateUtils";
 import { formatCurrency as fmtC, getMonthYear } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 import { inputCls, labelCls } from "../utils/formStyles";
+import CategoryPicker from "../components/CategoryPicker";
+import { getCategoryByType } from "../utils/categories";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -38,6 +40,7 @@ export default function Pemasukan() {
   const [formData, setFormData] = useState({
     nama: "", jumlah: "",
     tanggal: todayStr(),
+    kategori: "",
     catatan: "",
   });
 
@@ -150,7 +153,7 @@ export default function Pemasukan() {
 
   const handleEdit = (item) => {
     setEditMode(true); setEditId(item.id);
-    setFormData({ nama: item.nama, jumlah: item.jumlah, tanggal: item.tanggal, catatan: item.catatan || "" });
+    setFormData({ nama: item.nama, jumlah: item.jumlah, tanggal: item.tanggal, kategori: item.kategori || "", catatan: item.catatan || "" });
     setModalVisible(true);
   };
 
@@ -171,7 +174,7 @@ export default function Pemasukan() {
 
   const resetForm = () => {
     setModalVisible(false); setEditMode(false); setEditId(null);
-    setFormData({ nama: "", jumlah: "", tanggal: todayStr(), catatan: "" });
+    setFormData({ nama: "", jumlah: "", tanggal: todayStr(), kategori: "", catatan: "" });
   };
 
   // ===== HANDLERS: SUB-TAMBAH =====
@@ -376,7 +379,9 @@ export default function Pemasukan() {
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
                       <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider text-slate-400 border border-slate-700/50">
-                        Pemasukan
+                        {item.kategori
+                          ? `${getCategoryByType('income', item.kategori)?.emoji || ''} ${getCategoryByType('income', item.kategori)?.name || item.kategori}`
+                          : 'Pemasukan'}
                       </span>
                       {isSynced && (
                         <span className="bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border border-blue-500/20 flex items-center gap-1 shrink-0">
@@ -524,6 +529,11 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                   onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
                   className={inputCls} style={{ colorScheme: "dark" }} required />
               </div>
+              <CategoryPicker
+                value={formData.kategori}
+                onChange={(id) => setFormData({ ...formData, kategori: id })}
+                type="income"
+              />
               <div>
                 <NumericInput
                   label="Saldo"

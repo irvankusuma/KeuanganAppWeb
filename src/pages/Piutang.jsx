@@ -18,12 +18,14 @@ import {
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
+import ErrorMessage from "../components/ErrorMessage";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr, dateToStr } from "../utils/dateUtils";
 import { formatCurrency } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import { validatePaymentAmount } from "../utils/validators";
 
 const plusOneMonth = () => {
   const d = new Date();
@@ -39,6 +41,8 @@ export default function Piutang() {
   const [editId, setEditId] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [payErrors, setPayErrors] = useState({});
   const [formData, setFormData] = useState({
     namaOrang: "",
     jumlah: "",
@@ -123,16 +127,31 @@ export default function Piutang() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.namaOrang || !formData.jumlah) {
-      showToast("Nama dan jumlah harus diisi!", "error");
+    const errors = {};
+    if (!formData.namaOrang?.trim()) errors.namaOrang = "Nama orang harus diisi";
+    if (!formData.jumlah && formData.jumlah !== 0) {
+      errors.jumlah = "Jumlah piutang harus diisi";
+    } else if (parseFloat(formData.jumlah) <= 0) {
+      errors.jumlah = "Jumlah harus lebih dari 0";
+    }
+    if (!formData.tanggal) errors.tanggal = "Tanggal harus diisi";
+    if (!formData.jatuhTempo) errors.jatuhTempo = "Jatuh tempo harus diisi";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToast("Periksa kembali form isian!", "error");
       return;
     }
+    setFormErrors({});
+
     if (editMode && editId) {
       const updated = LocalStorageService.updateRow(SHEETS.PIUTANG, editId, formData);
       syncCreatePengeluaran(updated);
+      showToast("Piutang berhasil diperbarui", "success");
     } else {
       const saved = LocalStorageService.appendRow(SHEETS.PIUTANG, formData);
       syncCreatePengeluaran(saved);
+      showToast("Piutang berhasil ditambahkan", "success");
     }
     resetForm();
     loadData();
@@ -141,6 +160,7 @@ export default function Piutang() {
   const handleEdit = (item) => {
     setEditMode(true);
     setEditId(item.id);
+    setFormErrors({});
     setFormData({
       namaOrang: item.namaOrang,
       jumlah: item.jumlah,
@@ -149,6 +169,20 @@ export default function Piutang() {
       catatan: item.catatan || "",
     });
     setModalVisible(true);
+  };
+
+  const resetForm = () => {
+    setModalVisible(false);
+    setEditMode(false);
+    setEditId(null);
+    setFormErrors({});
+    setFormData({
+      namaOrang: "",
+      jumlah: "",
+      tanggal: todayStr(),
+      jatuhTempo: plusOneMonth(),
+      catatan: "",
+    });
   };
 
   const handleDelete = (item) => {
@@ -179,21 +213,9 @@ export default function Piutang() {
 
         LocalStorageService.deleteRow(SHEETS.PIUTANG, item.id);
         loadData();
-        setConfirmModal(p => ({ ...p, visible: false }));
+        showToast("Piutang berhasil dihapus", "success");
+        setConfirmModal((p) => ({ ...p, visible: false }));
       },
-    });
-  };
-
-  const resetForm = () => {
-    setModalVisible(false);
-    setEditMode(false);
-    setEditId(null);
-    setFormData({
-      namaOrang: "",
-      jumlah: "",
-      tanggal: todayStr(),
-      jatuhTempo: plusOneMonth(),
-      catatan: "",
     });
   };
 
@@ -445,16 +467,16 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
   const handleSubmitBayar = (e) => {
     e.preventDefault();
     const nominal = parseFloat(payFormData.jumlah) || 0;
-    if (!payFormData.piutangId || nominal <= 0) {
-      showToast("Data pembayaran belum valid.", "error");
-      return;
-    }
-    const target = piutang.find(p => p.id?.toString() === payFormData.piutangId?.toString());
+    const target = piutang.find((p) => p.id?.toString() === payFormData.piutangId?.toString());
     const sisa = target ? getSisa(target) : 0;
-    if (nominal > sisa) {
-      showToast(`Nominal melebihi sisa piutang (${formatCurrency(sisa)}).`, "error");
+    const err = validatePaymentAmount(nominal, sisa);
+    if (err) {
+      setPayErrors({ jumlah: err });
+      showToast(err, "error");
       return;
     }
+    setPayErrors({});
+
     const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
       piutangId: payFormData.piutangId,
       namaOrang: payFormData.namaOrang,
@@ -471,9 +493,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       tanggal: payFormData.tanggal,
       catatan: payFormData.catatan || "",
       sourceRef: saved.id,
-      sourceType: "piutang_bayar"
+      sourceType: "piutang_bayar",
     });
     setShowPayModal(false);
+    showToast("Pembayaran piutang berhasil dicatat", "success");
     loadData();
   };
 
@@ -808,55 +831,65 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
             >
               <div>
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                  Nama Orang
+                  Nama Orang *
                 </label>
                 <input
                   type="text"
                   value={formData.namaOrang}
-                  onChange={(e) =>
-                    setFormData({ ...formData, namaOrang: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, namaOrang: e.target.value });
+                    if (formErrors.namaOrang) setFormErrors({ ...formErrors, namaOrang: null });
+                  }}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                   placeholder="Contoh: Budi"
                   required
                 />
+                <ErrorMessage message={formErrors.namaOrang} />
               </div>
               <div>
                 <NumericInput
-                  label="Jumlah Piutang"
+                  label="Jumlah Piutang *"
                   value={formData.jumlah}
-                  onChange={(val) => setFormData({ ...formData, jumlah: val ? Number(val) : "" })}
+                  onChange={(val) => {
+                    setFormData({ ...formData, jumlah: val ? Number(val) : "" });
+                    if (formErrors.jumlah) setFormErrors({ ...formErrors, jumlah: null });
+                  }}
                   required
                 />
+                <ErrorMessage message={formErrors.jumlah} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                    Tanggal
+                    Tanggal *
                   </label>
                   <input
                     type="date"
                     value={formData.tanggal}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tanggal: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, tanggal: e.target.value });
+                      if (formErrors.tanggal) setFormErrors({ ...formErrors, tanggal: null });
+                    }}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                     required
                   />
+                  <ErrorMessage message={formErrors.tanggal} />
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                    Jatuh Tempo
+                    Jatuh Tempo *
                   </label>
                   <input
                     type="date"
                     value={formData.jatuhTempo}
-                    onChange={(e) =>
-                      setFormData({ ...formData, jatuhTempo: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, jatuhTempo: e.target.value });
+                      if (formErrors.jatuhTempo) setFormErrors({ ...formErrors, jatuhTempo: null });
+                    }}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 transition-colors"
                     required
                   />
+                  <ErrorMessage message={formErrors.jatuhTempo} />
                 </div>
               </div>
               <div>
@@ -886,7 +919,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       {showPayModal && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
-          onClick={() => setShowPayModal(false)}
+          onClick={() => {
+            setShowPayModal(false);
+            setPayErrors({});
+          }}
         >
           <div
             className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl"
@@ -897,7 +933,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 Terima Pembayaran
               </h2>
               <button
-                onClick={() => setShowPayModal(false)}
+                onClick={() => {
+                  setShowPayModal(false);
+                  setPayErrors({});
+                }}
                 className="p-2 hover:bg-slate-700 rounded-full transition-colors"
               >
                 <X size={20} className="text-gray-400" />
@@ -912,21 +951,30 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               </p>
               <div>
                 <NumericInput
-                  label="Nominal Diterima"
+                  label="Nominal Diterima *"
                   value={payFormData.jumlah}
-                  onChange={(val) => setPayFormData({ ...payFormData, jumlah: val })}
+                  onChange={(val) => {
+                    setPayFormData({ ...payFormData, jumlah: val });
+                    if (payErrors.jumlah) setPayErrors({ ...payErrors, jumlah: null });
+                  }}
+                  required
+                />
+                <ErrorMessage message={payErrors.jumlah} />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  Tanggal Terima *
+                </label>
+                <input
+                  type="date"
+                  value={payFormData.tanggal}
+                  onChange={(e) =>
+                    setPayFormData({ ...payFormData, tanggal: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"
                   required
                 />
               </div>
-              <input
-                type="date"
-                value={payFormData.tanggal}
-                onChange={(e) =>
-                  setPayFormData({ ...payFormData, tanggal: e.target.value })
-                }
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white"
-                required
-              />
               <textarea
                 value={payFormData.catatan}
                 onChange={(e) =>
@@ -937,7 +985,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
               />
               <button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
               >
                 Simpan Penerimaan
               </button>

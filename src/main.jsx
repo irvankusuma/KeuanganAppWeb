@@ -3,6 +3,18 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import { ToastProvider } from './context/ToastContext.jsx'
+import { runAllMigrations } from './utils/migrations.js'
+import RecurringTransactionService from './services/RecurringTransactionService.js'
+
+// ── Run migrations once before the app renders ──────────────────
+runAllMigrations();
+
+// ── Auto-execute any due recurring transactions ──────────────────
+try {
+  RecurringTransactionService.processRecurringTransactions();
+} catch (e) {
+  console.warn('[Startup] Recurring processing error:', e);
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
