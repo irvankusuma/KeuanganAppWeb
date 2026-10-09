@@ -1,349 +1,315 @@
-# 🖼️ PreviewApp - Panduan Visual & Arsitektur Logika
+# 🖼️ PreviewApp - Panduan Visual & Arsitektur Logika (v1.2.0)
 
-Dokumen ini berfungsi sebagai pelengkap **[README.md](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/README.md)**. Jika `README.md` menjelaskan _apa_ yang dilakukan aplikasi, `PreviewApp.md` menjelaskan _bagaimana_ tampilan dan logika internalnya bekerja secara mendetail.
+Dokumen ini berfungsi sebagai pelengkap **[README.md](file:///d:/Website/KeuanganApp/README.md)**. Jika `README.md` merangkum fitur dan cara instalasi, `PreviewApp.md` menyajikan rancangan visual (ASCII UI Mockups), alur kerja pengguna, dan arsitektur logika di balik setiap modul aplikasi **KeuanganApp Web**.
 
 ---
 
-## 🏗️ 1) Arsitektur Layout Utama
+## 🏗️ 1) Arsitektur Layout Utama & Global Shell
 
-Aplikasi menggunakan layout responsif yang beradaptasi antara perangkat Desktop dan Mobile.
+Aplikasi dirancang dengan antarmuka *dark theme* modern (`#0a0f1a` & `#0c1220`) yang responsif untuk Desktop, Tablet, dan Ponsel pintar (*Mobile Touch/Swipe Gestures*).
 
 ```text
-┌───────────────────────────────────────────────────────────┐
-│ [LOGO] KeuanganApp                                [📤][📥] │ ← Header (Global)
-├───────────────────────────────────────────────────────────┤
-│ Beranda | Hutang | Piutang | Pemasukan | Pengeluaran | ... │ ← Navigasi Desktop
-├───────────────────────────────────────────────────────────┤
-│                                                           │
-│   (AREA KONTEN AKTIF)                                     │ ← Rendered Page
-│   Statistik, List Data, Grafik, Modul CRUD                │
-│                                                           │
-├───────────────────────────────────────────────────────────┤
-│ (Navigasi Mobile: Home | Hutang | Piutang | Menu)         │ ← Bottom Nav (Mobile)
-└───────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [💰] KeuanganApp              [Unduhan 📥] [Rabu, 25 Mei 2026 • 11:20 ⏱️] [Keluar 🚪]   │ ← Header Global
+├────────────────┬───────────────────────────────────────────────────────────────────────┤
+│ 🏠 Beranda      │  (BREADCRUMB): KeuanganApp > Dashboard                                │
+│ 📈 Pemasukan    ├───────────────────────────────────────────────────────────────────────┤
+│ 📉 Pengeluaran  │                                                                       │
+│ 💳 Hutang       │                                                                       │
+│ 🪙 Piutang      │                        AREA KONTEN HALAMAN                            │
+│ 🧾 Tagihan      │             (Dashboard / Budget / Reports / Modul CRUD)               │
+│ 🐷 Budget       │                                                                       │
+│ 🔄 Transaksi    │                                                                       │
+│ 📊 Laporan      │                                                                       │
+│ 🔧 Perbaikan    │                                                                       │
+│ 📖 Catatan      │                                                                       │
+│ ☁️ Backup Cloud │                                                                       │
+│ [◀ Collapse]   │                                                                       │
+└────────────────┴───────────────────────────────────────────────────────────────────────┘
+  ▲ Desktop Sidebar (Expandable / Collapsible 240px ⇄ 80px)
 ```
 
-### 🧠 Logika Global
-
-1.  **Layout Shell**: Menggunakan `flex-col` dengan tinggi layar penuh (`min-h-screen`). Area konten memiliki `padding-bottom` pada mobile (pb-20) untuk memberi ruang bagi _Bottom Navigation_.
-2.  **State Persistence**: Data dimuat sekali saat aplikasi pertama kali dibuka (di `App.jsx`) dan didistribusikan ke komponen-komponen yang membutuhkan melalui props atau context (internal React).
-3.  **Responsivitas**: Menyembunyikan navigasi atas pada layar kecil dan menampilkan navigasi bawah (Icon-based) untuk kenyamanan jempol pengguna mobile.
+### 📱 Tampilan Navigasi Mobile (*Gesture-Driven*)
+- **Mobile Header**: Menu drawer toggle `[☰]`, nama halaman aktif, tombol unduhan cepat `[📥]`, dan jam real-time dinamis.
+- **Swipe Gestures**:
+  - *Swipe Kanan* dari tepi layar kiri (< 40px) untuk membuka Drawer Sidebar.
+  - *Swipe Kiri* untuk menutup Drawer Sidebar dengan animasi *slide-in* halus.
+- **Route Guard**: Semua rute dilindungi oleh `ProtectedLayout` yang mengecek status sesi PIN di `sessionStorage`.
 
 ---
 
-## 📊 2) Detail Halaman: Dashboard
+## 📊 2) Detail Halaman & Logika Modul
 
-Dashboard adalah pusat agregasi data dari semua modul lain untuk memberikan ringkasan kesehatan finansial.
+---
 
-### 🎨 Denah UI
+### 🏠 A. Dashboard (`/`)
+Pusat komando finansial untuk melihat ringkasan menyeluruh kesehatan keuangan dalam satu pandangan.
 
 ```text
-┌───────────────────────────────────────────────────────────┐
-│ [   Kartu Saldo Bersih: Rp 12.500.000 (Gradient Card)   ] │
-├───────────────────────────┬───────────────────────────────┤
-│ [ Hutang: Rp 2jt ]        │ [ Piutang: Rp 5jt ]           │
-├───────────────────────────┼───────────────────────────────┤
-│ [ Pemasukan: Rp 15jt ]    │ [ Pengeluaran: Rp 8jt ]       │
-├───────────────────────────┴───────────────────────────────┤
-│ Grafik Tren Transaksi (Chart Area)                        │
-│ 📈 (Line/Bar Chart menunjukkan naik turun kas bulanan)    │
-├───────────────────────────────────────────────────────────┤
-│ Ringkasan Catatan: 5 Catatan Baru          [Buka Catatan] │
-└───────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 💰 SALDO BERSIH: Rp 14.250.000 (Pemasukan + Piutang Masuk - Pengeluaran - Cicil Hutang)│
+├──────────────────────────┬──────────────────────────┬──────────────────────────────────┤
+│ 📈 Pemasukan (Bulan Ini) │ 📉 Pengeluaran (Bln Ini) │ 💳 Hutang Aktif : Rp 4.500.000   │
+│   Rp 18.500.000          │   Rp 6.200.000           │ 🪙 Piutang Aktif: Rp 2.000.000   │
+├──────────────────────────┴──────────────────────────┴──────────────────────────────────┤
+│ ⚠️ PERINGATAN ANGGARAN (BUDGET ALERTS):                                                │
+│ [!] Kategori "Makanan & Minuman" telah terpakai 88% dari anggaran bulanan!             │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🛡️ ANALISIS KESEHATAN HUTANG (DTI RATIO):                                              │
+│ Skor: SEHAT (DTI 24.3%) • Rasio beban cicilan aman terhadap total pendapatan bulanan. │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 📈 GRAFIK TREN KEUANGAN (Recharts Interactive Cashflow)                                │
+│ [ Pemasukan (Hijau) ───  vs  Pengeluaran (Merah) ─── ]                                 │
+├────────────────────────────────────────────────────┬───────────────────────────────────┤
+│ 📅 JATUH TEMPO & TRANSAKSI RUTIN (7 HARI KEDEPAN) │ 📝 CATATAN CEPAT TERBARU          │
+│ • 15 Mei: Cicilan Laptop (Hutang) - Rp 750.000     │ • Bayar tagihan internet tgl 20   │
+│ • 18 Mei: Tagihan WiFi Indihome - Rp 350.000       │ • Cek piutang Budi                │
+└────────────────────────────────────────────────────┴───────────────────────────────────┘
 ```
 
-### 🧠 Logika UI & Data
-
-- **Logika Data**: Dashboard melakukan kalkulasi _real-time_ saat halaman dimuat.
-  - `Saldo Bersih = (Pemasukan + Pembayar Piutang) - (Pengeluaran + Pembayar Hutang)`.
-- **Logika Visual**: Menggunakan `Recharts` untuk menganalisis array transaksi dan mengelompokkannya berdasarkan bulan untuk ditampilkan dalam grafik tren.
-- **Alur Kerja**: User memantau Dashboard untuk mengetahui apakah mereka "surplus" atau "defisit" bulan ini.
+#### 🧠 Logika Utama Dashboard:
+1. **Kalkulasi Saldo Real-Time**:
+   $$\text{Saldo Bersih} = (\text{Pemasukan} + \text{Cicilan Piutang Masuk}) - (\text{Pengeluaran} + \text{Cicilan Hutang Keluar} + \text{Biaya Perbaikan})$$
+2. **Debt Health / DTI Engine**: Menghitung rasio beban hutang terhadap pendapatan:
+   - `< 30%` : **Sehat** (Hijau)
+   - `30% - 50%` : **Perhatian / Waspada** (Kuning)
+   - `> 50%` : **Beban Tinggi / Kritis** (Merah)
+3. **Budget Watchdog**: Mengagregasi pengeluaran per kategori bulan berjalan dan membandingkannya dengan target batas yang diatur di modul `/budget`.
 
 ---
 
-## 💸 3) Detail Halaman: Hutang & Piutang
-
-Manajemen kewajiban and aset yang mendukung sistem pembayaran bertahap (cicilan).
-
-### 🎨 Denah UI (Representasi Hutang/Piutang)
+### 📈 B. Pemasukan (`/pemasukan`) & 📉 Pengeluaran (`/pengeluaran`)
+Modul pencatatan transaksi kas harian dengan kategori terstruktur dan input terformat.
 
 ```text
-┌───────────────────────────────────────────────────────────┐
-│ Search: [ Cari nama... ]   Filter: [Belum Lunas/Lunas]    │
-├───────────────────────────────────────────────────────────┤
-│ ┌───────────────────────────────────────────────────────┐ │
-│ │ Nama: Pinjaman Bank XYZ              [STATUS: CICIL]  │ │
-│ │ Total: Rp 10.000.000      Dibayar: Rp 4.000.000       │ │
-│ │ Sisa : Rp 6.000.000       Tempo  : 15 Apr 2026        │ │
-│ │ ----------------------------------------------------- │ │
-│ │ [ Bayar ]   [ Riwayat ]   [ Edit ]   [ Hapus ]        │ │
-│ └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────[ + ]─┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ Search: [ 🔍 Cari catatan... ]   Filter Kategori: [ Semua Kategori ▾ ]  Bulan: [ Mei ▾]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ FORM INPUT TRANSAKSI CEPAT ───────────────────────────────────────────────────────┐ │
+│ │ Kategori: [ 🍔 Makanan & Minuman ▾ (CategoryPicker) ]   Tanggal: [ 2026-05-25 ]    │ │
+│ │ Nominal : [ Rp 45.000 (NumericInput Format Rupiah)  ]   Keterangan: [ Makan siang] │ │
+│ │ [ Simpan Transaksi ]                                                               │ │
+│ └────────────────────────────────────────────────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ DAFTAR TRANSAKSI:                                                                      │
+│ • 25 Mei 2026 │ 🍔 Makanan & Minuman │ Makan siang nasi padang │ -Rp 45.000 │ [✏️][🗑️]  │
+│ • 24 Mei 2026 │ 💼 Gaji Pokok        │ Transfer payroll kantor │ +Rp 8.000.000 │ [✏️][🗑️]│
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 🧠 Logika UI & Data
-
-- **Logika Pembayaran**: Menekan `[ Bayar ]` membuka modal untuk input nominal cicilan. Data ini disimpan dalam array riwayat pembayaran yang terikat pada ID hutang/piutang tersebut.
-- **Penghitungan Sisa**: `Sisa` tidak diambil dari input manual, melainkan hasil pengurangan otomatis: `Total - Sum(Riwayat Pembayaran)`.
-- **Logika Status**: Jika `Sisa <= 0`, status otomatis berubah menjadi "LUNAS" (Hijau). Jika melewati tanggal tempo tanpa lunas, status menjadi "OVERDUE" (Merah).
-- **Alur Kerja**: Catat hutang baru → Bayar cicilan saat ada uang → Pantau sisa hingga lunas.
+#### 🧠 Logika & Fitur:
+- **`CategoryPicker` Component**: Memilih kategori dengan representasi icon emoji terintegrasi dan warna yang memudahkan identifikasi visual.
+- **`NumericInput` Component**: Format mata uang Rupiah otomatis saat mengetik (`Rp 1.000.000`), mencegah kesalahan input string non-angka.
+- **Inline Validation**: Memeriksa kelengkapan nama, kategori, dan nominal positif melalui `useFormValidation`.
 
 ---
 
-## 📝 4) Detail Halaman: Catatan (Notes)
-
-Modul fleksibel untuk menyimpan informasi non-transaksional.
-
-### 🎨 Denah UI
+### 🐷 C. Anggaran Bulanan (`/budget`)
+Mengatur dan membatasi pagu pengeluaran per kategori agar tidak terjadi *overspending*.
 
 ```text
-┌───────────────────────────────────────────────────────────┐
-│ [Semua] [Standar] [List] [Singkat]         Search: [ ... ]│
-├───────────────────────────────────────────────────────────┤
-│ ┌──────────────────────┐    ┌──────────────────────────┐  │
- filtrate Ide Bisnis      │    │ Bayar Listrik!           │  │
-│ │ [Tipe: List]         │    │ [Tipe: Singkat]          │  │
-│ │ • Beras              │    │ *Jangan telat tgl 20*    │  │
-│ │ • Minyak             │    └──────────────────────────┘  │
-│ └──────────────────────┘                                  │
-└─────────────────────────────────────────────────────[ + ]─┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 💰 Ringkasan: Total Budget: Rp 5.000.000 │ Terpakai: Rp 3.250.000 (65%) │ Sisa: Rp 1.750.000│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🍔 Makanan & Minuman                                              [✏️ Edit Alokasi]   │
+│ Rp 1.760.000 / Rp 2.000.000 (88% - ⚠️ Waspada Mendekati Batas)                         │
+│ [████████████████████████████████░░░░] 88% (Bar Kuning)                                │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🚗 Transportasi & Bensin                                          [✏️ Edit Alokasi]   │
+│ Rp 450.000 / Rp 1.000.000 (45% - ✅ Aman)                                              │
+│ [████████████████░░░░░░░░░░░░░░░░░░░░] 45% (Bar Hijau)                                 │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🛍️ Belanja & Hiburan                                              [✏️ Edit Alokasi]   │
+│ Rp 1.040.000 / Rp 1.000.000 (104% - 🚨 Overbudget!)                                   │
+│ [████████████████████████████████████] 104% (Bar Merah Animasi)                        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 🧠 Logika UI & Data
-
-- **Smart Rendering**:
-  1.  Tipe `List` secara otomatis memproses teks baris baru menjadi poin-poin.
-  2.  Tipe `Singkat` membatasi input hingga 100 karakter untuk efisiensi.
-- **Pencarian**: Menggunakan filter array JavaScript untuk mencocokkan kata kunci pada judul dan isi secara _case-insensitive_.
-- **Alur Kerja**: Pilih tipe catatan → Masukkan konten → Simpan.
+#### 🧠 Logika Modul Budget:
+- Tersinkronisasi otomatis dengan transaksi yang dicatat pada modul **Pengeluaran**.
+- Alert otomatis disalurkan ke widget Dashboard jika pemakaian `≥ 80%` atau `> 100%`.
 
 ---
 
-## 📥 5) Logika Background: Import & Export
-
-Sistem keamanan data tanpa database cloud.
-
-### 🧠 Mekanisme Data
-
-1.  **Export**:
-    - Mengumpulkan seluruh data object dari `localStorage`.
-    - Mengonversinya menjadi format `.json`.
-    - Memicu fungsi `download` browser untuk menyimpan file di perangkat user.
-2.  **Import**:
-    - Meminta user mengunggah file `.json`.
-    - Melakukan validasi kunci (misal: memastikan ada field `hutang` dan `transaksi`).
-    - Menulis ulang data ke `localStorage`.
-    - Melakukan sinkronisasi ulang state aplikasi.
-
----
-
-## 📈 6) Relasi Antar Data (Data Connection)
-
-- **Transaksi (In/Out)** mempengaruhi **Saldo Dashboard**.
-- **Riwayat Bayar Hutang** mempengaruhi **Sisa Hutang** AND **Saldo Dashboard** (sebagai pengeluaran).
-- **Riwayat Bayar Piutang** mempengaruhi **Sisa Piutang** AND **Saldo Dashboard** (sebagai pemasukan).
-- **Catatan** berdiri sendiri namun sering digunakan pengguna untuk mencatat detail transaksi yang terlalu panjang.
-
----
-
-## 🏁 7) Kesimpulan
-
-Aplikasi ini didesain agar user menghabiskan waktu seminimal mungkin untuk menginput (kecepatan), namun mendapatkan informasi semaksimal mungkin (detail dashboard). Integrasi antara riwayat pembayaran dan total nilai memastikan akurasi data finansial pengguna tetap terjaga.
-
-_Kembali ke panduan utama:_ **[README.md](file:///c:/Users/irfan/OneDrive/Dokumen/Website/KeuanganAppWeb/README.md)**
-�─────┐
-│ Bayar Hutang │
-├───────────────────────────────────────────────┤
-│ Nama Hutang │
-│ Nominal pembayaran │
-│ Tanggal pembayaran │
-│ Catatan pembayaran (opsional) │
-│ [Simpan Pembayaran] │
-└───────────────────────────────────────────────┘
-
-````
-
-### Logika Hutang
-1. Tambah hutang baru → masuk daftar hutang.
-2. Saat bayar, data disimpan ke sheet pembayaran hutang.
-3. Sistem hitung:
-   - `totalDibayar = sum(history pembayaran hutangId)`
-   - `sisa = totalHutang - totalDibayar`
-4. Edit/hapus history langsung mempengaruhi nilai sisa.
-
-### Kegunaan
-- Melacak cicilan secara rinci per hutang.
-- Mengurangi risiko salah hitung sisa kewajiban.
-
----
-
-## 5) Preview Halaman Piutang
+### 🔄 D. Transaksi Berulang / Recurring (`/recurring`)
+Otomatisasi pencatatan tagihan dan pengeluaran berkala tanpa perlu input berulang manual.
 
 ```text
-┌───────────────────────────────────────────────┐
-│ Filter: [Semua] [Akan Datang] [Hari Ini] ... │
-├───────────────────────────────────────────────┤
-│ Nama Orang                        [Status]    │
-│ Tanggal pinjam • Jatuh tempo                   │
-│ Total: Rp 3.000.000 • Diterima: Rp 1.000.000   │
-│ Sisa: Rp 2.000.000                              │
-│ [Bayar] [History] [Edit] [Hapus]               │
-├───────────────────────────────────────────────┤
-│ Riwayat Pembayaran                              │
-│ 2026-03-10  Rp 500.000  [Edit] [Hapus]         │
-│ 2026-03-18  Rp 500.000  [Edit] [Hapus]         │
-└───────────────────────────────────────────────┘
-                          [+]
-````
-
-### Logika Piutang
-
-1. Tambah data piutang (siapa + nominal + jatuh tempo).
-2. Saat ada pembayaran masuk, simpan ke history pembayaran piutang.
-3. Sistem hitung:
-   - `totalDiterima = sum(history pembayaran piutangId)`
-   - `sisa = totalPiutang - totalDiterima`
-4. Edit/hapus history untuk koreksi kesalahan input.
-
-### Kegunaan
-
-- Kontrol penerimaan piutang bertahap.
-- Memudahkan penagihan yang belum lunas.
-
----
-
-## 6) Preview Halaman Pemasukan
-
-```text
-┌───────────────────────────────────────────────┐
-│ Daftar pemasukan                               │
-│ Sumber | Tanggal | Nominal                     │
-│ [Edit] [Hapus]                                 │
-└───────────────────────────────────────────────┘
-                          [+]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [ + Tambah Transaksi Rutin ]                                                           │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔁 Gaji Bulanan                 │ Tipe: Pemasukan │ Rp 8.500.000 │ Jadwal: Tiap tgl 25 │
+│ Status: Terjadwal               │ Eksekusi Terakhir: 25 Apr 2026 │ [▶️ Eksekusi] [✏️][🗑️]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔁 Langganan Netflix & Spotify │ Tipe: Pengeluaran│ Rp 235.000   │ Jadwal: Tiap tgl 10 │
+│ Status: Auto-Executed           │ Eksekusi Terakhir: 10 Mei 2026 │ [▶️ Eksekusi] [✏️][🗑️]│
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Logika
-
-- Tiap transaksi pemasukan disimpan sebagai row.
-- Total pemasukan di dashboard mengambil agregasi dari modul ini.
-
-### Kegunaan
-
-- Mengetahui sumber uang masuk per periode.
+#### 🧠 Logika Auto-Execution:
+- **`RecurringTransactionService` Engine**: Bekerja saat aplikasi pertama kali dimuat. Memeriksa tanggal sistem dan frekuensi (*Harian, Mingguan, Bulanan, Tahunan*).
+- Jika tanggal jadwal telah tiba atau terlewat dan belum dieksekusi pada periode bersangkutan, sistem secara otomatis menambahkan catatan transaksi ke database kas lokal.
+- Pengguna juga dapat menekan tombol `[▶️ Eksekusi]` untuk eksekusi segera kapan saja.
 
 ---
 
-## 7) Preview Halaman Pengeluaran
+### 📊 E. Laporan & Analisis Finansial (`/reports`)
+Analisis mendalam mengenai arus kas, alokasi anggaran, dan tren jangka panjang.
 
 ```text
-┌───────────────────────────────────────────────┐
-│ Daftar pengeluaran                             │
-│ Kategori | Tanggal | Nominal                   │
-│ [Edit] [Hapus]                                 │
-└───────────────────────────────────────────────┘
-                          [+]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ Periode Laporan: [ Mei 2026 ▾ ]                                                        │
+├──────────────────────────┬──────────────────────────┬──────────────────────────────────┤
+│ Total Pemasukan          │ Total Pengeluaran        │ Rasio Tabungan (Savings Rate)    │
+│ Rp 18.500.000            │ Rp 6.200.000             │ 66.5% (Sangat Baik ⭐)           │
+├──────────────────────────┴──────────────────────────┴──────────────────────────────────┤
+│ 🥧 DISTRIBUSI PENGELUARAN (Pie Chart)     │ 🏆 TOP 5 PENGELUARAN TERBESAR             │
+│ • Makanan: 42% (Rp 2.600.000)             │ 1. Sewa Tempat Tinggal : Rp 2.000.000      │
+│ • Tagihan & Utility: 28% (Rp 1.750.000)   │ 2. Belanja Bulanan Supermarket: Rp 950.000 │
+│ • Transportasi: 15% (Rp 930.000)          │ 3. Servis Motor Berkala: Rp 450.000        │
+│ • Lain-lain: 15% (Rp 920.000)             │ 4. Makan Restoran Keluarga : Rp 380.000    │
+├───────────────────────────────────────────┴────────────────────────────────────────────┤
+│ 📊 TREN ARUS KAS 6 BULAN TERAKHIR (Bar Chart Perbandingan Historis)                   │
+│ [Desember] [Januari] [Februari] [Maret] [April] [Mei]                                  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Logika
-
-- Tiap pengeluaran disimpan per row.
-- Total pengeluaran terhubung ke dashboard.
-
-### Kegunaan
-
-- Memantau pola belanja dan menekan pemborosan.
 
 ---
 
-## 8) Preview Halaman Perbaikan
+### 💳 F. Hutang (`/hutang`) & 🪙 Piutang (`/piutang`)
+Manajemen kewajiban hutang dan aset pinjaman pihak ketiga dengan dukungan pembayaran bertahap (cicilan multi-step).
 
 ```text
-┌───────────────────────────────────────────────┐
-│ Daftar perbaikan                               │
-│ Nama item | Tanggal | Biaya                    │
-│ [Edit] [Hapus]                                 │
-└───────────────────────────────────────────────┘
-                          [+]
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ Search: [ Cari nama/keterangan... ]   Filter: [ Belum Lunas ▾ ]  Urutkan: [ Tempo Terdekat]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 💳 Pinjaman Bank / Cicilan Motor                          [ STATUS: DALAM CICILAN 🟡 ] │
+│ Total Pinjaman : Rp 12.000.000     Sudah Dibayar: Rp 8.000.000                         │
+│ Sisa Kewajiban : Rp 4.000.000      Jatuh Tempo  : 15 Juni 2026 (21 hari lagi)          │
+│ ┌─ KALKULATOR RENCANA PELUNASAN CERDAS ──────────────────────────────────────────────┐ │
+│ │ Rekomendasi Cicilan: Rp 1.333.333 / bln (Estimasi Lunas dalam 3 Bulan)             │ │
+│ │ Beban terhadap Pemasukan: ~7.2% (Beban Ringan & Terkendali)                        │ │
+│ └────────────────────────────────────────────────────────────────────────────────────┘ │
+│ [ 💵 Bayar Cicilan ]   [ 📜 Riwayat Cicilan (4) ]   [ 📤 Bagikan Rincian ]   [ ✏️ ] [ 🗑️ ] │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Kegunaan
-
-- Mencatat biaya perbaikan agar tidak tercampur tanpa konteks.
+#### 🧠 Logika Cicilan & Sisa:
+- $\text{Sisa Hutang} = \text{Total Pinjaman} - \sum(\text{Riwayat Pembayaran Cicilan})$.
+- Status otomatis berubah menjadi `LUNAS` (Hijau) jika $\text{Sisa} \le 0$.
+- Status otomatis `OVERDUE` (Merah) jika tanggal hari ini melewati tanggal jatuh tempo dan belum lunas.
+- **Tombol Bagikan / Share**: Menghasilkan format teks penagihan/konfirmasi ramah yang dapat disalin ke clipboard atau langsung dikirim via WhatsApp.
 
 ---
 
-## 9) Preview Modal Export / Import
+### 🧾 G. Tagihan Rutin (`/tagihan`) & 🔧 Perbaikan Aset (`/perbaikan`)
+- **Tagihan (`/tagihan`)**: Melacak tagihan bulanan berulang (PLN, PDAM, BPJS, Internet). Menyediakan status cepat `Sudah Bayar` / `Belum Bayar` untuk bulan aktif.
+- **Perbaikan (`/perbaikan`)**: Khusus mencatat pengeluaran pemeliharaan aset berharga (kendaraan, renovasi rumah, elektronik) agar histori biaya perawatan tidak hilang dalam arus kas umum.
+
+---
+
+### 📖 H. Catatan Finansial (`/catatan`)
+Media pencatatan memo, daftar belanja, dan ide keuangan bebas dalam 3 tipe format:
+1. **Standar**: Judul dan deskripsi teks bebas multi-paragraf.
+2. **List / Checklist**: Baris teks otomatis dikonversi menjadi daftar *bullet point* / to-do item.
+3. **Singkat / Quick Memo**: Format ringkas cepat (< 100 karakter).
+
+---
+
+### ☁️ I. Backup, Restore & Multi-Engine Cloud Sync (`/backup`)
+Menjamin keamanan data pengguna dengan fleksibilitas offline penuh maupun sinkronisasi cloud pribadi.
 
 ```text
-┌───────────────────────────────────────────────┐
-│ Export / Import                                │
-├───────────────────────────────────────────────┤
-│ [Tab Export] [Tab Import]                      │
-│ - Export: unduh JSON backup                    │
-│ - Import: unggah JSON restore                  │
-└───────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 💾 CADANGAN LOKAL (OFFLINE JSON)                                                       │
+│ [ 📥 Unduh Backup JSON ]               [ 📤 Pulihkan dari File JSON ]                  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ ☁️ CLOUD SYNC ENGINE PILIHAN (PILIH SALAH SATU ATAU GABUNGAN)                          │
+│                                                                                        │
+│ 1. 🔥 Firebase Firestore  : Sinkronisasi database cloud realtime multi-perangkat.      │
+│ 2. ⚡ Supabase Database   : Backend PostgreSQL cloud dengan token API aman.           │
+│ 3. 🐙 GitHub Secret Gist  : Simpan backup otomatis ke Gist pribadi akun GitHub Anda.   │
+│                                                                                        │
+│ Status Sinkronisasi : [ Terhubung ✅ ] • Sinkronisasi Terakhir: 10 Menit yang lalu     │
+│ [ 🔄 Sinkronkan Sekarang ]             [ ⚙️ Atur Kredensial Engine ]                   │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Logika Data
+---
 
-- Export membaca semua sheet localStorage.
-- Import menimpa data sheet dengan isi file JSON.
-
-### Kegunaan
-
-- Backup berkala.
-- Migrasi data antar perangkat.
+### 🔐 J. Keamanan & Layar Login (`/login`)
+- Perlindungan kode PIN / Password aplikasi.
+- Seluruh data tersimpan aman di `localStorage` peramban lokal pengguna tanpa pelacakan pihak ketiga (*Zero Tracking, Complete Privacy*).
 
 ---
 
-## 10) Logika Besar Aplikasi (End-to-End)
+## 🔄 3) Alur Integrasi Data End-to-End
 
-1. Pengguna input data di modul (hutang/piutang/pemasukan/pengeluaran/catatan).
-2. Data disimpan lokal di browser.
-3. Dashboard membaca semua modul lalu menghitung ringkasan.
-4. Riwayat pembayaran hutang/piutang mempengaruhi nilai sisa secara otomatis.
-5. Backup/restore menjaga data tetap aman saat ganti perangkat/browser.
+```mermaid
+flowchart TD
+    subgraph INPUT_MODUL ["Modul Input Transaksi"]
+        IN[Pemasukan / Income]
+        OUT[Pengeluaran / Expense]
+        REC[Recurring Transactions]
+        HUT_PAY[Cicilan Hutang]
+        PIU_PAY[Cicilan Piutang]
+        REP[Biaya Perbaikan]
+    end
+
+    subgraph ENGINE ["Logic & Service Engines"]
+        CALC[Kalkulasi Saldo Bersih]
+        DTI_ENG[Debt-to-Income & Health Score]
+        BUDGET_ENG[Budget Utilization Watchdog]
+        REC_ENG[Auto-Execution Engine]
+    end
+
+    subgraph STORAGE ["Penyimpanan & Keamanan"]
+        LS[(Browser LocalStorage)]
+        CLOUD[Cloud Sync: Firebase / Supabase / Gist]
+        JSON_FILE[Export / Import File JSON]
+    end
+
+    subgraph OUTPUT ["Visualisasi & Notifikasi"]
+        DASH[Dashboard Overview & Alerts]
+        REPORTS[Laporan & Visualisasi Grafik]
+        BUDGET_UI[Progres Bar Anggaran]
+    end
+
+    IN --> LS
+    OUT --> LS
+    REC --> REC_ENG --> OUT & IN
+    HUT_PAY --> LS
+    PIU_PAY --> LS
+    REP --> LS
+
+    LS <--> CLOUD
+    LS <--> JSON_FILE
+
+    LS --> CALC --> DASH
+    LS --> DTI_ENG --> DASH
+    LS --> BUDGET_ENG --> DASH & BUDGET_UI
+    LS --> REPORTS
+```
 
 ---
 
-## 11) Cara Pakai yang Disarankan
+## 📅 4) Panduan Rutinitas Penggunaan yang Disarankan
 
-### Harian
-
-- Catat pemasukan dan pengeluaran.
-- Catat pembayaran hutang/piutang bila ada transaksi.
-- Tulis catatan pengingat jika perlu.
-
-### Mingguan
-
-- Cek dashboard (saldo + tren).
-- Cek item yang mendekati jatuh tempo.
-- Koreksi data dengan edit/hapus jika ada salah input.
-
-### Bulanan
-
-- Review performa keuangan dari tren dan total.
-- Export backup JSON.
+| Frekuensi | Tindakan yang Disarankan |
+|---|---|
+| **Harian** | • Catat pengeluaran harian & pemasukan baru.<br>• Catat pembayaran cicilan hutang/piutang jika ada transaksi.<br>• Cek transaksi berulang yang baru dieksekusi otomatis. |
+| **Mingguan** | • Buka Dashboard untuk mengecek indikator *Budget Alerts* (waspada jika mendekati 80%).<br>• Periksa kalender jatuh tempo hutang/piutang dalam 7 hari ke depan.<br>• Tulis catatan memo atau rencana belanja di modul Catatan. |
+| **Bulanan** | • Evaluasi performa finansial di menu Laporan (`/reports`) (Cek *Savings Rate* & *Top 5 Pengeluaran*).<br>• Sesuaikan alokasi batas pagu di menu Budget (`/budget`) untuk bulan baru.<br>• Lakukan ekspor file cadangan JSON lokal atau sinkronkan ke Cloud Backup. |
 
 ---
 
-## 12) Nilai Guna Desain
+## 🎯 5) Nilai Keunggulan Desain Aplikasi
 
-Desain aplikasi fokus pada:
-
-- **kejelasan nominal dan status**,
-- **aksi cepat** (Bayar/Edit/Hapus/Simpan),
-- **penggunaan mobile-friendly**,
-- **navigasi sederhana**,
-- **konsistensi antar halaman**.
-
-Dengan begitu pengguna bisa cepat memahami “di mana lihat data”, “di mana input”, dan “di mana memperbaiki kesalahan”.
+1. **Privasi & Keamanan Mutlak (*Offline-First*)**: Data Anda adalah milik Anda sepenuhnya. Aplikasi berjalan penuh tanpa bergantung pada server luar, didukung PIN lock.
+2. **Kalkulasi & Agregasi Otomatis**: Menghilangkan keharusan kalkulasi manual pada sisa hutang, pagu anggaran, rasio DTI, dan saldo bersih.
+3. **Antarmuka Premium & Ergonomis**: Dirancang menggunakan dark-mode elegan, responsif terhadap sentuhan dan gesture swipe mobile, serta visualisasi data interaktif berbasis grafik Recharts.
+4. **Fleksibilitas Pencadangan**: Mendukung ekspor-impor JSON instan maupun sinkronisasi cloud modern (Firebase, Supabase, GitHub Gist).
 
 ---
 
-## 13) Penutup
-
-Dokumen ini adalah versi visual + logika dari aplikasi (preview terstruktur). Untuk panduan umum aplikasi, tujuan, dan instruksi menjalankan project, lihat `README.md`.
-
-> > > > > > > 3bf18bf684fcf3ad42d6cc01a9c158af36f417b0
+_Kembali ke dokumentasi utama project:_ **[README.md](file:///d:/Website/KeuanganApp/README.md)**
