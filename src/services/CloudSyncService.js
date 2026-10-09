@@ -31,6 +31,7 @@ const AUTH_ERRORS = {
   "auth/email-already-in-use": "Email sudah terdaftar. Pilih tab Masuk.",
   "auth/weak-password": "Password minimal 6 karakter.",
   "auth/invalid-email": "Format email tidak valid.",
+  "auth/user-not-found": "Email tidak terdaftar. Pilih tab Daftar dulu.",
   "auth/network-request-failed": "Gagal terhubung. Periksa internet Anda.",
   "auth/too-many-requests": "Terlalu banyak percobaan. Tunggu sebentar lagi.",
   "auth/operation-not-allowed": "Login email/password belum diaktifkan di Firebase Console.",
@@ -72,6 +73,11 @@ export async function login(email, password) {
 export async function logout() {
   const { authMod } = await ensureFirebase();
   await authMod.signOut(auth);
+}
+
+export async function sendPasswordReset(email) {
+  const { authMod } = await ensureFirebase();
+  await authMod.sendPasswordResetEmail(auth, email);
 }
 
 export function collectLocal() {

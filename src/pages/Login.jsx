@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DollarSign, LogIn, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { DollarSign, LogIn, Eye, EyeOff, Lock, ShieldCheck, Loader2, Mail } from "lucide-react";
+import * as CloudSync from "../services/CloudSyncService";
 
 /**
- * Lock screen. PIN disimpan sebagai hash (bukan teks asli) di localStorage.
- *
- * Kunci:
- *   app_pin       -> "sha256:<hex>" (atau PIN polos untuk data lama, dimigrasi saat login)
- *   app_pin_lock  -> { count, until } untuk pembatasan percobaan salah
+ * Alur masuk dua lapis:
+ *   1. Akun cloud (email + password Firebase) — pintu utama & kunci backup.
+ *   2. PIN perangkat — kunci cepat setiap kali aplikasi dibuka ulang.
+ * PIN disimpan sebagai hash (bukan teks asli) di localStorage.
  */
 const PIN_KEY = "app_pin";
 const LOCK_KEY = "app_pin_lock";
@@ -59,7 +59,166 @@ const writeLock = (count, until) => {
   localStorage.setItem(LOCK_KEY, JSON.stringify({ count, until }));
 };
 
-export default function LoginPage() {
+const inputCls =
+  "w-full bg-[#141d2e] border border-[#1e2d45] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/30 transition-colors disabled:opacity-50";
+
+function Logo({ subtitle }) {
+  return (
+    <div className="flex flex-col items-center mb-8">
+      <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30">
+        <DollarSign size={28} className="text-white" />
+      </div>
+      <h1 className="text-xl font-bold text-white">KeuanganApp</h1>
+      <p className="text-sm text-slate-400 mt-1 text-center">{subtitle}</p>
+    </div>
+  );
+}
+
+/* ─── Lapis 1: akun cloud (email + password) ─── */
+function CloudGate() {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const switchMode = (m) => {
+    setMode(m);
+    setError("");
+    setSent(false);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      if (mode === "login") await CloudSync.login(email.trim(), password);
+      else if (mode === "register") await CloudSync.register(email.trim(), password);
+      else {
+        await CloudSync.sendPasswordReset(email.trim());
+        setSent(true);
+      }
+    } catch (err) {
+      setError(CloudSync.friendlyAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <Logo subtitle="Masuk untuk melanjutkan — data Anda tersimpan aman di cloud" />
+
+        <div className="bg-[#0e1523] border border-[#1e2d45] rounded-2xl p-6 shadow-2xl">
+          {mode !== "forgot" && (
+            <div className="grid grid-cols-2 gap-1 p-1 bg-black/30 rounded-xl mb-5">
+              {[["login", "Masuk"], ["register", "Daftar Akun"]].map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => switchMode(m)}
+                  className={`py-2 rounded-lg text-xs font-bold transition-colors ${mode === m ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                placeholder="nama@email.com"
+                className={inputCls}
+                autoFocus
+              />
+            </div>
+
+            {mode !== "forgot" && (
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  Sandi {mode === "register" && "(min. 6 karakter)"}
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  placeholder="••••••"
+                  className={inputCls}
+                />
+              </div>
+            )}
+
+            {mode === "forgot" && sent && (
+              <p className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                Link reset sandi telah dikirim ke {email.trim()}. Cek inbox (atau folder spam) email Anda.
+              </p>
+            )}
+
+            {error && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+              {busy
+                ? "Memproses..."
+                : mode === "login"
+                  ? "Masuk"
+                  : mode === "register"
+                    ? "Daftar & Masuk"
+                    : "Kirim Link Reset Sandi"}
+            </button>
+          </form>
+
+          <div className="mt-4 text-center">
+            {mode !== "forgot" ? (
+              <button
+                type="button"
+                onClick={() => switchMode("forgot")}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Lupa sandi / lupa akun?
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => switchMode("login")}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Kembali ke halaman masuk
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-6 flex items-center justify-center gap-1.5">
+          <ShieldCheck size={12} />
+          Akun menghubungkan perangkat Anda dengan backup cloud pribadi
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Lapis 2: PIN perangkat ─── */
+function PinGate({ cloudEmail, onSwitchAccount }) {
   const navigate = useNavigate();
   const timeoutRef = useRef(null);
 
@@ -156,24 +315,17 @@ export default function LoginPage() {
     navigate("/");
   };
 
-  const inputCls =
-    "w-full bg-[#141d2e] border border-[#1e2d45] rounded-xl px-4 py-3 text-white text-sm tracking-widest focus:outline-none focus:border-blue-500/70 focus:ring-1 focus:ring-blue-500/30 transition-colors disabled:opacity-50";
-
   return (
     <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30">
-            <DollarSign size={28} className="text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-white">KeuanganApp</h1>
-          <p className="text-sm text-slate-400 mt-1 text-center">
-            {isFirstTime ? "Buat PIN untuk melindungi data Anda" : "Masukkan PIN untuk melanjutkan"}
-          </p>
-        </div>
+        <Logo subtitle={isFirstTime ? "Buat PIN untuk melindungi data Anda" : "Masukkan PIN untuk melanjutkan"} />
 
-        {/* Card */}
+        {cloudEmail && (
+          <p className="text-center text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 mb-4">
+            Login cloud aktif: {cloudEmail}
+          </p>
+        )}
+
         <div className="bg-[#0e1523] border border-[#1e2d45] rounded-2xl p-6 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -193,7 +345,7 @@ export default function LoginPage() {
                     setError("");
                   }}
                   placeholder="••••"
-                  className={`${inputCls} pr-10`}
+                  className={`${inputCls} pr-10 tracking-widest`}
                   autoFocus
                 />
                 <button
@@ -223,7 +375,7 @@ export default function LoginPage() {
                     setError("");
                   }}
                   placeholder="••••"
-                  className={inputCls}
+                  className={`${inputCls} tracking-widest`}
                 />
               </div>
             )}
@@ -266,11 +418,60 @@ export default function LoginPage() {
           </form>
         </div>
 
+        {onSwitchAccount && (
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={onSwitchAccount}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Ganti akun cloud / keluar akun
+            </button>
+          </div>
+        )}
+
         <p className="text-center text-xs text-slate-600 mt-6 flex items-center justify-center gap-1.5">
           <ShieldCheck size={12} />
-          PIN disimpan sebagai hash &amp; data tetap di perangkat ini
+          PIN disimpan sebagai hash di perangkat ini
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const [fbUser, setFbUser] = useState(CloudSync.isFirebaseConfigured ? undefined : null);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("app_unlocked")) {
+      navigate("/", { replace: true });
+      return undefined;
+    }
+    if (!CloudSync.isFirebaseConfigured) return undefined;
+    return CloudSync.onAuthChange(setFbUser);
+  }, [navigate]);
+
+  if (CloudSync.isFirebaseConfigured && fbUser === undefined) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+        <Loader2 size={28} className="text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (CloudSync.isFirebaseConfigured && !fbUser) {
+    return <CloudGate />;
+  }
+
+  return (
+    <PinGate
+      cloudEmail={fbUser?.email}
+      onSwitchAccount={
+        CloudSync.isFirebaseConfigured
+          ? () => CloudSync.logout().then(() => setFbUser(null))
+          : undefined
+      }
+    />
   );
 }
