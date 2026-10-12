@@ -23,8 +23,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Receipt,
-  Wallet,
-  Cloud,
   BarChart3,
   RepeatIcon,
   PiggyBank,
@@ -39,16 +37,18 @@ const Pengeluaran = lazy(() => import("./pages/Pengeluaran"));
 const Perbaikan = lazy(() => import("./pages/Perbaikan"));
 const Catatan = lazy(() => import("./pages/catatan"));
 const Tagihan = lazy(() => import("./pages/Tagihan"));
-const Backup = lazy(() => import("./pages/Backup"));
 const Budget = lazy(() => import("./pages/Budget"));
 const Recurring = lazy(() => import("./pages/Recurring"));
 const Reports = lazy(() => import("./pages/Reports"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
 import LoginPage from "./pages/Login";
-import { getCloudEngine } from "./hooks/useCloudSync";
+import { startRealtimeSync } from "./services/RealtimeSync";
+import * as Accounts from "./services/AccountService";
 
 // Components
 const ExportImportModal = lazy(() => import("./components/ExportImportModal"));
 import ConfirmModal from "./components/ConfirmModal";
+import ProfileMenu from "./components/ProfileMenu";
 
 function PageFallback() {
   return (
@@ -71,7 +71,6 @@ const NAV_ITEMS = [
   { path: "/reports",     icon: BarChart3,    label: "Laporan"         },
   { path: "/perbaikan",   icon: Wrench,       label: "Perbaikan"       },
   { path: "/catatan",     icon: BookOpen,     label: "Catatan"         },
-  { path: "/backup",      icon: Cloud,        label: "Backup Cloud"    },
 ];
 
 // ─── Sidebar nav link ─────────────────────────────────────────
@@ -108,18 +107,10 @@ function SidebarContent({ onClose, onExport, onLogout, collapsed, onToggleCollap
 
   return (
     <div className="flex flex-col h-full">
-      {/* Brand */}
-      <div className={`flex items-center px-4 py-5 shrink-0 ${collapsed ? "justify-center" : "justify-between"}`}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 shrink-0">
-            <DollarSign size={18} className="text-white" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-white leading-none truncate">KeuanganApp</p>
-              <p className="text-[10px] text-slate-500 mt-0.5 truncate">Manajemen Keuangan</p>
-            </div>
-          )}
+      {/* Profile menu (pengganti brand teks) */}
+      <div className={`flex items-center px-3 py-4 shrink-0 ${collapsed ? "justify-center" : "justify-between gap-2"}`}>
+        <div className={collapsed ? "" : "flex-1 min-w-0"}>
+          <ProfileMenu collapsed={collapsed} onNavigate={onClose} />
         </div>
         {/* Close button — mobile only */}
         {isMobile && onClose && (
@@ -298,11 +289,13 @@ function Layout({ children }) {
   }, [mobileOpen]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem("app_unlocked");
+    Accounts.lock();
     navigate("/login");
   };
 
-  const currentPage = NAV_ITEMS.find((i) => i.path === location.pathname)?.label ?? "Dashboard";
+  const currentPage =
+    NAV_ITEMS.find((i) => i.path === location.pathname)?.label ??
+    (location.pathname === "/settings" ? "Pengaturan" : "Beranda");
 
   return (
     <div
@@ -375,8 +368,9 @@ function Layout({ children }) {
               <span className="text-xs font-bold text-white truncate">{currentPage}</span>
             </div>
             
-            {/* Right: Download + Clock */}
+            {/* Right: Profile + Download + Clock */}
             <div className="flex items-center gap-1.5 shrink-0">
+              <ProfileMenu collapsed align="right" />
               <button
                 onClick={() => setShowExportModal(true)}
                 className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
@@ -392,10 +386,8 @@ function Layout({ children }) {
         {/* ── Desktop page header ── */}
         <header className="hidden md:block sticky top-0 z-20 bg-[#0a0f1a]/85 backdrop-blur-md border-b border-[#1e2d45]/60">
           <div className="h-14 px-6 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
-              <span>KeuanganApp</span>
-              <ChevronRight size={12} className="shrink-0" />
-              <span className="text-slate-300 font-medium truncate">{currentPage}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-bold text-white truncate">{currentPage}</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -448,8 +440,7 @@ function Layout({ children }) {
 
 // ─── Route guard ──────────────────────────────────────────────
 function ProtectedLayout({ children }) {
-  const unlocked = sessionStorage.getItem("app_unlocked");
-  if (!unlocked) {
+  if (!Accounts.isUnlocked()) {
     return <Navigate to="/login" replace />;
   }
   return <Layout>{children}</Layout>;
@@ -457,7 +448,7 @@ function ProtectedLayout({ children }) {
 
 // ─── App root ─────────────────────────────────────────────────
 export default function App() {
-  getCloudEngine();
+  useEffect(() => startRealtimeSync(), []);
   return (
     <BrowserRouter>
       <Routes>
@@ -475,12 +466,14 @@ export default function App() {
                 <Route path="/pengeluaran" element={<Pengeluaran />} />
                 <Route path="/catatan"     element={<Catatan />}     />
                 <Route path="/perbaikan"   element={<Perbaikan />}   />
-                <Route path="/backup"      element={<Backup />}      />
                 <Route path="/budget"      element={<Budget />}      />
                 <Route path="/recurring"   element={<Recurring />}   />
                 <Route path="/reports"     element={<Reports />}     />
+                <Route path="/settings"    element={<SettingsPage />} />
                 {/* Legacy redirect: old /pendapatan path → /pemasukan */}
                 <Route path="/pendapatan"  element={<Navigate to="/pemasukan" replace />} />
+                {/* Backup is now opened from the Ekspor / Impor dialog. */}
+                <Route path="/backup"      element={<Navigate to="/" replace />} />
               </Routes>
             </ProtectedLayout>
           }

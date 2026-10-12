@@ -15,6 +15,7 @@ export const generateCardImage = async (element) => {
           const skipClasses = [
             'card-action-menu-trigger',
             'btn-action',
+            'btn-icon',
             'action-buttons',
             'no-export',
             'fab-button',

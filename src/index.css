@@ -182,6 +182,14 @@ input:-webkit-autofill:focus {
 .btn-action-purple  { @apply bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 border-purple-500/10; }
 .btn-action-indigo  { @apply bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400 border-indigo-500/10; }
 
+.btn-icon {
+  @apply relative w-9 h-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 shrink-0 disabled:opacity-40;
+}
+.btn-icon-active { @apply ring-1 ring-blue-400/50; }
+.btn-icon-badge {
+  @apply absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center leading-none;
+}
+
 /* ============================================
    RESPONSIVE CARD GRID
    ============================================ */
@@ -252,12 +260,18 @@ input:-webkit-autofill:focus {
 
 .is-exporting .no-export,
 .is-exporting .card-action-menu-trigger,
+.is-exporting .btn-icon,
 .is-exporting .btn-action-compact,
 .is-exporting .btn-action,
 .is-exporting .action-buttons,
 .is-exporting .fab-button,
 .is-exporting .dropdown,
 .is-exporting .interactive-element {
+  display: none !important;
+}
+
+/* Ekspor JPG halaman Laporan: sembunyikan kontrol tanpa mengubah lebar layout. */
+.report-exporting .no-export {
   display: none !important;
 }
 

@@ -26,7 +26,7 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
     if (element) {
       element.classList.add('is-exporting');
       // Hide internal elements
-      const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .action-buttons, .fab-button, .dropdown, .interactive-element');
+      const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .btn-icon, .action-buttons, .fab-button, .dropdown, .interactive-element');
       elementsToHide.forEach(el => el.style.setProperty('display', 'none', 'important'));
     }
     
@@ -42,7 +42,7 @@ const ShareDialog = ({ isOpen, onClose, cardRef, title, caption }) => {
     } finally {
       if (element) {
         element.classList.remove('is-exporting');
-        const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .action-buttons, .fab-button, .dropdown, .interactive-element');
+        const elementsToHide = element.querySelectorAll('.no-export, .card-action-menu-trigger, .btn-action, .btn-icon, .action-buttons, .fab-button, .dropdown, .interactive-element');
         elementsToHide.forEach(el => el.style.removeProperty('display'));
       }
       setIsGenerating(false);

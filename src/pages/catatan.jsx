@@ -18,9 +18,11 @@ import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
+import ActionIcons from "../components/ActionIcons";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr } from "../utils/dateUtils";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import useDataVersion from "../hooks/useDataVersion";
 
 const NOTE_TYPES = {
   STANDARD: "standard",
@@ -58,8 +60,13 @@ export default function Catatan() {
 
   const location = useLocation();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     loadData();
+  }, [dataVersion]);
+
+  useEffect(() => {
     if (location.state?.autoAdd) {
       setShowTypePicker(true);
     }
@@ -619,19 +626,14 @@ ${item.isi}`.trim()}
                 </div>
 
                 {/* Footer Actions (Card Level) */}
-                <div className="mt-auto pt-3 flex items-center gap-2 no-export">
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); handleEditDirectly(item); }}
-                     className="btn-action-compact btn-action-blue"
-                   >
-                     <Pencil size={12} /> Edit
-                   </button>
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
-                     className="btn-action-compact btn-action-red"
-                   >
-                     <Trash2 size={12} /> Hapus
-                   </button>
+                <div className="mt-auto pt-3">
+                  <ActionIcons
+                    buttons={[
+                      { icon: Pencil, label: "Edit", color: "blue", onClick: (e) => { e.stopPropagation(); handleEditDirectly(item); } },
+                      { icon: Trash2, label: "Hapus", color: "red", onClick: (e) => { e.stopPropagation(); handleDelete(item); } },
+                    ]}
+                    size={13}
+                  />
                 </div>
               </div>
             );

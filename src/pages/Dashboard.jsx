@@ -32,6 +32,7 @@ import { SkeletonDashboard } from "../components/Skeleton";
 import { todayStr, monthStr } from "../utils/dateUtils";
 import { formatCurrency } from "../utils/format";
 import { EXPENSE_CATEGORIES } from "../utils/categories";
+import useDataVersion from "../hooks/useDataVersion";
 import {
   ComposedChart,
   Bar,
@@ -79,9 +80,11 @@ export default function Dashboard() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const navigate = useNavigate();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dataVersion]);
 
   const loadData = () => {
     try {
@@ -640,12 +643,17 @@ export default function Dashboard() {
           </div>
           <p className="text-xs text-slate-400 mb-1">Pengeluaran (Bulan Ini)</p>
           <p className="text-base font-bold text-orange-400 leading-tight">{formatCurrency(pengeluaranBulanIni)}</p>
-          <button
-            onClick={() => navigate("/pengeluaran", { state: { autoAdd: true } })}
-            className="mt-3 w-full py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-orange-500/20 transition-all active:scale-[0.98]"
-          >
-            <Plus size={12} /> Tambah
-          </button>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => navigate("/pengeluaran", { state: { autoAdd: true } })}
+              className="btn-icon btn-action-orange"
+              title="Tambah"
+              aria-label="Tambah"
+              type="button"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Pemasukan Terbaru */}
@@ -660,14 +668,17 @@ export default function Dashboard() {
           <p className="text-base font-bold text-emerald-400 leading-tight">
             {pemasukanTerbaru ? formatCurrency(pemasukanTerbaru.jumlah) : "Rp 0"}
           </p>
-          <button
-            onClick={() => navigate("/pemasukan", { state: { autoAdd: true } })}
-            className="mt-auto pt-3 w-full"
-          >
-            <div className="py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-all active:scale-[0.98]">
-              <Plus size={12} /> Tambah
-            </div>
-          </button>
+          <div className="mt-auto pt-3 flex justify-end">
+            <button
+              onClick={() => navigate("/pemasukan", { state: { autoAdd: true } })}
+              className="btn-icon btn-action-emerald"
+              title="Tambah"
+              aria-label="Tambah"
+              type="button"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Hutang Aktif */}
@@ -680,12 +691,17 @@ export default function Dashboard() {
           </div>
           <p className="text-xs text-slate-400 mb-1">Hutang Aktif</p>
           <p className="text-base font-bold text-red-400 leading-tight">{formatCurrency(sisaHutang)}</p>
-          <button
-            onClick={() => navigate("/hutang", { state: { autoAdd: true } })}
-            className="mt-3 w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-red-500/20 transition-all active:scale-[0.98]"
-          >
-            <Plus size={12} /> Tambah
-          </button>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => navigate("/hutang", { state: { autoAdd: true } })}
+              className="btn-icon btn-action-red"
+              title="Tambah"
+              aria-label="Tambah"
+              type="button"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Piutang Aktif */}
@@ -698,12 +714,17 @@ export default function Dashboard() {
           </div>
           <p className="text-xs text-slate-400 mb-1">Piutang Aktif</p>
           <p className="text-base font-bold text-blue-400 leading-tight">{formatCurrency(sisaPiutang)}</p>
-          <button
-            onClick={() => navigate("/piutang", { state: { autoAdd: true } })}
-            className="mt-3 w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 border border-blue-500/20 transition-all active:scale-[0.98]"
-          >
-            <Plus size={12} /> Tambah
-          </button>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => navigate("/piutang", { state: { autoAdd: true } })}
+              className="btn-icon btn-action-blue"
+              title="Tambah"
+              aria-label="Tambah"
+              type="button"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Target Tabungan */}
@@ -899,13 +920,16 @@ export default function Dashboard() {
                         : `Jatuh tempo dlm ${d.daysUntil} hari`}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 flex items-center gap-2">
                     <div className="text-xs font-bold text-white">{formatCurrency(d.sisa)}</div>
                     <button
                       onClick={() => navigate("/hutang")}
-                      className="text-[10px] text-blue-400 hover:underline"
+                      className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
+                      title="Bayar"
+                      aria-label="Bayar"
+                      type="button"
                     >
-                      Bayar
+                      <Wallet size={14} />
                     </button>
                   </div>
                 </div>

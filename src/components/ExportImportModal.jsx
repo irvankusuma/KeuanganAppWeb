@@ -401,6 +401,81 @@ export default function ExportImportModal({ visible, onClose }) {
     setShowDownloadMenu(false);
   };
 
+  const downloadFilteredJPG = async () => {
+    setShowDownloadMenu(false);
+    if (filteredHistory.length === 0) return;
+
+    const esc = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const rows = filteredHistory
+      .map(
+        (item, index) => `
+        <tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #1e2d45;color:#94a3b8;font-size:11px;">${index + 1}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #1e2d45;color:#e2e8f0;font-size:12px;font-weight:600;">${esc(item.title)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #1e2d45;color:#94a3b8;font-size:11px;">${esc(getTypeLabel(item.type))}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #1e2d45;color:#f8fafc;font-size:12px;font-weight:700;text-align:right;">${esc(formatCurrency(item.amount))}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #1e2d45;color:#94a3b8;font-size:11px;text-align:right;">${esc(formatDate(item.date))}</td>
+        </tr>`,
+      )
+      .join("");
+
+    const host = document.createElement("div");
+    host.style.cssText =
+      "position:fixed;left:-10000px;top:0;width:780px;padding:28px;background:#0c1220;" +
+      "font-family:Inter,system-ui,-apple-system,sans-serif;color:#e2e8f0;";
+    host.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#ffffff;">Laporan Riwayat Keuangan</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">KeuanganApp • Diekspor ${esc(
+            new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+          )}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:#64748b;">Total ${filteredHistory.length} data</div>
+          <div style="font-size:15px;font-weight:800;color:#60a5fa;">${esc(formatCurrency(historyTotalAmount))}</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;background:#0e1523;border-radius:12px;overflow:hidden;">
+        <thead>
+          <tr style="background:#141d2e;">
+            <th style="padding:10px;text-align:left;font-size:10px;color:#94a3b8;text-transform:uppercase;">No</th>
+            <th style="padding:10px;text-align:left;font-size:10px;color:#94a3b8;text-transform:uppercase;">Nama</th>
+            <th style="padding:10px;text-align:left;font-size:10px;color:#94a3b8;text-transform:uppercase;">Tipe</th>
+            <th style="padding:10px;text-align:right;font-size:10px;color:#94a3b8;text-transform:uppercase;">Nominal</th>
+            <th style="padding:10px;text-align:right;font-size:10px;color:#94a3b8;text-transform:uppercase;">Tanggal</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    document.body.appendChild(host);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(host, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#0c1220",
+        logging: false,
+      });
+      const link = document.createElement("a");
+      link.download = getFileName("jpg", "History");
+      link.href = canvas.toDataURL("image/jpeg", 0.92);
+      link.click();
+      showToast("Riwayat berhasil diunduh sebagai JPG!", "success");
+    } catch {
+      showToast("Gagal mengunduh JPG.", "error");
+    } finally {
+      host.remove();
+    }
+  };
+
   // ==================== HELPER ====================
   const getFileName = (ext, prefix = "") => {
     const now = new Date();
@@ -647,10 +722,11 @@ export default function ExportImportModal({ visible, onClose }) {
                     </button>
 
                     {showDownloadMenu && (
-                      <div className="absolute right-0 mt-1 w-28 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="absolute right-0 mt-1 w-36 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
                         {[
                           { label: "Excel", action: downloadFilteredExcel },
                           { label: "TXT", action: downloadFilteredTXT },
+                          { label: "JPG (gambar)", action: downloadFilteredJPG },
                         ].map((opt) => (
                           <button
                             key={opt.label}

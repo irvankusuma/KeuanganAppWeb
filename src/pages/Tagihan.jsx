@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Plus, Pencil, Trash2, X, Receipt,
-  Pin, Filter, Search, Calendar, Check
+  Pin, Filter, Search, Calendar, Check, Wallet
 } from "lucide-react";
 import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
 import { todayStr, monthStr } from "../utils/dateUtils";
@@ -9,9 +9,11 @@ import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
+import ActionIcons from "../components/ActionIcons";
 import ShareDialog from "../components/ShareDialog";
 import { formatCurrency as fmtC } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
+import useDataVersion from "../hooks/useDataVersion";
 
 const KATEGORI = ["Listrik", "Air", "Pulsa/Data", "Wifi/Internet", "Langganan", "Lainnya"];
 
@@ -69,9 +71,11 @@ export default function Tagihan() {
   const cardRefs = useRef({});
   const { showToast } = useToast();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     load();
-  }, []);
+  }, [dataVersion]);
 
   const load = () => {
     setTagihan(LocalStorageService.readSheet(SHEETS.TAGIHAN));
@@ -352,16 +356,15 @@ ${hist.length > 0 ? `Riwayat Pembayaran:\n${histLines}` : ""}`.trim();
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1 no-export mb-2 shrink-0">
-          <button onClick={() => openAddHist(item)} className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/10 text-[9px] font-bold transition-all active:scale-95">
-            <Plus size={10} /><span>Catat Bayar</span>
-          </button>
-          <button onClick={() => handleEdit(item)} className="py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 text-[9px] font-bold transition-all active:scale-95" title="Edit Tagihan">
-            <Pencil size={10} />
-          </button>
-          <button onClick={() => handleDelete(item)} className="py-1 px-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/10 text-[9px] font-bold transition-all active:scale-95" title="Hapus Tagihan">
-            <Trash2 size={10} />
-          </button>
+        <div className="mb-2 shrink-0">
+          <ActionIcons
+            buttons={[
+              { icon: Wallet, label: "Catat Bayar", color: "emerald", onClick: () => openAddHist(item) },
+              { icon: Pencil, label: "Edit Tagihan", color: "blue", onClick: () => handleEdit(item) },
+              { icon: Trash2, label: "Hapus Tagihan", color: "red", onClick: () => handleDelete(item) },
+            ]}
+            size={13}
+          />
         </div>
 
         {/* History — selalu tampil inline */}

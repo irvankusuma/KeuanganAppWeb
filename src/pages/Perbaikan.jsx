@@ -18,11 +18,13 @@ import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
+import ActionIcons from "../components/ActionIcons";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr } from "../utils/dateUtils";
 import { formatCurrency as fmtC } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 import { inputCls, readonlyCls, labelCls } from "../utils/formStyles";
+import useDataVersion from "../hooks/useDataVersion";
 
 export default function Perbaikan() {
   const [perbaikan, setPerbaikan] = useState([]);
@@ -69,8 +71,13 @@ export default function Perbaikan() {
 
   const location = useLocation();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     loadData();
+  }, [dataVersion]);
+
+  useEffect(() => {
     if (location.state?.autoAdd) {
       setModalVisible(true);
     }
@@ -580,23 +587,16 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
-                  {[
-                    { icon: Plus, label: "Tambah", color: "purple", onClick: () => handleOpenTambah(item) },
-                    { icon: History, label: "Histori", count: history.length, color: "indigo", onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
-                    { icon: CheckCircle, label: "Selesai", color: "emerald", onClick: () => handleToggleSelesai(item) },
-                    { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
-                    { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
-                  ].map((btn) => (
-                    <button
-                      key={btn.label}
-                      onClick={btn.onClick}
-                      className={`btn-action-compact btn-action-${btn.color} shrink-0`}
-                    >
-                      <btn.icon size={12} />
-                      <span>{btn.label}{btn.count > 0 ? ` (${btn.count})` : ""}</span>
-                    </button>
-                  ))}
+                <div className="overflow-x-auto no-scrollbar mt-1">
+                  <ActionIcons
+                    buttons={[
+                      { icon: Plus, label: "Tambah", color: "purple", onClick: () => handleOpenTambah(item) },
+                      { icon: History, label: "Histori", count: history.length, color: "indigo", active: showHistory, onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
+                      { icon: CheckCircle, label: "Selesai", color: "emerald", active: item.status === "selesai", onClick: () => handleToggleSelesai(item) },
+                      { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+                      { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+                    ]}
+                  />
                 </div>
 
                 {/* History panel */}
@@ -637,9 +637,13 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                               )}
                             </div>
                             {h.catatan && <div className="text-xs text-slate-500 italic mb-2">"{h.catatan}"</div>}
-                            <div className="flex gap-3">
-                              <button onClick={() => handleEditHistory(h, item)} className="text-blue-400 hover:text-blue-300 font-medium text-xs">Edit</button>
-                              <button onClick={() => handleDeleteHistory(h)} className="text-red-400 hover:text-red-300 font-medium text-xs">Hapus</button>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => handleEditHistory(h, item)} className="p-1.5 rounded-lg hover:bg-blue-500/10 text-blue-400 transition-colors" title="Edit Riwayat" aria-label="Edit Riwayat" type="button">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => handleDeleteHistory(h)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors" title="Hapus Riwayat" aria-label="Hapus Riwayat" type="button">
+                                <Trash2 size={13} />
+                              </button>
                             </div>
                           </div>
                         );

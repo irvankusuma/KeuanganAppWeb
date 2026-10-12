@@ -20,6 +20,7 @@ import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
+import ActionIcons from "../components/ActionIcons";
 import ShareDialog from "../components/ShareDialog";
 import { SkeletonListPage } from "../components/Skeleton";
 import { todayStr } from "../utils/dateUtils";
@@ -28,6 +29,7 @@ import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 import { inputCls, labelCls } from "../utils/formStyles";
 import CategoryPicker from "../components/CategoryPicker";
 import { getCategoryByType } from "../utils/categories";
+import useDataVersion from "../hooks/useDataVersion";
 
 export default function Pemasukan() {
   const [pemasukan, setPemasukan] = useState([]);
@@ -85,8 +87,13 @@ export default function Pemasukan() {
 
   const location = useLocation();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     loadData();
+  }, [dataVersion]);
+
+  useEffect(() => {
     if (location.state?.autoAdd) {
       setModalVisible(true);
     }
@@ -432,23 +439,16 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     Data tersinkron otomatis — kelola dari halaman asalnya (Hutang / Piutang / Pendapatan).
                   </div>
                 ) : (
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar no-export mt-1">
-                  {[
-                    { icon: ArrowUpCircle, label: "Tambah", color: "emerald", onClick: () => handleOpenSub(item) },
-                    { icon: ArrowDownCircle, label: "Keluar", color: "orange", onClick: () => handleOpenKeluar(item) },
-                    { icon: History, label: "Histori", count: historyCount, color: "indigo", onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
-                    { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
-                    { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
-                  ].map((btn) => (
-                    <button
-                      key={btn.label}
-                      onClick={btn.onClick}
-                      className={`btn-action-compact btn-action-${btn.color} shrink-0`}
-                    >
-                      <btn.icon size={12} />
-                      <span>{btn.label}{btn.count > 0 ? ` (${btn.count})` : ""}</span>
-                    </button>
-                  ))}
+                <div className="overflow-x-auto no-scrollbar mt-1">
+                  <ActionIcons
+                    buttons={[
+                      { icon: ArrowUpCircle, label: "Tambah", color: "emerald", onClick: () => handleOpenSub(item) },
+                      { icon: ArrowDownCircle, label: "Keluar", color: "orange", onClick: () => handleOpenKeluar(item) },
+                      { icon: History, label: "Histori", count: historyCount, color: "indigo", active: showHistory, onClick: () => setActiveHistoryId(showHistory ? null : item.id) },
+                      { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+                      { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+                    ]}
+                  />
                 </div>
                 )}
 

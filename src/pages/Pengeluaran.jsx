@@ -20,11 +20,13 @@ import NumericInput from "../components/NumericInput";
 import CategoryPicker from "../components/CategoryPicker";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
+import ActionIcons from "../components/ActionIcons";
 import ShareDialog from "../components/ShareDialog";
 import { todayStr } from "../utils/dateUtils";
 import { formatCurrency, getMonthYear } from "../utils/format";
 import { makeTogglePin, pinnedFirst } from "../utils/pinUtils";
 import { getCategoryByType } from "../utils/categories";
+import useDataVersion from "../hooks/useDataVersion";
 
 export default function Pengeluaran() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -64,8 +66,13 @@ export default function Pengeluaran() {
 
   const location = useLocation();
 
+  const dataVersion = useDataVersion();
+
   useEffect(() => {
     loadData();
+  }, [dataVersion]);
+
+  useEffect(() => {
     if (location.state?.autoAdd) {
       setModalVisible(true);
     }
@@ -436,20 +443,13 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
                     Data tersinkron otomatis — kelola dari halaman asalnya (Hutang / Piutang / Pemasukan / Tagihan).
                   </div>
                 ) : (
-                <div className="flex items-center gap-2 no-export mt-1">
-                  {[
-                    { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
-                    { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
-                  ].map((btn, idx) => (
-                    <button
-                      key={idx}
-                      onClick={btn.onClick}
-                      className={`btn-action-compact btn-action-${btn.color}`}
-                    >
-                      <btn.icon size={12} />
-                      {btn.label}
-                    </button>
-                  ))}
+                <div className="mt-1">
+                  <ActionIcons
+                    buttons={[
+                      { icon: Pencil, label: "Edit", color: "blue", onClick: () => handleEdit(item) },
+                      { icon: Trash2, label: "Hapus", color: "red", onClick: () => handleDelete(item) },
+                    ]}
+                  />
                 </div>
                 )}
               </div>

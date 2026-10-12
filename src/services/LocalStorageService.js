@@ -1,6 +1,8 @@
 // LocalStorageService for Web Browser
 // Uses localStorage API (built-in browser)
 
+import { broadcastChange } from "./RealtimeSync";
+
 const SHEETS = {
   HUTANG: 'Hutang',
   PEMBAYARAN_HUTANG: 'PembayaranHutang',
@@ -17,11 +19,17 @@ const SHEETS = {
   RECURRING_TRANSACTIONS: 'RecurringTransactions',
 };
 
+// Data dipisah per akun: "u:{id}:@Sheet". Tanpa akun aktif, kunci lama "@Sheet" dipakai.
+const keyFor = (sheetName) => {
+  const accountId = localStorage.getItem("kua:activeAccountId");
+  return accountId ? `u:${accountId}:@${sheetName}` : `@${sheetName}`;
+};
+
 class LocalStorageService {
   // Read data from localStorage
   readSheet(sheetName) {
     try {
-      const data = localStorage.getItem(`@${sheetName}`);
+      const data = localStorage.getItem(keyFor(sheetName));
       return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error(`Error reading ${sheetName}:`, error);
@@ -32,9 +40,10 @@ class LocalStorageService {
   // Write data to localStorage
   writeSheet(sheetName, data) {
     try {
-      localStorage.setItem(`@${sheetName}`, JSON.stringify(data));
+      localStorage.setItem(keyFor(sheetName), JSON.stringify(data));
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("kua:data-changed", { detail: { sheet: sheetName } }));
+        broadcastChange(sheetName);
       }
       return true;
     } catch (error) {

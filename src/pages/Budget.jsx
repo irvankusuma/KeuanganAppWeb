@@ -9,6 +9,7 @@ import { useToast } from "../context/ToastContext";
 import { EXPENSE_CATEGORIES, getCategoryByType } from "../utils/categories";
 import { formatCurrency } from "../utils/format";
 import { monthStr } from "../utils/dateUtils";
+import useDataVersion from "../hooks/useDataVersion";
 
 /**
  * Compute spent amount for a given category in a given month.
@@ -50,7 +51,9 @@ export default function Budget() {
   const { showToast } = useToast();
   const months = getLast12Months();
 
-  useEffect(() => { loadBudgets(); }, []);
+  const dataVersion = useDataVersion();
+
+  useEffect(() => { loadBudgets(); }, [dataVersion]);
 
   const loadBudgets = () => {
     setBudgets(LocalStorageService.readSheet(SHEETS.BUDGETS));

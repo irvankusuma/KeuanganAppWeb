@@ -40,9 +40,28 @@ export const migratePendapatanToPemasukan = () => {
 };
 
 /**
+ * Buang kunci sisa fitur lama (PIN perangkat tunggal & cloud backup Firebase).
+ */
+export const cleanupLegacyKeys = () => {
+  const legacyKeys = [
+    'app_pin',
+    'app_pin_lock',
+    'kua:lastPushMs',
+    'kua:lastChangeMs',
+    'kua:lastAppliedCloudMs',
+  ];
+  legacyKeys.forEach((key) => localStorage.removeItem(key));
+
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('kua:autoRestored:'))
+    .forEach((key) => localStorage.removeItem(key));
+};
+
+/**
  * Run all migrations in order.
  * Call this once before the React app renders.
  */
 export const runAllMigrations = () => {
   migratePendapatanToPemasukan();
+  cleanupLegacyKeys();
 };

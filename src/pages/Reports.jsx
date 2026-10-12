@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  BarChart3, TrendingUp, TrendingDown, Wallet, ChevronDown, ChevronUp
+  BarChart3, TrendingUp, TrendingDown, Wallet, ChevronDown, ChevronUp,
+  Image as ImageIcon, Loader2
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -10,6 +11,8 @@ import { getMonthlySummary, getTrendData, formatPieData } from "../services/Anal
 import { getCategoryByType } from "../utils/categories";
 import { formatCurrency } from "../utils/format";
 import { monthStr } from "../utils/dateUtils";
+import { useToast } from "../context/ToastContext";
+import useDataVersion from "../hooks/useDataVersion";
 
 /** Build list of last 12 months as "YYYY-MM" strings (newest first). */
 function getLast12Months() {
@@ -75,10 +78,15 @@ function SummaryCard({ title, value, icon: Icon, colorClass, subLabel }) {
 export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(monthStr());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const months = getLast12Months();
+  const reportRef = useRef(null);
+  const { showToast } = useToast();
 
-  const summary = useMemo(() => getMonthlySummary(selectedMonth), [selectedMonth]);
-  const trendData = useMemo(() => getTrendData(6), []);
+  const dataVersion = useDataVersion();
+
+  const summary = useMemo(() => getMonthlySummary(selectedMonth), [selectedMonth, dataVersion]);
+  const trendData = useMemo(() => getTrendData(6), [dataVersion]);
   const pieData = useMemo(() => formatPieData(summary.expenseByCategory), [summary]);
 
   const trendChartData = trendData.map((t) => ({
@@ -88,8 +96,48 @@ export default function Reports() {
     Sisa: Math.max(t.net, 0),
   }));
 
+  const handleDownloadJpg = async () => {
+    const node = reportRef.current;
+    if (!node || exporting) return;
+    setExporting(true);
+    node.classList.add("report-exporting");
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#0a0f1a",
+        logging: false,
+      });
+      const link = document.createElement("a");
+      link.download = `Laporan Keuangan ${formatMonthLabel(selectedMonth)}.jpg`;
+      link.href = canvas.toDataURL("image/jpeg", 0.92);
+      link.click();
+      showToast("Laporan berhasil diunduh sebagai JPG!", "success");
+    } catch (error) {
+      console.error("Gagal mengekspor laporan:", error);
+      showToast("Gagal mengunduh JPG.", "error");
+    } finally {
+      node.classList.remove("report-exporting");
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="pb-24 space-y-4">
+    <div className="pb-24 space-y-4" ref={reportRef}>
+      {/* Toolbar */}
+      <div className="flex justify-end no-export">
+        <button
+          onClick={handleDownloadJpg}
+          disabled={exporting}
+          title="Unduh laporan sebagai gambar JPG"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0e1523] border border-[#1e2d45] text-xs font-semibold text-slate-300 hover:text-white hover:border-blue-500/40 transition-colors disabled:opacity-60"
+        >
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+          Unduh JPG
+        </button>
+      </div>
+
       {/* Header */}
       <div className="bg-gradient-to-br from-cyan-600 to-blue-700 rounded-2xl p-5 shadow-xl text-white">
         <div className="flex items-center justify-between mb-3">
@@ -118,7 +166,7 @@ export default function Reports() {
       </div>
 
       {/* Month Picker */}
-      <div className="relative">
+      <div className="relative no-export">
         <button
           onClick={() => setShowMonthPicker(!showMonthPicker)}
           className="w-full flex items-center justify-between bg-[#0e1523] border border-[#1e2d45] rounded-xl px-4 py-3 text-sm font-medium text-white"

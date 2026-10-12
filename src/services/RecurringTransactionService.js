@@ -24,20 +24,37 @@ class RecurringTransactionService {
    *
    * @param {string} fromDate - "YYYY-MM-DD"
    * @param {'daily'|'weekly'|'monthly'|'yearly'} frequency
+   * @param {string} anchorDate - Original schedule date; keeps month-end dates stable.
    * @returns {string} "YYYY-MM-DD"
    */
-  calculateNextDueDate(fromDate, frequency) {
-    const d = new Date(fromDate);
+  calculateNextDueDate(fromDate, frequency, anchorDate = fromDate) {
+    const d = new Date(`${fromDate}T00:00:00.000Z`);
+    const [, anchorMonth, anchorDay] = String(anchorDate).split('-').map(Number);
+    if (Number.isNaN(d.getTime()) || !anchorMonth || !anchorDay) return '';
+
     switch (frequency) {
-      case 'daily':   d.setDate(d.getDate() + 1);         break;
-      case 'weekly':  d.setDate(d.getDate() + 7);         break;
-      case 'monthly': d.setMonth(d.getMonth() + 1);       break;
-      case 'yearly':  d.setFullYear(d.getFullYear() + 1); break;
-      default:        d.setMonth(d.getMonth() + 1);
+      case 'daily':
+        d.setUTCDate(d.getUTCDate() + 1);
+        break;
+      case 'weekly':
+        d.setUTCDate(d.getUTCDate() + 7);
+        break;
+      case 'yearly': {
+        const year = d.getUTCFullYear() + 1;
+        const month = anchorMonth - 1;
+        const day = Math.min(anchorDay, new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+        return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+      }
+      case 'monthly':
+      default: {
+        const totalMonths = d.getUTCFullYear() * 12 + d.getUTCMonth() + 1;
+        const year = Math.floor(totalMonths / 12);
+        const month = totalMonths % 12;
+        const day = Math.min(anchorDay, new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+        return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+      }
     }
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-      .toISOString()
-      .split('T')[0];
+    return d.toISOString().slice(0, 10);
   }
 
   /**
@@ -128,7 +145,11 @@ class RecurringTransactionService {
 
     LocalStorageService.updateRow(RECURRING_SHEET, recurring.id, {
       lastExecuted: new Date().toISOString(),
-      nextDueDate: this.calculateNextDueDate(recurring.nextDueDate, recurring.frequency),
+      nextDueDate: this.calculateNextDueDate(
+        recurring.nextDueDate,
+        recurring.frequency,
+        recurring.startDate || recurring.nextDueDate,
+      ),
     });
   }
 

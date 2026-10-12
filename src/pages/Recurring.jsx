@@ -6,11 +6,13 @@ import {
 import RecurringTransactionService from "../services/RecurringTransactionService";
 import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
+import ActionIcons from "../components/ActionIcons";
 import CategoryPicker from "../components/CategoryPicker";
 import { useToast } from "../context/ToastContext";
 import { formatCurrency } from "../utils/format";
 import { todayStr } from "../utils/dateUtils";
 import { getCategoryByType } from "../utils/categories";
+import useDataVersion from "../hooks/useDataVersion";
 
 const FREQUENCY_OPTIONS = [
   { value: 'daily',   label: 'Setiap Hari' },
@@ -37,7 +39,9 @@ export default function Recurring() {
   const [confirmModal, setConfirmModal] = useState({ visible: false, title: '', message: '', onConfirm: null });
   const { showToast } = useToast();
 
-  useEffect(() => { loadData(); }, []);
+  const dataVersion = useDataVersion();
+
+  useEffect(() => { loadData(); }, [dataVersion]);
 
   const loadData = () => {
     setItems(RecurringTransactionService.getAll());
@@ -81,10 +85,20 @@ export default function Recurring() {
     };
 
     if (editId) {
-      const nextDue = RecurringTransactionService.calculateNextDueDate(
-        formData.startDate, formData.frequency
-      );
-      RecurringTransactionService.updateRecurring(editId, { ...payload, nextDueDate: nextDue });
+      const existing = items.find((item) => item.id === editId);
+      const scheduleChanged =
+        !existing ||
+        existing.startDate !== formData.startDate ||
+        existing.frequency !== formData.frequency;
+      const updates = scheduleChanged
+        ? {
+            ...payload,
+            nextDueDate: RecurringTransactionService.calculateNextDueDate(
+              formData.startDate, formData.frequency
+            ),
+          }
+        : payload;
+      RecurringTransactionService.updateRecurring(editId, updates);
     } else {
       RecurringTransactionService.createRecurring(payload);
     }
@@ -219,22 +233,15 @@ export default function Recurring() {
                     {formatCurrency(item.amount)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 mt-3 overflow-x-auto no-scrollbar">
-                  {[
-                    { icon: RefreshCw, label: 'Jalankan', color: 'blue', onClick: () => handleRunNow(item) },
-                    { icon: Pencil,    label: 'Edit',      color: 'blue', onClick: () => openEdit(item) },
-                    { icon: Pause,     label: 'Jeda',      color: 'yellow', onClick: () => handleToggleActive(item) },
-                    { icon: Trash2,    label: 'Hapus',     color: 'red', onClick: () => handleDelete(item) },
-                  ].map((btn) => (
-                    <button
-                      key={btn.label}
-                      onClick={btn.onClick}
-                      className={`btn-action-compact btn-action-${btn.color} shrink-0`}
-                    >
-                      <btn.icon size={12} />
-                      <span>{btn.label}</span>
-                    </button>
-                  ))}
+                <div className="mt-3 overflow-x-auto no-scrollbar">
+                  <ActionIcons
+                    buttons={[
+                      { icon: RefreshCw, label: 'Jalankan', color: 'blue', onClick: () => handleRunNow(item) },
+                      { icon: Pencil,    label: 'Edit',     color: 'blue', onClick: () => openEdit(item) },
+                      { icon: Pause,     label: 'Jeda',     color: 'orange', onClick: () => handleToggleActive(item) },
+                      { icon: Trash2,    label: 'Hapus',    color: 'red', onClick: () => handleDelete(item) },
+                    ]}
+                  />
                 </div>
               </div>
             );
@@ -261,13 +268,14 @@ export default function Recurring() {
                       <span className="text-xs text-slate-600">{RecurringTransactionService.frequencyLabel(item.frequency)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button onClick={() => handleToggleActive(item)} className="btn-action-compact btn-action-emerald shrink-0">
-                      <Play size={12} /><span>Aktifkan</span>
-                    </button>
-                    <button onClick={() => handleDelete(item)} className="btn-action-compact btn-action-red shrink-0">
-                      <Trash2 size={12} /><span>Hapus</span>
-                    </button>
+                  <div className="shrink-0">
+                    <ActionIcons
+                      buttons={[
+                        { icon: Play, label: 'Aktifkan', color: 'emerald', onClick: () => handleToggleActive(item) },
+                        { icon: Trash2, label: 'Hapus', color: 'red', onClick: () => handleDelete(item) },
+                      ]}
+                      size={13}
+                    />
                   </div>
                 </div>
               </div>

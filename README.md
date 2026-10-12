@@ -48,7 +48,8 @@ KeuanganApp Web adalah aplikasi manajemen keuangan pribadi modern berbasis brows
 | **Tagihan** | `/tagihan` | Pengingat dan pelacakan pembayaran tagihan rutin bulanan. |
 | **Perbaikan** | `/perbaikan` | Pencatatan pemeliharaan aset dan perbaikan perangkat/kendaraan. |
 | **Catatan** | `/catatan` | Catatan pengingat finansial cepat dan multi-format. |
-| **Backup** | `/backup` | Ekspor dan impor data cadangan JSON lokal. |
+| **Ekspor / Impor** | Dialog menu Unduhan | Cadangan data JSON, Excel, dan TXT serta ekspor riwayat. |
+| **Pengaturan** | `/settings` | Kelola profil, sandi, PIN, dan foto profil akun. |
 
 ---
 
