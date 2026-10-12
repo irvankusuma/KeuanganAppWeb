@@ -13,7 +13,7 @@ import {
   Wrench,
   Filter
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import { useToast } from "../context/ToastContext";
@@ -83,7 +83,7 @@ export default function Perbaikan() {
     }
   }, [location.state]);
   const loadData = () =>
-    setPerbaikan(LocalStorageService.readSheet(SHEETS.PERBAIKAN));
+    setPerbaikan(CloudDataService.readSheet(SHEETS.PERBAIKAN));
 
   const parseN = (val) => {
     if (typeof val === "number") return val;
@@ -119,7 +119,7 @@ export default function Perbaikan() {
 
   // Helper: cari entri pengeluaran berdasarkan sourceRef (ID perbaikan/histori)
   const findPengeluaranByRef = (refId) => {
-    const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
     return allPengeluaran.find(
       (p) => p.sourceRef?.toString() === refId?.toString() && p.sourceType === "perbaikan"
     );
@@ -131,7 +131,7 @@ export default function Perbaikan() {
     if (existing) {
       if (biayaBaru > 0) {
         // Update jumlah di pengeluaran yang sudah ada
-        LocalStorageService.updateRow(SHEETS.PENGELUARAN, existing.id, {
+        CloudDataService.updateRow(SHEETS.PENGELUARAN, existing.id, {
           nama: `Perbaikan: ${nama}`,
           kategori: "Perbaikan",
           jumlah: biayaBaru,
@@ -142,11 +142,11 @@ export default function Perbaikan() {
         });
       } else {
         // Biaya jadi 0 → hapus entri pengeluaran
-        LocalStorageService.deleteRow(SHEETS.PENGELUARAN, existing.id);
+        CloudDataService.deleteRow(SHEETS.PENGELUARAN, existing.id);
       }
     } else if (biayaBaru > 0) {
       // Belum ada entry → buat baru
-      LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+      CloudDataService.appendRow(SHEETS.PENGELUARAN, {
         nama: `Perbaikan: ${nama}`,
         kategori: "Perbaikan",
         jumlah: biayaBaru,
@@ -174,13 +174,13 @@ export default function Perbaikan() {
       biaya: formData.biaya ? parseN(formData.biaya) : 0,
     };
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.PERBAIKAN, editId, data);
+      CloudDataService.updateRow(SHEETS.PERBAIKAN, editId, data);
       // Sync pengeluaran: update/hapus/buat sesuai biaya baru
       syncPengeluaranEdit(editId, data.nama, data.biaya, data.tanggal, data.catatan);
     } else {
-      const saved = LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
+      const saved = CloudDataService.appendRow(SHEETS.PERBAIKAN, data);
       if (data.biaya > 0)
-        LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+        CloudDataService.appendRow(SHEETS.PENGELUARAN, {
           nama: `Perbaikan: ${data.nama}`,
           kategori: "Perbaikan",
           jumlah: data.biaya,
@@ -253,14 +253,14 @@ export default function Perbaikan() {
       catatan: tambahForm.catatan || "",
     };
     if (editTambahMode && editTambahId) {
-      LocalStorageService.updateRow(SHEETS.PERBAIKAN, editTambahId, data);
+      CloudDataService.updateRow(SHEETS.PERBAIKAN, editTambahId, data);
       // Sync pengeluaran terkait: update/hapus/buat sesuai biaya baru
       syncPengeluaranEdit(editTambahId, data.nama, biaya, data.tanggal, data.catatan);
     } else {
-      const saved = LocalStorageService.appendRow(SHEETS.PERBAIKAN, data);
+      const saved = CloudDataService.appendRow(SHEETS.PERBAIKAN, data);
       // Otomatis masuk pengeluaran jika ada biaya, simpan sourceRef
       if (biaya > 0)
-        LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+        CloudDataService.appendRow(SHEETS.PENGELUARAN, {
           nama: `Perbaikan: ${data.nama}`,
           kategori: "Perbaikan",
           jumlah: biaya,
@@ -280,11 +280,11 @@ export default function Perbaikan() {
       title: "Hapus Histori",
       message: `Hapus histori servis tanggal ${histItem.tanggal}?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.PERBAIKAN, histItem.id);
+        CloudDataService.deleteRow(SHEETS.PERBAIKAN, histItem.id);
         // Hapus pengeluaran terkait jika ada
         const existingPengeluaran = findPengeluaranByRef(histItem.id);
         if (existingPengeluaran) {
-          LocalStorageService.deleteRow(SHEETS.PENGELUARAN, existingPengeluaran.id);
+          CloudDataService.deleteRow(SHEETS.PENGELUARAN, existingPengeluaran.id);
         }
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
@@ -316,18 +316,18 @@ export default function Perbaikan() {
         // 1. Hapus histori servis (anak)
         const history = getHistory(item.id);
         history.forEach((h) => {
-          LocalStorageService.deleteRow(SHEETS.PERBAIKAN, h.id);
+          CloudDataService.deleteRow(SHEETS.PERBAIKAN, h.id);
           const exp = findPengeluaranByRef(h.id);
-          if (exp) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, exp.id);
+          if (exp) CloudDataService.deleteRow(SHEETS.PENGELUARAN, exp.id);
         });
 
         // 2. Hapus pengeluaran terkait item utama (jika ada biaya di awal)
         const rootExp = findPengeluaranByRef(item.id);
         if (rootExp)
-          LocalStorageService.deleteRow(SHEETS.PENGELUARAN, rootExp.id);
+          CloudDataService.deleteRow(SHEETS.PENGELUARAN, rootExp.id);
 
         // 3. Hapus item utama
-        LocalStorageService.deleteRow(SHEETS.PERBAIKAN, item.id);
+        CloudDataService.deleteRow(SHEETS.PERBAIKAN, item.id);
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
       },
@@ -336,7 +336,7 @@ export default function Perbaikan() {
 
   const handleToggleSelesai = (item) => {
     const newStatus = item.status === "selesai" ? "aktif" : "selesai";
-    LocalStorageService.updateRow(SHEETS.PERBAIKAN, item.id, { ...item, status: newStatus });
+    CloudDataService.updateRow(SHEETS.PERBAIKAN, item.id, { ...item, status: newStatus });
     loadData();
   };
 

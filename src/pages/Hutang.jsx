@@ -17,7 +17,7 @@ import {
   Calendar,
   Sparkles
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import ErrorMessage from "../components/ErrorMessage";
@@ -103,23 +103,23 @@ export default function Hutang() {
   }, [location.state]);
 
   const loadData = () => {
-    const data = LocalStorageService.readSheet(SHEETS.HUTANG);
-    const pembayaran = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
+    const data = CloudDataService.readSheet(SHEETS.HUTANG);
+    const pembayaran = CloudDataService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
     setHutang(data);
     setPembayaranHutang(pembayaran);
   };
 
   const syncCreatePemasukan = (hutangItem) => {
-    const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
     const existing = allPemasukan.find(p => p.sourceRef?.toString() === hutangItem.id?.toString() && p.sourceType === "hutang_buat");
     if (existing) {
-      LocalStorageService.updateRow(SHEETS.PEMASUKAN, existing.id, {
+      CloudDataService.updateRow(SHEETS.PEMASUKAN, existing.id, {
         nama: `Terima Hutang: ${hutangItem.nama}`,
         jumlah: parseFloat(hutangItem.jumlah) || 0,
         tanggal: hutangItem.tanggal,
       });
     } else {
-      LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+      CloudDataService.appendRow(SHEETS.PEMASUKAN, {
         nama: `Terima Hutang: ${hutangItem.nama}`,
         jumlah: parseFloat(hutangItem.jumlah) || 0,
         tanggal: hutangItem.tanggal,
@@ -131,7 +131,7 @@ export default function Hutang() {
   };
 
   const monthlyIncome = useMemo(() => {
-    const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const pemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
     const curMonth = todayStr().slice(0, 7);
     const thisMonth = pemasukan
       .filter((p) => p.tanggal?.startsWith(curMonth))
@@ -152,11 +152,11 @@ export default function Hutang() {
     setFormErrors({});
     const dataToSave = { ...formData, tipe: formData.tipe || "Lainnya" };
     if (editMode && editId) {
-      const updated = LocalStorageService.updateRow(SHEETS.HUTANG, editId, dataToSave);
+      const updated = CloudDataService.updateRow(SHEETS.HUTANG, editId, dataToSave);
       syncCreatePemasukan(updated);
       showToast("Hutang berhasil diperbarui", "success");
     } else {
-      const saved = LocalStorageService.appendRow(SHEETS.HUTANG, dataToSave);
+      const saved = CloudDataService.appendRow(SHEETS.HUTANG, dataToSave);
       syncCreatePemasukan(saved);
       showToast("Hutang berhasil ditambahkan", "success");
     }
@@ -187,29 +187,29 @@ export default function Hutang() {
       onConfirm: () => {
         const historyHutang = pembayaranHutang.filter((p) => p.hutangId?.toString() === item.id?.toString());
         historyHutang.forEach((hist) => {
-          LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, hist.id);
+          CloudDataService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, hist.id);
           if (hist.type === "tambah") {
-            const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+            const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
             const pExisting = allPemasukan.find(
               (p) => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_tambah"
             );
-            if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+            if (pExisting) CloudDataService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
           } else {
-            const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+            const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
             const pExisting = allPengeluaran.find(
               (p) => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "hutang_bayar"
             );
-            if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+            if (pExisting) CloudDataService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
           }
         });
 
-        const allPemasukanCreate = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const allPemasukanCreate = CloudDataService.readSheet(SHEETS.PEMASUKAN);
         const createRow = allPemasukanCreate.find(
           (p) => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "hutang_buat"
         );
-        if (createRow) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, createRow.id);
+        if (createRow) CloudDataService.deleteRow(SHEETS.PEMASUKAN, createRow.id);
 
-        LocalStorageService.deleteRow(SHEETS.HUTANG, item.id);
+        CloudDataService.deleteRow(SHEETS.HUTANG, item.id);
         loadData();
         showToast("Hutang berhasil dihapus", "success");
         setConfirmModal((p) => ({ ...p, visible: false }));
@@ -560,7 +560,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       showToast(`Nominal melebihi sisa hutang (${formatCurrency(sisa)}).`, "error");
       return;
     }
-    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
+    const saved = CloudDataService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
       hutangId: payFormData.hutangId,
       namaHutang: payFormData.namaHutang,
       jumlah: nominal,
@@ -570,7 +570,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     });
     
     // Masuk ke pengeluaran
-    LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+    CloudDataService.appendRow(SHEETS.PENGELUARAN, {
       nama: `Bayar Hutang: ${payFormData.namaHutang}`,
       kategori: "Bayar Hutang",
       jumlah: nominal,
@@ -613,7 +613,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         return;
       }
     }
-    LocalStorageService.updateRow(SHEETS.PEMBAYARAN_HUTANG, editPayData.id, {
+    CloudDataService.updateRow(SHEETS.PEMBAYARAN_HUTANG, editPayData.id, {
       jumlah: nominal,
       tanggal: editPayData.tanggal,
       catatan: editPayData.catatan,
@@ -623,10 +623,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     const historyItem = pembayaranHutang.find(p => p.id === editPayData.id);
     if (historyItem) {
       if (historyItem.type === "tambah") {
-        const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
         const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "hutang_tambah");
         if (pExisting) {
-          LocalStorageService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
+          CloudDataService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
             nama: `Penambahan Hutang: ${editPayData.namaHutang}`,
             jumlah: nominal,
             tanggal: editPayData.tanggal,
@@ -634,10 +634,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
           });
         }
       } else {
-        const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
         const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "hutang_bayar");
         if (pExisting) {
-          LocalStorageService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
+          CloudDataService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
             nama: `Bayar Hutang: ${editPayData.namaHutang}`,
             jumlah: nominal,
             tanggal: editPayData.tanggal,
@@ -657,16 +657,16 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       title: "Hapus Riwayat",
       message: `Hapus riwayat ${historyItem.type === "tambah" ? "penambahan" : "pembayaran"} ${formatCurrency(historyItem.jumlah)}?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, historyItem.id);
+        CloudDataService.deleteRow(SHEETS.PEMBAYARAN_HUTANG, historyItem.id);
 
         if (historyItem.type === "tambah") {
-          const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+          const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
           const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "hutang_tambah");
-          if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+          if (pExisting) CloudDataService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
         } else {
-          const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+          const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
           const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "hutang_bayar");
-          if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+          if (pExisting) CloudDataService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
         }
 
         loadData();
@@ -693,7 +693,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       showToast("Data penambahan belum valid.", "error");
       return;
     }
-    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
+    const saved = CloudDataService.appendRow(SHEETS.PEMBAYARAN_HUTANG, {
       hutangId: addFormData.hutangId,
       namaHutang: addFormData.namaHutang,
       jumlah: nominal,
@@ -703,7 +703,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     });
 
     // Masuk ke pemasukan
-    LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+    CloudDataService.appendRow(SHEETS.PEMASUKAN, {
       nama: `Penambahan Hutang: ${addFormData.namaHutang}`,
       jumlah: nominal,
       tanggal: addFormData.tanggal,

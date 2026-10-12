@@ -18,7 +18,7 @@ const loadImage = (src) =>
 
 /**
  * Ubah file gambar jadi data URL JPEG berbentuk persegi (crop tengah)
- * agar hemat tempat saat disimpan di localStorage.
+ * agar ukuran profil tetap kecil saat disimpan di cloud.
  */
 export async function fileToAvatarDataUrl(file, size = 256) {
   if (!file?.type?.startsWith("image/")) throw new Error("File harus berupa gambar.");

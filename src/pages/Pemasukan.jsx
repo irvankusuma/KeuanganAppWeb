@@ -15,7 +15,7 @@ import {
   Filter,
   RefreshCw
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
@@ -101,8 +101,8 @@ export default function Pemasukan() {
 
   const loadData = () => {
     setLoading(false);
-    setPemasukan(LocalStorageService.readSheet(SHEETS.PEMASUKAN));
-    setPengeluaran(LocalStorageService.readSheet(SHEETS.PENGELUARAN));
+    setPemasukan(CloudDataService.readSheet(SHEETS.PEMASUKAN));
+    setPengeluaran(CloudDataService.readSheet(SHEETS.PENGELUARAN));
   };
 
   // ===== DATA RELATIONS =====
@@ -151,9 +151,9 @@ export default function Pemasukan() {
     e.preventDefault();
     if (!formData.nama || !formData.jumlah) { showToast("Nama dan saldo harus diisi!", "error"); return; }
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.PEMASUKAN, editId, formData);
+      CloudDataService.updateRow(SHEETS.PEMASUKAN, editId, formData);
     } else {
-      LocalStorageService.appendRow(SHEETS.PEMASUKAN, formData);
+      CloudDataService.appendRow(SHEETS.PEMASUKAN, formData);
     }
     resetForm(); loadData();
   };
@@ -170,9 +170,9 @@ export default function Pemasukan() {
       title: "Hapus Pemasukan",
       message: `Hapus "${item.nama}"? Semua data terkait ikut terhapus.`,
       onConfirm: () => {
-        getSubTambah(item.id).forEach((s) => LocalStorageService.deleteRow(SHEETS.PEMASUKAN, s.id));
-        getKeluarList(item.id).forEach((k) => LocalStorageService.deleteRow(SHEETS.PENGELUARAN, k.id));
-        LocalStorageService.deleteRow(SHEETS.PEMASUKAN, item.id);
+        getSubTambah(item.id).forEach((s) => CloudDataService.deleteRow(SHEETS.PEMASUKAN, s.id));
+        getKeluarList(item.id).forEach((k) => CloudDataService.deleteRow(SHEETS.PENGELUARAN, k.id));
+        CloudDataService.deleteRow(SHEETS.PEMASUKAN, item.id);
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
       },
@@ -204,9 +204,9 @@ export default function Pemasukan() {
     const parent = pemasukan.find(p => p.id?.toString() === subForm.parentId?.toString());
     const data = { nama: `Tambah Saldo: ${parent?.nama || ""}`.trim(), parent_id: subForm.parentId, jumlah: jumlahNum, tanggal: subForm.tanggal, catatan: subForm.catatan || "" };
     if (editSubMode && editSubId) {
-      LocalStorageService.updateRow(SHEETS.PEMASUKAN, editSubId, data);
+      CloudDataService.updateRow(SHEETS.PEMASUKAN, editSubId, data);
     } else {
-      LocalStorageService.appendRow(SHEETS.PEMASUKAN, data);
+      CloudDataService.appendRow(SHEETS.PEMASUKAN, data);
     }
     setShowTambahSubModal(false); loadData();
   };
@@ -216,7 +216,7 @@ export default function Pemasukan() {
       visible: true, title: "Hapus Tambah Saldo",
       message: `Hapus tambahan saldo ${fmtC(subItem.jumlah)}?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.PEMASUKAN, subItem.id);
+        CloudDataService.deleteRow(SHEETS.PEMASUKAN, subItem.id);
         loadData(); setConfirmModal((p) => ({ ...p, visible: false }));
       },
     });
@@ -262,9 +262,9 @@ export default function Pemasukan() {
       sourceType: "pemasukan_keluar",
     };
     if (editKeluarMode && editKeluarId) {
-      LocalStorageService.updateRow(SHEETS.PENGELUARAN, editKeluarId, data);
+      CloudDataService.updateRow(SHEETS.PENGELUARAN, editKeluarId, data);
     } else {
-      LocalStorageService.appendRow(SHEETS.PENGELUARAN, data);
+      CloudDataService.appendRow(SHEETS.PENGELUARAN, data);
     }
     setShowKeluarModal(false); loadData();
   };
@@ -274,7 +274,7 @@ export default function Pemasukan() {
       visible: true, title: "Hapus Keluar",
       message: `Hapus saldo keluar ${fmtC(kItem.jumlah)}?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.PENGELUARAN, kItem.id);
+        CloudDataService.deleteRow(SHEETS.PENGELUARAN, kItem.id);
         loadData(); setConfirmModal((p) => ({ ...p, visible: false }));
       },
     });

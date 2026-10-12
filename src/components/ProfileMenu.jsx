@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Settings as SettingsIcon, Lock, ChevronDown } from "lucide-react";
 import useActiveAccount from "../hooks/useActiveAccount";
 import * as Accounts from "../services/AccountService";
+import * as CloudAuth from "../services/CloudAuthService";
 import Avatar from "./Avatar";
 import ConfirmModal from "./ConfirmModal";
 
@@ -42,7 +43,7 @@ export default function ProfileMenu({ collapsed = false, align = "left", onNavig
   const handleLock = () => {
     setConfirmLock(false);
     Accounts.lock();
-    navigate("/login", { replace: true });
+    CloudAuth.logout().finally(() => navigate("/login", { replace: true }));
   };
 
   return (
@@ -114,7 +115,7 @@ export default function ProfileMenu({ collapsed = false, align = "left", onNavig
       <ConfirmModal
         visible={confirmLock}
         title="Kunci Aplikasi"
-        message="Anda harus memasukkan PIN lagi untuk membuka data. Lanjutkan?"
+        message="Sesi cloud akan diakhiri. Anda perlu masuk kembali untuk membuka data. Lanjutkan?"
         confirmText="Kunci"
         icon={Lock}
         danger={false}

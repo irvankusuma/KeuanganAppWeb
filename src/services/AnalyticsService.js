@@ -1,8 +1,8 @@
 /**
  * AnalyticsService — compute monthly summaries and trend data
- * using data from LocalStorageService.
+ * using data from CloudDataService.
  */
-import LocalStorageService, { SHEETS } from './LocalStorageService';
+import CloudDataService, { SHEETS } from './CloudDataService';
 import { getCategoryByType } from '../utils/categories';
 
 /**
@@ -12,7 +12,7 @@ import { getCategoryByType } from '../utils/categories';
  * @returns {Record<string, number>} categoryId → total amount
  */
 function getExpenseByCategory(month) {
-  const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+  const pengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
   const map = {};
   pengeluaran
     .filter((item) => item.tanggal?.startsWith(month))
@@ -30,7 +30,7 @@ function getExpenseByCategory(month) {
  * @returns {Record<string, number>}
  */
 function getIncomeByCategory(month) {
-  const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+  const pemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
   const map = {};
   pemasukan
     .filter((item) => item.tanggal?.startsWith(month) && !item.parent_id)
@@ -49,7 +49,7 @@ function getIncomeByCategory(month) {
  * @returns {Array<{ nama: string, kategori: string, jumlah: number, tanggal: string }>}
  */
 function getTopExpenses(month, limit = 5) {
-  const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+  const pengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
   return pengeluaran
     .filter((item) => item.tanggal?.startsWith(month))
     .sort((a, b) => (parseFloat(b.jumlah) || 0) - (parseFloat(a.jumlah) || 0))
@@ -71,8 +71,8 @@ function getTopExpenses(month, limit = 5) {
  *              topExpenses: Array }}
  */
 export const getMonthlySummary = (month) => {
-  const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
-  const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+  const pemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
+  const pengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
 
   // Only root pemasukan items (no parent_id) to avoid double-counting sub-entries
   const income = pemasukan

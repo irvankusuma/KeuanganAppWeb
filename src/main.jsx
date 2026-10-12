@@ -4,17 +4,9 @@ import App from './App.jsx'
 import './index.css'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { runAllMigrations } from './utils/migrations.js'
-import RecurringTransactionService from './services/RecurringTransactionService.js'
 
-// ── Run migrations once before the app renders ──────────────────
+// Normalize older browser data before the one-time cloud migration.
 runAllMigrations();
-
-// ── Auto-execute any due recurring transactions ──────────────────
-try {
-  RecurringTransactionService.processRecurringTransactions();
-} catch (e) {
-  console.warn('[Startup] Recurring processing error:', e);
-}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -64,8 +56,7 @@ class ErrorBoundary extends React.Component {
             Terjadi kesalahan
           </h1>
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.6 }}>
-            Aplikasi gagal menampilkan halaman ini. Data Anda tetap aman tersimpan di perangkat.
-            Muat ulang untuk melanjutkan.
+            Aplikasi gagal menampilkan halaman ini. Periksa koneksi internet dan muat ulang untuk mengambil data cloud.
           </p>
           <button
             type="button"

@@ -1,9 +1,9 @@
 /**
  * RecurringTransactionService
- * Manages recurring income and expense transactions stored in localStorage.
- * Call processRecurringTransactions() on app startup to auto-execute due entries.
+ * Manages recurring transactions stored in Cloud Firestore.
+ * Call processRecurringTransactions() only after the cloud data has loaded.
  */
-import LocalStorageService, { SHEETS } from './LocalStorageService';
+import CloudDataService, { SHEETS } from './CloudDataService';
 
 const RECURRING_SHEET = 'RecurringTransactions';
 
@@ -62,7 +62,7 @@ class RecurringTransactionService {
    * @returns {Array}
    */
   getAll() {
-    return LocalStorageService.readSheet(RECURRING_SHEET);
+    return CloudDataService.readSheet(RECURRING_SHEET);
   }
 
   /**
@@ -74,7 +74,7 @@ class RecurringTransactionService {
    * @returns {object} the created record
    */
   createRecurring(data) {
-    return LocalStorageService.appendRow(RECURRING_SHEET, {
+    return CloudDataService.appendRow(RECURRING_SHEET, {
       name: data.name,
       amount: data.amount,
       kategori: data.kategori || 'other',
@@ -94,7 +94,7 @@ class RecurringTransactionService {
    * @param {object} updates
    */
   updateRecurring(id, updates) {
-    return LocalStorageService.updateRow(RECURRING_SHEET, id, updates);
+    return CloudDataService.updateRow(RECURRING_SHEET, id, updates);
   }
 
   /**
@@ -102,7 +102,7 @@ class RecurringTransactionService {
    * @param {string} id
    */
   deactivateRecurring(id) {
-    return LocalStorageService.updateRow(RECURRING_SHEET, id, { isActive: false });
+    return CloudDataService.updateRow(RECURRING_SHEET, id, { isActive: false });
   }
 
   /**
@@ -110,7 +110,7 @@ class RecurringTransactionService {
    * @param {string} id
    */
   activateRecurring(id) {
-    return LocalStorageService.updateRow(RECURRING_SHEET, id, { isActive: true });
+    return CloudDataService.updateRow(RECURRING_SHEET, id, { isActive: true });
   }
 
   /**
@@ -118,7 +118,7 @@ class RecurringTransactionService {
    * @param {string} id
    */
   deleteRecurring(id) {
-    return LocalStorageService.deleteRow(RECURRING_SHEET, id);
+    return CloudDataService.deleteRow(RECURRING_SHEET, id);
   }
 
   /**
@@ -131,7 +131,10 @@ class RecurringTransactionService {
     const today = this._today();
     const sheet = recurring.type === 'income' ? SHEETS.PEMASUKAN : SHEETS.PENGELUARAN;
 
-    LocalStorageService.appendRow(sheet, {
+    CloudDataService.appendRow(sheet, {
+      // A deterministic cloud document ID prevents two online devices from
+      // creating the same scheduled transaction at the same time.
+      id: `recurring:${recurring.id}:${today}`,
       nama: recurring.name,
       kategori: recurring.kategori || 'other',
       jumlah: recurring.amount,
@@ -143,7 +146,7 @@ class RecurringTransactionService {
       sourceType: 'recurring',
     });
 
-    LocalStorageService.updateRow(RECURRING_SHEET, recurring.id, {
+    CloudDataService.updateRow(RECURRING_SHEET, recurring.id, {
       lastExecuted: new Date().toISOString(),
       nextDueDate: this.calculateNextDueDate(
         recurring.nextDueDate,
@@ -165,6 +168,21 @@ class RecurringTransactionService {
       .filter((r) => r.isActive && r.nextDueDate && r.nextDueDate <= today)
       .forEach((r) => {
         try {
+          const outputSheet = r.type === 'income' ? SHEETS.PEMASUKAN : SHEETS.PENGELUARAN;
+          const alreadyCreated = CloudDataService.readSheet(outputSheet).some(
+            (row) => row.sourceType === 'recurring' && String(row.sourceRef) === String(r.id) && row.tanggal === today,
+          );
+          if (alreadyCreated) {
+            CloudDataService.updateRow(RECURRING_SHEET, r.id, {
+              lastExecuted: new Date().toISOString(),
+              nextDueDate: this.calculateNextDueDate(
+                r.nextDueDate,
+                r.frequency,
+                r.startDate || r.nextDueDate,
+              ),
+            });
+            return;
+          }
           this.executeRecurring(r);
         } catch (err) {
           console.error(`[Recurring] Failed to execute "${r.name}":`, err);

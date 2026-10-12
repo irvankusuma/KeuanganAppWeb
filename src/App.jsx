@@ -26,6 +26,9 @@ import {
   BarChart3,
   RepeatIcon,
   PiggyBank,
+  Cloud,
+  CloudOff,
+  Loader2,
 } from "lucide-react";
 
 // Pages — dimuat malas agar bundle awal tetap ringan
@@ -42,8 +45,10 @@ const Recurring = lazy(() => import("./pages/Recurring"));
 const Reports = lazy(() => import("./pages/Reports"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 import LoginPage from "./pages/Login";
-import { startRealtimeSync } from "./services/RealtimeSync";
+import { getCloudStatus, startRealtimeSync } from "./services/CloudDataSync";
+import * as CloudAuth from "./services/CloudAuthService";
 import * as Accounts from "./services/AccountService";
+import RecurringTransactionService from "./services/RecurringTransactionService";
 
 // Components
 const ExportImportModal = lazy(() => import("./components/ExportImportModal"));
@@ -56,6 +61,63 @@ function PageFallback() {
       <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
     </div>
   );
+}
+
+function useCloudState() {
+  const [cloud, setCloud] = useState(() => getCloudStatus());
+  useEffect(() => {
+    const onStatus = (event) => setCloud(event.detail || getCloudStatus());
+    const onError = (event) => setCloud((current) => ({
+      ...current,
+      status: "error",
+      ready: current.ready,
+      message: event.detail?.message || "Perubahan belum berhasil disimpan ke cloud.",
+    }));
+    window.addEventListener("kua:cloud-status", onStatus);
+    window.addEventListener("kua:cloud-error", onError);
+    return () => {
+      window.removeEventListener("kua:cloud-status", onStatus);
+      window.removeEventListener("kua:cloud-error", onError);
+    };
+  }, []);
+  return cloud;
+}
+
+function CloudSyncIndicator() {
+  const cloud = useCloudState();
+  const Icon = cloud.status === "error" ? CloudOff : cloud.status === "syncing" || cloud.status === "connecting" ? Loader2 : Cloud;
+  const label = cloud.status === "error"
+    ? "Gagal menyimpan ke cloud"
+    : cloud.status === "syncing"
+      ? "Menyimpan ke cloud…"
+      : cloud.status === "connecting"
+        ? "Menghubungkan cloud…"
+        : "Tersinkron ke cloud";
+  return (
+    <span title={cloud.message || label} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-semibold ${cloud.status === "error" ? "text-red-300 border-red-500/20 bg-red-500/10" : "text-emerald-300 border-emerald-500/20 bg-emerald-500/10"}`}>
+      <Icon size={13} className={cloud.status === "syncing" || cloud.status === "connecting" ? "animate-spin" : ""} />
+      <span className="hidden sm:inline">{label}</span>
+    </span>
+  );
+}
+
+function CloudReadyTasks() {
+  const cloud = useCloudState();
+  const processedUid = useRef("");
+  useEffect(() => {
+    if (!cloud.uid) {
+      processedUid.current = "";
+      return;
+    }
+    if (!cloud.ready || processedUid.current === cloud.uid) return;
+    processedUid.current = cloud.uid;
+    try {
+      RecurringTransactionService.processRecurringTransactions();
+    } catch (error) {
+      console.warn("[Recurring] Pemrosesan cloud gagal:", error);
+    }
+  }, [cloud.ready, cloud.uid]);
+  return null;
 }
 
 // ─── Shared nav config ───────────────────────────────────────
@@ -290,7 +352,7 @@ function Layout({ children }) {
 
   const handleLogout = () => {
     Accounts.lock();
-    navigate("/login");
+    CloudAuth.logout().finally(() => navigate("/login", { replace: true }));
   };
 
   const currentPage =
@@ -370,6 +432,7 @@ function Layout({ children }) {
             
             {/* Right: Profile + Download + Clock */}
             <div className="flex items-center gap-1.5 shrink-0">
+              <CloudSyncIndicator />
               <ProfileMenu collapsed align="right" />
               <button
                 onClick={() => setShowExportModal(true)}
@@ -390,6 +453,7 @@ function Layout({ children }) {
               <span className="text-sm font-bold text-white truncate">{currentPage}</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <CloudSyncIndicator />
               <button
                 onClick={() => setShowExportModal(true)}
                 className="py-1.5 px-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors flex items-center gap-1.5 text-xs font-semibold border border-[#1e2d45] bg-[#0c1220]/50"
@@ -427,7 +491,7 @@ function Layout({ children }) {
       <ConfirmModal
         visible={showLogoutConfirm}
         title="Keluar Aplikasi"
-        message="Sesi akan diakhiri. Data tetap aman tersimpan di perangkat ini."
+        message="Sesi akan diakhiri. Data tetap tersimpan di cloud akun Anda."
         confirmText="Keluar"
         icon={LogOut}
         danger={false}
@@ -440,8 +504,23 @@ function Layout({ children }) {
 
 // ─── Route guard ──────────────────────────────────────────────
 function ProtectedLayout({ children }) {
+  const cloud = useCloudState();
   if (!Accounts.isUnlocked()) {
     return <Navigate to="/login" replace />;
+  }
+  if (!cloud.ready) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1a] text-slate-200 flex items-center justify-center p-6">
+        <div className="max-w-sm text-center">
+          {cloud.status === "error" ? <CloudOff size={28} className="mx-auto mb-3 text-red-400" /> : <Loader2 size={28} className="mx-auto mb-3 animate-spin text-blue-400" />}
+          <p className="text-sm font-semibold">{cloud.status === "error" ? "Cloud belum tersambung" : "Memuat data cloud…"}</p>
+          <p className="text-xs text-slate-400 mt-2">{cloud.message || "Aplikasi menunggu data dari database cloud."}</p>
+          {cloud.status === "error" && (
+            <button onClick={() => { Accounts.lock(); CloudAuth.logout(); }} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white">Kembali ke login</button>
+          )}
+        </div>
+      </div>
+    );
   }
   return <Layout>{children}</Layout>;
 }
@@ -451,6 +530,7 @@ export default function App() {
   useEffect(() => startRealtimeSync(), []);
   return (
     <BrowserRouter>
+      <CloudReadyTasks />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

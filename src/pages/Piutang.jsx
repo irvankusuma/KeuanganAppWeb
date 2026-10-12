@@ -15,7 +15,7 @@ import {
   History,
   Pin
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import ErrorMessage from "../components/ErrorMessage";
@@ -105,14 +105,14 @@ export default function Piutang() {
   }, [location.state]);
 
   const loadData = () => {
-    const data = LocalStorageService.readSheet(SHEETS.PIUTANG);
-    const pembayaran = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
+    const data = CloudDataService.readSheet(SHEETS.PIUTANG);
+    const pembayaran = CloudDataService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
     setPiutang(data);
     setPembayaranPiutang(pembayaran);
   };
 
   const syncCreatePengeluaran = (piutangItem) => {
-    const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
     const existing = allPengeluaran.find(p => p.sourceRef?.toString() === piutangItem.id?.toString() && p.sourceType === "piutang_buat");
     const payload = {
       nama: `Beri Piutang: ${piutangItem.namaOrang}`,
@@ -121,9 +121,9 @@ export default function Piutang() {
       tanggal: piutangItem.tanggal,
     };
     if (existing) {
-      LocalStorageService.updateRow(SHEETS.PENGELUARAN, existing.id, payload);
+      CloudDataService.updateRow(SHEETS.PENGELUARAN, existing.id, payload);
     } else {
-      LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+      CloudDataService.appendRow(SHEETS.PENGELUARAN, {
         ...payload,
         catatan: "Dana dipinjamkan (sinkron otomatis)",
         sourceRef: piutangItem.id,
@@ -152,11 +152,11 @@ export default function Piutang() {
     setFormErrors({});
 
     if (editMode && editId) {
-      const updated = LocalStorageService.updateRow(SHEETS.PIUTANG, editId, formData);
+      const updated = CloudDataService.updateRow(SHEETS.PIUTANG, editId, formData);
       syncCreatePengeluaran(updated);
       showToast("Piutang berhasil diperbarui", "success");
     } else {
-      const saved = LocalStorageService.appendRow(SHEETS.PIUTANG, formData);
+      const saved = CloudDataService.appendRow(SHEETS.PIUTANG, formData);
       syncCreatePengeluaran(saved);
       showToast("Piutang berhasil ditambahkan", "success");
     }
@@ -201,24 +201,24 @@ export default function Piutang() {
         // Hapus history dan sync data
         const historyPiutang = pembayaranPiutang.filter(p => p.piutangId?.toString() === item.id?.toString());
         historyPiutang.forEach(hist => {
-          LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_PIUTANG, hist.id);
+          CloudDataService.deleteRow(SHEETS.PEMBAYARAN_PIUTANG, hist.id);
           if (hist.type === "tambah") {
-            const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+            const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
             const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "piutang_tambah");
-            if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+            if (pExisting) CloudDataService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
           } else {
-            const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+            const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
             const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === hist.id?.toString() && p.sourceType === "piutang_bayar");
-            if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+            if (pExisting) CloudDataService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
           }
         });
 
         // Hapus sync "Beri Piutang" di Pengeluaran
-        const allPengeluaranCreate = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const allPengeluaranCreate = CloudDataService.readSheet(SHEETS.PENGELUARAN);
         const createRow = allPengeluaranCreate.find(p => p.sourceRef?.toString() === item.id?.toString() && p.sourceType === "piutang_buat");
-        if (createRow) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, createRow.id);
+        if (createRow) CloudDataService.deleteRow(SHEETS.PENGELUARAN, createRow.id);
 
-        LocalStorageService.deleteRow(SHEETS.PIUTANG, item.id);
+        CloudDataService.deleteRow(SHEETS.PIUTANG, item.id);
         loadData();
         showToast("Piutang berhasil dihapus", "success");
         setConfirmModal((p) => ({ ...p, visible: false }));
@@ -481,7 +481,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     }
     setPayErrors({});
 
-    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
+    const saved = CloudDataService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
       piutangId: payFormData.piutangId,
       namaOrang: payFormData.namaOrang,
       jumlah: nominal,
@@ -491,7 +491,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     });
 
     // Sync ke Pemasukan (karena menerima pembayaran piutang = uang masuk)
-    LocalStorageService.appendRow(SHEETS.PEMASUKAN, {
+    CloudDataService.appendRow(SHEETS.PEMASUKAN, {
       nama: `Terima Piutang: ${payFormData.namaOrang}`,
       jumlah: nominal,
       tanggal: payFormData.tanggal,
@@ -533,7 +533,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
         return;
       }
     }
-    LocalStorageService.updateRow(SHEETS.PEMBAYARAN_PIUTANG, editPayData.id, {
+    CloudDataService.updateRow(SHEETS.PEMBAYARAN_PIUTANG, editPayData.id, {
       jumlah: nominal,
       tanggal: editPayData.tanggal,
       catatan: editPayData.catatan,
@@ -543,10 +543,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     const historyItem = pembayaranPiutang.find(p => p.id === editPayData.id);
     if (historyItem) {
       if (historyItem.type === "tambah") {
-        const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+        const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
         const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "piutang_tambah");
         if (pExisting) {
-          LocalStorageService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
+          CloudDataService.updateRow(SHEETS.PENGELUARAN, pExisting.id, {
             nama: `Penambahan Piutang: ${editPayData.namaOrang}`,
             jumlah: nominal,
             tanggal: editPayData.tanggal,
@@ -554,10 +554,10 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
           });
         }
       } else {
-        const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+        const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
         const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === editPayData.id?.toString() && p.sourceType === "piutang_bayar");
         if (pExisting) {
-          LocalStorageService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
+          CloudDataService.updateRow(SHEETS.PEMASUKAN, pExisting.id, {
             nama: `Terima Piutang: ${editPayData.namaOrang}`,
             jumlah: nominal,
             tanggal: editPayData.tanggal,
@@ -577,19 +577,19 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       title: "Hapus Riwayat",
       message: `Hapus riwayat ${historyItem.type === "tambah" ? "penambahan" : "pembayaran"} ${formatCurrency(historyItem.jumlah)}?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(
+        CloudDataService.deleteRow(
           SHEETS.PEMBAYARAN_PIUTANG,
           historyItem.id,
         );
 
         if (historyItem.type === "tambah") {
-          const allPengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+          const allPengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
           const pExisting = allPengeluaran.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "piutang_tambah");
-          if (pExisting) LocalStorageService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
+          if (pExisting) CloudDataService.deleteRow(SHEETS.PENGELUARAN, pExisting.id);
         } else {
-          const allPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+          const allPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
           const pExisting = allPemasukan.find(p => p.sourceRef?.toString() === historyItem.id?.toString() && p.sourceType === "piutang_bayar");
-          if (pExisting) LocalStorageService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
+          if (pExisting) CloudDataService.deleteRow(SHEETS.PEMASUKAN, pExisting.id);
         }
 
         loadData();
@@ -616,7 +616,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
       showToast("Data penambahan belum valid.", "error");
       return;
     }
-    const saved = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
+    const saved = CloudDataService.appendRow(SHEETS.PEMBAYARAN_PIUTANG, {
       piutangId: addFormData.piutangId,
       namaOrang: addFormData.namaOrang,
       jumlah: nominal,
@@ -626,7 +626,7 @@ ${item.catatan ? `Catatan:\n${item.catatan}` : ""}`.trim()}
     });
 
     // Sync ke Pengeluaran (karena memberi piutang = uang keluar)
-    LocalStorageService.appendRow(SHEETS.PENGELUARAN, {
+    CloudDataService.appendRow(SHEETS.PENGELUARAN, {
       nama: `Penambahan Piutang: ${addFormData.namaOrang}`,
       kategori: "Pinjaman",
       jumlah: nominal,

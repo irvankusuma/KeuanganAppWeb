@@ -27,7 +27,7 @@ import {
   Clock,
   PieChart as PieIcon
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import { SkeletonDashboard } from "../components/Skeleton";
 import { todayStr, monthStr } from "../utils/dateUtils";
 import { formatCurrency } from "../utils/format";
@@ -68,9 +68,7 @@ export default function Dashboard() {
   const [chartPeriod, setChartPeriod] = useState("bulanan"); // 'mingguan', 'bulanan', 'tahunan'
 
   // State for Target Tabungan
-  const [targetTabungan, setTargetTabungan] = useState(() => {
-    return parseFloat(localStorage.getItem("@TargetTabungan")) || 10000000;
-  });
+  const [targetTabungan, setTargetTabungan] = useState(10000000);
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState("");
   const targetInputRef = useRef(null);
@@ -89,17 +87,20 @@ export default function Dashboard() {
   const loadData = () => {
     try {
       setLoading(true);
-      const hutang = LocalStorageService.readSheet(SHEETS.HUTANG);
-      const piutang = LocalStorageService.readSheet(SHEETS.PIUTANG);
-      const pemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
-      const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
-      const pembayaranHutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
-      const pembayaranPiutang = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
-      const catatan = LocalStorageService.readSheet(SHEETS.CATATAN);
-      const perbaikan = LocalStorageService.readSheet(SHEETS.PERBAIKAN);
-      const tagihan = LocalStorageService.readSheet(SHEETS.TAGIHAN);
-      const pembayaranTagihan = LocalStorageService.readSheet(SHEETS.PEMBAYARAN_TAGIHAN);
-      const budgets = LocalStorageService.readSheet(SHEETS.BUDGETS);
+      const hutang = CloudDataService.readSheet(SHEETS.HUTANG);
+      const piutang = CloudDataService.readSheet(SHEETS.PIUTANG);
+      const pemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
+      const pengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
+      const pembayaranHutang = CloudDataService.readSheet(SHEETS.PEMBAYARAN_HUTANG);
+      const pembayaranPiutang = CloudDataService.readSheet(SHEETS.PEMBAYARAN_PIUTANG);
+      const catatan = CloudDataService.readSheet(SHEETS.CATATAN);
+      const perbaikan = CloudDataService.readSheet(SHEETS.PERBAIKAN);
+      const tagihan = CloudDataService.readSheet(SHEETS.TAGIHAN);
+      const pembayaranTagihan = CloudDataService.readSheet(SHEETS.PEMBAYARAN_TAGIHAN);
+      const budgets = CloudDataService.readSheet(SHEETS.BUDGETS);
+      const appSettings = CloudDataService.readSheet(SHEETS.APP_SETTINGS);
+      const targetSetting = appSettings.find((item) => item.id === "targetTabungan");
+      setTargetTabungan(Number(targetSetting?.value) > 0 ? Number(targetSetting.value) : 10000000);
 
       setData({
         hutang,
@@ -170,7 +171,9 @@ export default function Dashboard() {
     const val = parseFloat(targetInput.replace(/\D/g, ""));
     if (!isNaN(val) && val > 0) {
       setTargetTabungan(val);
-      localStorage.setItem("@TargetTabungan", val.toString());
+      const setting = CloudDataService.readSheet(SHEETS.APP_SETTINGS).find((item) => item.id === "targetTabungan");
+      if (setting) CloudDataService.updateRow(SHEETS.APP_SETTINGS, setting.id, { value: val });
+      else CloudDataService.appendRow(SHEETS.APP_SETTINGS, { id: "targetTabungan", value: val });
     }
     setIsEditingTarget(false);
   };

@@ -1,77 +1,46 @@
-# 📘 KeuanganApp Web (v1.2.0)
+# KeuanganApp Web
 
-KeuanganApp Web adalah aplikasi manajemen keuangan pribadi modern berbasis browser yang dirancang untuk memberikan kendali penuh kepada pengguna atas kesehatan finansial mereka. Aplikasi ini mengutamakan privasi data mutlak (offline-first & LocalStorage), tampilan estetis dark mode yang responsif, visualisasi data interaktif, dan pelacakan anggaran yang cerdas.
+Aplikasi pencatatan keuangan berbasis React dan Vite. Firebase Authentication mengelola akun, sedangkan Cloud Firestore menjadi penyimpanan utama transaksi, profil, dan pengaturan.
 
----
+## Penyimpanan dan sinkronisasi
 
-## 🚀 1) Fitur Unggulan Terbaru (v1.2.0)
+- Data transaksi tidak disimpan permanen di `localStorage`; aplikasi menyimpannya di Firestore dan menahan salinan sementara di memori selama aplikasi terbuka.
+- Setiap perubahan dikirim ke Firestore. `onSnapshot` menerima perubahan dari perangkat lain secara realtime.
+- Perangkat harus online untuk membaca dan menyimpan data. Indikator cloud menunjukkan status koneksi dan penyimpanan.
+- Sesi autentikasi Firebase disimpan di IndexedDB browser. Ini hanya sesi login, bukan data transaksi.
+- Data lama di browser dan backup Firestore lama (`backups/{uid}`) dimigrasikan satu kali setelah login. Salinan transaksi browser dihapus hanya setelah pengiriman ke Firestore berhasil.
 
-### 📊 A. Laporan & Analisis Keuangan (`/reports`)
-- **Ringkasan Bulanan**: Pemasukan, pengeluaran, dan sisa saldo bersih bulanan.
-- **Distribusi Kategori**: Grafik Pie interaktif pengeluaran per kategori.
-- **Top 5 Pengeluaran**: Menyorot pos pengeluaran terbesar setiap bulan.
-- **Tren 6 Bulan**: Bar chart perbandingan arus kas historis.
+## Menyiapkan Firebase
 
-### 💰 B. Pelacakan Anggaran Bulanan (`/budget`) & Budget Alerts
-- **Batas Pengeluaran per Kategori**: Tetapkan alokasi anggaran bulanan untuk setiap kategori pengeluaran.
-- **Peringatan Otomatis di Dashboard**: Notifikasi visual jika pengeluaran kategori mencapai > 80% (Peringatan) atau > 100% (Melebihi Anggaran).
-- **Progres Visual**: Progress bar real-time persentase anggaran terpakai.
-
-### 🔄 C. Transaksi Berulang / Recurring (`/recurring`)
-- **Auto-Execution**: Pencatatan otomatis transaksi berkala (harian, mingguan, bulanan, tahunan).
-- **Eksekusi Sekali Klik**: Opsi eksekusi manual kapan saja jika ingin mendahului jadwal.
-- **Riwayat Eksekusi**: Status pelacakan tanggal eksekusi terakhir dan jadwal berikutnya.
-
-### 🛡️ D. Analisis Kesehatan Hutang & Rencana Pelunasan
-- **Skor Kesehatan Hutang**: Analisis Debt-to-Income (DTI) ratio di Dashboard (Sehat, Perhatian, Beban Tinggi).
-- **Kalkulator Rencana Cicilan**: Saran nominal cicilan bulanan otomatis di halaman Hutang beserta indikator beban terhadap pemasukan.
-- **Distribusi Hutang**: Pie chart pembagian tipe hutang dan peringatan jatuh tempo dalam 7 hari.
-
-### 🏷️ E. Category Picker & Validasi Form Terpadu
-- **Pilihan Kategori Standar**: Kategori pemasukan & pengeluaran dengan emoji dan icon yang terstruktur.
-- **Validasi Input Real-Time**: Pesan error inline pada nominal, nama, tanggal, dan relasi pembayaran.
-
----
-
-## 📂 2) Modul & Halaman Aplikasi
-
-| Halaman | Rute | Deskripsi |
-|---|---|---|
-| **Dashboard** | `/` | Pusat komando finansial, saldo bersih, ringkasan pintar, grafik tren, kalender, peringatan anggaran & kesehatan hutang. |
-| **Pemasukan** | `/pemasukan` | Pencatatan pemasukan terintegrasi kategori dan sub-saldo. |
-| **Pengeluaran** | `/pengeluaran` | Pencatatan pengeluaran dengan pemilih kategori dan riwayat. |
-| **Anggaran** | `/budget` | Pengaturan batas anggaran pengeluaran per kategori bulanan. |
-| **Transaksi Berulang** | `/recurring` | Pengelolaan tagihan/transaksi rutin dengan auto-execution. |
-| **Laporan** | `/reports` | Visualisasi tren keuangan, pie chart kategori, dan top pengeluaran. |
-| **Hutang** | `/hutang` | Pengelolaan pinjaman, pembayaran cicilan, dan saran rencana pelunasan. |
-| **Piutang** | `/piutang` | Pelacakan dana yang dipinjamkan dan pencatatan penerimaan cicilan. |
-| **Tagihan** | `/tagihan` | Pengingat dan pelacakan pembayaran tagihan rutin bulanan. |
-| **Perbaikan** | `/perbaikan` | Pencatatan pemeliharaan aset dan perbaikan perangkat/kendaraan. |
-| **Catatan** | `/catatan` | Catatan pengingat finansial cepat dan multi-format. |
-| **Ekspor / Impor** | Dialog menu Unduhan | Cadangan data JSON, Excel, dan TXT serta ekspor riwayat. |
-| **Pengaturan** | `/settings` | Kelola profil, sandi, PIN, dan foto profil akun. |
-
----
-
-## 🛠️ 3) Teknologi yang Digunakan
-
-- **Framework**: React 18 & Vite
-- **Styling**: Tailwind CSS (Dark theme `#0a0f1a`, `#0c1220`)
-- **Iconography**: Lucide React
-- **Charts & Data Visualization**: Recharts
-- **Storage & State**: Browser LocalStorage API (Offline-first, no external tracking)
-
----
-
-## ⚙️ 4) Cara Menjalankan Project
+1. Pastikan konfigurasi proyek pada `src/firebaseConfig.js` sesuai dengan Firebase Web App yang digunakan.
+2. Di Firebase Console, aktifkan **Authentication → Email/Password**.
+3. Buat **Cloud Firestore Database**.
+4. Publikasikan aturan keamanan dari `firestore.rules`. Aturan membatasi setiap pengguna ke profil dan datanya sendiri. Aturan lama yang hanya mengizinkan `backups/{uid}` tidak cukup untuk sinkronisasi baru.
+5. Jalankan aplikasi:
 
 ```bash
-# 1. Install dependensi
 npm install
-
-# 2. Jalankan development server
 npm run dev
-
-# 3. Build bundle produksi
-npm run build
 ```
+
+> Jika memakai Firebase CLI, `firebase.json` sudah menunjuk ke `firestore.rules`. Tanpa CLI, salin isi file tersebut ke tab **Firestore Database → Rules** di Firebase Console lalu klik **Publish**. Jangan gunakan aturan terbuka seperti `allow read, write: if true`.
+
+## Migrasi dari versi lokal
+
+- Masuk dengan email yang sama di perangkat yang masih memiliki data lama. Untuk akun lokal lama yang belum ada di Firebase Authentication, aplikasi memverifikasi sandi lama lalu membuat identitas cloud dengan email dan sandi itu.
+- Jika data lama terikat pada akun lokal dengan email berbeda, masuklah memakai email lama terlebih dahulu agar data tidak tercampur ke akun lain.
+- Data diunggah sebelum kunci transaksi lama di browser dibersihkan. Jika koneksi atau izin Firestore gagal, aplikasi menampilkan kesalahan dan tidak menghapus salinan lokal.
+- Di perangkat baru, masuk dengan akun Firebase yang sama untuk memuat data cloud.
+
+## Fitur
+
+- Dashboard, pemasukan, pengeluaran, hutang, piutang, tagihan, anggaran, transaksi rutin, laporan, perbaikan, dan catatan.
+- Sinkronisasi realtime antar perangkat menggunakan Firestore listeners.
+- Ekspor dan impor JSON, Excel, dan TXT.
+- Profil dan penggantian sandi melalui Firebase Authentication.
+
+## Teknologi
+
+- React 18, Vite, Tailwind CSS
+- Firebase Authentication dan Cloud Firestore
+- Recharts dan Lucide React

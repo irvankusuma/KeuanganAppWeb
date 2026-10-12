@@ -3,7 +3,7 @@ import {
   Plus, Pencil, Trash2, X, Receipt,
   Pin, Filter, Search, Calendar, Check, Wallet
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import { todayStr, monthStr } from "../utils/dateUtils";
 import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
@@ -78,8 +78,8 @@ export default function Tagihan() {
   }, [dataVersion]);
 
   const load = () => {
-    setTagihan(LocalStorageService.readSheet(SHEETS.TAGIHAN));
-    setRiwayat(LocalStorageService.readSheet(SHEETS.PEMBAYARAN_TAGIHAN));
+    setTagihan(CloudDataService.readSheet(SHEETS.TAGIHAN));
+    setRiwayat(CloudDataService.readSheet(SHEETS.PEMBAYARAN_TAGIHAN));
   };
 
   const resetForm = () => {
@@ -91,7 +91,7 @@ export default function Tagihan() {
 
   // ─── Sync helpers to Pengeluaran ────────────────────────────
   const syncHistoryToPengeluaran = (histItem, tagihanName) => {
-    const pengeluarans = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const pengeluarans = CloudDataService.readSheet(SHEETS.PENGELUARAN);
     const existing = pengeluarans.find(p => p.sourceRef === histItem.id.toString() && p.sourceType === "tagihan_bayar");
     
     const payload = {
@@ -105,17 +105,17 @@ export default function Tagihan() {
     };
 
     if (existing) {
-      LocalStorageService.updateRow(SHEETS.PENGELUARAN, existing.id, payload);
+      CloudDataService.updateRow(SHEETS.PENGELUARAN, existing.id, payload);
     } else {
-      LocalStorageService.appendRow(SHEETS.PENGELUARAN, payload);
+      CloudDataService.appendRow(SHEETS.PENGELUARAN, payload);
     }
   };
 
   const deleteHistoryPengeluaran = (histId) => {
-    const pengeluarans = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+    const pengeluarans = CloudDataService.readSheet(SHEETS.PENGELUARAN);
     const existing = pengeluarans.find(p => p.sourceRef === histId.toString() && p.sourceType === "tagihan_bayar");
     if (existing) {
-      LocalStorageService.deleteRow(SHEETS.PENGELUARAN, existing.id);
+      CloudDataService.deleteRow(SHEETS.PENGELUARAN, existing.id);
     }
   };
 
@@ -132,16 +132,16 @@ export default function Tagihan() {
     };
 
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.TAGIHAN, editId, payload);
+      CloudDataService.updateRow(SHEETS.TAGIHAN, editId, payload);
       // Sync names of all historical records in Pengeluaran
       const parentHistories = riwayat.filter(r => r.tagihanId === editId.toString());
       parentHistories.forEach(h => {
-        const updatedH = LocalStorageService.updateRow(SHEETS.PEMBAYARAN_TAGIHAN, h.id, { namaTagihan: form.nama.trim() });
+        const updatedH = CloudDataService.updateRow(SHEETS.PEMBAYARAN_TAGIHAN, h.id, { namaTagihan: form.nama.trim() });
         syncHistoryToPengeluaran(updatedH, form.nama.trim());
       });
       showToast("Tagihan diperbarui", "success");
     } else {
-      LocalStorageService.appendRow(SHEETS.TAGIHAN, payload);
+      CloudDataService.appendRow(SHEETS.TAGIHAN, payload);
       showToast("Kategori tagihan berhasil ditambahkan", "success");
     }
     resetForm();
@@ -169,9 +169,9 @@ export default function Tagihan() {
         const parentHistories = riwayat.filter(r => r.tagihanId === item.id.toString());
         parentHistories.forEach(h => {
           deleteHistoryPengeluaran(h.id);
-          LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_TAGIHAN, h.id);
+          CloudDataService.deleteRow(SHEETS.PEMBAYARAN_TAGIHAN, h.id);
         });
-        LocalStorageService.deleteRow(SHEETS.TAGIHAN, item.id);
+        CloudDataService.deleteRow(SHEETS.TAGIHAN, item.id);
         load();
         showToast("Tagihan berhasil dihapus", "success");
         setConfirm(p => ({ ...p, visible: false }));
@@ -219,7 +219,7 @@ export default function Tagihan() {
     const amt = parseFloat(histForm.jumlah) || 0;
 
     if (histEditMode && histForm.id) {
-      const updatedH = LocalStorageService.updateRow(SHEETS.PEMBAYARAN_TAGIHAN, histForm.id, {
+      const updatedH = CloudDataService.updateRow(SHEETS.PEMBAYARAN_TAGIHAN, histForm.id, {
         bulan: histForm.bulan,
         jumlah: amt,
         catatan: histForm.catatan.trim()
@@ -227,7 +227,7 @@ export default function Tagihan() {
       syncHistoryToPengeluaran(updatedH, activeTagihan.nama);
       showToast("Riwayat pembayaran diperbarui", "success");
     } else {
-      const newH = LocalStorageService.appendRow(SHEETS.PEMBAYARAN_TAGIHAN, {
+      const newH = CloudDataService.appendRow(SHEETS.PEMBAYARAN_TAGIHAN, {
         tagihanId: activeTagihan.id.toString(),
         namaTagihan: activeTagihan.nama,
         bulan: histForm.bulan,
@@ -249,7 +249,7 @@ export default function Tagihan() {
       message: `Hapus pembayaran bulan ${fmtBulan(histItem.bulan)} sebesar ${fmtC(histItem.jumlah)}? (Akan menghapus pengeluaran terkait)`,
       onConfirm: () => {
         deleteHistoryPengeluaran(histItem.id);
-        LocalStorageService.deleteRow(SHEETS.PEMBAYARAN_TAGIHAN, histItem.id);
+        CloudDataService.deleteRow(SHEETS.PEMBAYARAN_TAGIHAN, histItem.id);
         load();
         showToast("Riwayat pembayaran dihapus", "success");
         setConfirm(p => ({ ...p, visible: false }));

@@ -5,7 +5,6 @@ import {
   User as UserIcon,
   Camera,
   Save,
-  KeyRound,
   Lock,
   LogOut,
   ShieldCheck,
@@ -13,7 +12,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import * as Accounts from "../services/AccountService";
-import { digitsOnly, isValidPin, PIN_LENGTH } from "../utils/hash";
+import * as CloudAuth from "../services/CloudAuthService";
 import { fileToAvatarDataUrl } from "../utils/avatar";
 import { useToast } from "../context/ToastContext";
 import useActiveAccount from "../hooks/useActiveAccount";
@@ -64,11 +63,6 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const [pins, setPins] = useState({ current: "", next: "", confirm: "" });
-  const [showPin, setShowPin] = useState(false);
-  const [pinError, setPinError] = useState("");
-  const [savingPin, setSavingPin] = useState(false);
-
   const [confirmLock, setConfirmLock] = useState(false);
 
   if (!account) {
@@ -88,7 +82,9 @@ export default function SettingsPage() {
     try {
       const dataUrl = await fileToAvatarDataUrl(file);
       setAvatar(dataUrl);
-      Accounts.updateProfile(account.id, { avatar: dataUrl });
+      const updated = await CloudAuth.updateProfile(CloudAuth.getCurrentUser(), { ...account, avatar: dataUrl });
+      Accounts.updateProfile(account.id, updated);
+      setProfile({ name: updated.name, email: updated.email });
       showToast("Foto profil diperbarui.", "success");
     } catch (err) {
       setProfileError(err.message);
@@ -100,7 +96,9 @@ export default function SettingsPage() {
     setSavingProfile(true);
     setProfileError("");
     try {
-      Accounts.updateProfile(account.id, { name: profile.name, email: profile.email, avatar });
+      const updated = await CloudAuth.updateProfile(CloudAuth.getCurrentUser(), { name: profile.name, email: profile.email, avatar });
+      Accounts.updateProfile(account.id, updated);
+      setProfile({ name: updated.name, email: updated.email });
       showToast("Profil berhasil disimpan.", "success");
     } catch (err) {
       setProfileError(err.message);
@@ -118,7 +116,7 @@ export default function SettingsPage() {
     }
     setSavingPassword(true);
     try {
-      await Accounts.changePassword(account.id, passwords.current, passwords.next);
+      await CloudAuth.changePassword(CloudAuth.getCurrentUser(), passwords.current, passwords.next);
       setPasswords({ current: "", next: "", confirm: "" });
       showToast("Sandi berhasil diganti.", "success");
     } catch (err) {
@@ -128,33 +126,10 @@ export default function SettingsPage() {
     }
   };
 
-  const savePin = async (e) => {
-    e.preventDefault();
-    setPinError("");
-    if (!isValidPin(pins.next)) {
-      setPinError(`PIN baru harus tepat ${PIN_LENGTH} digit angka.`);
-      return;
-    }
-    if (pins.next !== pins.confirm) {
-      setPinError("Konfirmasi PIN baru tidak cocok.");
-      return;
-    }
-    setSavingPin(true);
-    try {
-      await Accounts.changePin(account.id, pins.current, pins.next);
-      setPins({ current: "", next: "", confirm: "" });
-      showToast("PIN berhasil diganti.", "success");
-    } catch (err) {
-      setPinError(err.message);
-    } finally {
-      setSavingPin(false);
-    }
-  };
-
   const handleLock = () => {
     setConfirmLock(false);
     Accounts.lock();
-    navigate("/login", { replace: true });
+    CloudAuth.logout().finally(() => navigate("/login", { replace: true }));
   };
 
   return (
@@ -169,7 +144,7 @@ export default function SettingsPage() {
 
       {/* Profil */}
       <form onSubmit={saveProfile} className={`${cardCls} space-y-4`}>
-        <SectionTitle icon={UserIcon} title="Profil" subtitle="Nama, email, dan foto profil" />
+        <SectionTitle icon={UserIcon} title="Profil cloud" subtitle="Nama dan foto profil akun cloud" />
 
         <div className="flex items-center gap-3">
           <button
@@ -204,15 +179,15 @@ export default function SettingsPage() {
         </div>
 
         <div>
-          <label className={labelCls} htmlFor="set-email">Email</label>
+          <label className={labelCls} htmlFor="set-email">Email akun</label>
           <input
             id="set-email"
             type="email"
             value={profile.email}
-            onChange={(e) => { setProfile((p) => ({ ...p, email: e.target.value })); setProfileError(""); }}
+            readOnly
             className={inputCls}
-            required
           />
+          <p className="text-[10px] text-slate-600 mt-1">Email login dikelola oleh Firebase Authentication.</p>
         </div>
 
         <FieldError>{profileError}</FieldError>
@@ -292,85 +267,11 @@ export default function SettingsPage() {
         </button>
       </form>
 
-      {/* PIN */}
-      <form onSubmit={savePin} className={`${cardCls} space-y-3.5`}>
-        <SectionTitle
-          icon={KeyRound}
-          title="Ganti PIN"
-          subtitle={`Tepat ${PIN_LENGTH} digit angka — PIN menentukan akun yang terbuka`}
-        />
-
-        <div>
-          <label className={labelCls} htmlFor="pin-current">PIN saat ini</label>
-          <div className="relative">
-            <input
-              id="pin-current"
-              type={showPin ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={PIN_LENGTH}
-              value={pins.current}
-              onChange={(e) => { setPins((p) => ({ ...p, current: digitsOnly(e.target.value) })); setPinError(""); }}
-              className={`${inputCls} pr-10 tracking-[0.3em]`}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPin(!showPin)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300"
-              title={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
-            >
-              {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className={labelCls} htmlFor="pin-next">PIN baru</label>
-            <input
-              id="pin-next"
-              type={showPin ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={PIN_LENGTH}
-              value={pins.next}
-              onChange={(e) => { setPins((p) => ({ ...p, next: digitsOnly(e.target.value) })); setPinError(""); }}
-              className={`${inputCls} tracking-[0.3em]`}
-              required
-            />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor="pin-confirm">Ulangi PIN baru</label>
-            <input
-              id="pin-confirm"
-              type={showPin ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={PIN_LENGTH}
-              value={pins.confirm}
-              onChange={(e) => { setPins((p) => ({ ...p, confirm: digitsOnly(e.target.value) })); setPinError(""); }}
-              className={`${inputCls} tracking-[0.3em]`}
-              required
-            />
-          </div>
-        </div>
-
-        <FieldError>{pinError}</FieldError>
-
-        <button
-          type="submit"
-          disabled={savingPin}
-          className="w-full bg-[#1e2d45] hover:bg-[#26374f] text-white text-sm font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-        >
-          <KeyRound size={15} />
-          {savingPin ? "Memproses..." : "Ganti PIN"}
-        </button>
-      </form>
-
       {/* Sesi */}
       <div className={`${cardCls} space-y-3`}>
-        <SectionTitle icon={ShieldCheck} title="Sesi" subtitle="Data tersimpan di perangkat ini" />
+        <SectionTitle icon={ShieldCheck} title="Sesi cloud" subtitle="Akun Anda tersinkron dengan Firestore" />
         <p className="text-[11px] text-slate-500 leading-relaxed -mt-2 mb-1">
-          Setiap perubahan langsung tersimpan dan otomatis muncul di semua tab/sesi aplikasi yang sedang terbuka
-          pada perangkat ini.
+          Perubahan disimpan langsung ke database cloud dan diterima perangkat lain melalui sinkronisasi realtime.
         </p>
         <button
           type="button"
@@ -385,7 +286,7 @@ export default function SettingsPage() {
       <ConfirmModal
         visible={confirmLock}
         title="Kunci Aplikasi"
-        message="Anda harus memasukkan PIN lagi untuk membuka data. Lanjutkan?"
+        message="Sesi cloud akan diakhiri. Anda perlu masuk kembali untuk membuka data. Lanjutkan?"
         confirmText="Kunci"
         icon={Lock}
         danger={false}

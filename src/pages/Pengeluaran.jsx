@@ -14,7 +14,7 @@ import {
   Pin,
   RefreshCw
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import ConfirmModal from "../components/ConfirmModal";
 import NumericInput from "../components/NumericInput";
 import CategoryPicker from "../components/CategoryPicker";
@@ -79,8 +79,8 @@ export default function Pengeluaran() {
   }, [location.state]);
 
   const loadData = () => {
-    const data = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
-    const dataPemasukan = LocalStorageService.readSheet(SHEETS.PEMASUKAN);
+    const data = CloudDataService.readSheet(SHEETS.PENGELUARAN);
+    const dataPemasukan = CloudDataService.readSheet(SHEETS.PEMASUKAN);
     setPengeluaran(data);
     setPemasukan(dataPemasukan);
   };
@@ -96,9 +96,9 @@ export default function Pengeluaran() {
       kategori: formData.kategori || "Lainnya",
     };
     if (editMode && editId) {
-      LocalStorageService.updateRow(SHEETS.PENGELUARAN, editId, dataToSave);
+      CloudDataService.updateRow(SHEETS.PENGELUARAN, editId, dataToSave);
     } else {
-      LocalStorageService.appendRow(SHEETS.PENGELUARAN, dataToSave);
+      CloudDataService.appendRow(SHEETS.PENGELUARAN, dataToSave);
     }
     resetForm();
     loadData();
@@ -123,7 +123,7 @@ export default function Pengeluaran() {
       title: "Hapus Pengeluaran",
       message: `Apakah "${item.nama}" mau dihapus?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.PENGELUARAN, item.id);
+        CloudDataService.deleteRow(SHEETS.PENGELUARAN, item.id);
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
       },

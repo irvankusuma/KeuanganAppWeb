@@ -14,7 +14,7 @@ import {
   Check,
   Pin
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import CardActionMenu from "../components/CardActionMenu";
@@ -73,7 +73,7 @@ export default function Catatan() {
   }, [location.state]);
 
   const loadData = () => {
-    const data = LocalStorageService.readSheet(SHEETS.CATATAN);
+    const data = CloudDataService.readSheet(SHEETS.CATATAN);
     setCatatan(data);
   };
 
@@ -280,9 +280,9 @@ export default function Catatan() {
     };
 
     if (editId) {
-      LocalStorageService.updateRow(SHEETS.CATATAN, editId, payload);
+      CloudDataService.updateRow(SHEETS.CATATAN, editId, payload);
 } else {
-      LocalStorageService.appendRow(SHEETS.CATATAN, payload);
+      CloudDataService.appendRow(SHEETS.CATATAN, payload);
     }
 
     resetForm();
@@ -319,7 +319,7 @@ export default function Catatan() {
       title: "Hapus Catatan",
       message: `Apakah catatan "${item.judul || "Catatan Singkat"}" mau dihapus?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.CATATAN, item.id);
+        CloudDataService.deleteRow(SHEETS.CATATAN, item.id);
         loadData();
         setConfirmModal((p) => ({ ...p, visible: false }));
       },
@@ -381,7 +381,7 @@ export default function Catatan() {
     if (lines[lineIdx] === undefined) return;
 
     lines[lineIdx] = toggleLineCheckbox(lines[lineIdx]);
-    LocalStorageService.updateRow(SHEETS.CATATAN, item.id, { isi: lines.join("\n") });
+    CloudDataService.updateRow(SHEETS.CATATAN, item.id, { isi: lines.join("\n") });
     loadData();
   };
 
@@ -403,7 +403,7 @@ export default function Catatan() {
     setFormData({ ...formData, isi: newIsi });
 
     if (editId) {
-      LocalStorageService.updateRow(SHEETS.CATATAN, editId, {
+      CloudDataService.updateRow(SHEETS.CATATAN, editId, {
         judul: formData.judul,
         isi: newIsi,
         jenis: formData.jenis,

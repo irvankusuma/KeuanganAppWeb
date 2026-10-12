@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   PiggyBank, Plus, Pencil, Trash2, X, AlertTriangle, CheckCircle, TrendingUp, ChevronDown, ChevronUp
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import NumericInput from "../components/NumericInput";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
@@ -15,7 +15,7 @@ import useDataVersion from "../hooks/useDataVersion";
  * Compute spent amount for a given category in a given month.
  */
 function calcSpent(categoryId, month) {
-  const pengeluaran = LocalStorageService.readSheet(SHEETS.PENGELUARAN);
+  const pengeluaran = CloudDataService.readSheet(SHEETS.PENGELUARAN);
   return pengeluaran
     .filter((item) => item.kategori === categoryId && item.tanggal?.startsWith(month))
     .reduce((sum, item) => sum + (parseFloat(item.jumlah) || 0), 0);
@@ -56,7 +56,7 @@ export default function Budget() {
   useEffect(() => { loadBudgets(); }, [dataVersion]);
 
   const loadBudgets = () => {
-    setBudgets(LocalStorageService.readSheet(SHEETS.BUDGETS));
+    setBudgets(CloudDataService.readSheet(SHEETS.BUDGETS));
   };
 
   // Enrich categories with budget + spent data for the selected month
@@ -104,9 +104,9 @@ export default function Budget() {
     if (!limit || limit <= 0) { showToast('Limit harus lebih dari 0', 'error'); return; }
 
     if (editId) {
-      LocalStorageService.updateRow(SHEETS.BUDGETS, editId, { limit });
+      CloudDataService.updateRow(SHEETS.BUDGETS, editId, { limit });
     } else {
-      LocalStorageService.appendRow(SHEETS.BUDGETS, {
+      CloudDataService.appendRow(SHEETS.BUDGETS, {
         categoryId: formData.categoryId,
         month: selectedMonth,
         limit,
@@ -124,7 +124,7 @@ export default function Budget() {
       title: 'Hapus Budget',
       message: `Hapus budget untuk "${cat.name}"?`,
       onConfirm: () => {
-        LocalStorageService.deleteRow(SHEETS.BUDGETS, cat.budgetId);
+        CloudDataService.deleteRow(SHEETS.BUDGETS, cat.budgetId);
         loadBudgets();
         setConfirmModal((p) => ({ ...p, visible: false }));
         showToast('Budget dihapus', 'success');

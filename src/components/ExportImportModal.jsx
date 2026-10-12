@@ -11,7 +11,7 @@ import {
   FileSpreadsheet,
   FileJson,
 } from "lucide-react";
-import LocalStorageService, { SHEETS } from "../services/LocalStorageService";
+import CloudDataService, { SHEETS } from "../services/CloudDataService";
 import { useToast } from "../context/ToastContext";
 import ConfirmModal from "./ConfirmModal";
 import * as XLSX from "xlsx";
@@ -132,7 +132,7 @@ export default function ExportImportModal({ visible, onClose }) {
   ]);
 
   const loadHistory = () => {
-    const data = LocalStorageService.getAllHistory();
+    const data = CloudDataService.getAllHistory();
     setHistory(data);
 
     const months = [
@@ -215,7 +215,7 @@ export default function ExportImportModal({ visible, onClose }) {
   // ==================== EXPORT ====================
   const handleExport = () => {
     try {
-      const result = LocalStorageService.exportAllData();
+      const result = CloudDataService.exportAllData();
       const sheets = result.data;
 
       if (!sheets || Object.keys(sheets).length === 0) {
@@ -313,9 +313,9 @@ export default function ExportImportModal({ visible, onClose }) {
           setImportConfirm({
             visible: true,
             label,
-            onConfirm: () => {
+            onConfirm: async () => {
               try {
-                LocalStorageService.importAllData(data);
+                await CloudDataService.importAllData(data);
                 showToast(`Data berhasil diimport dari ${label}!`, "success");
                 setImportConfirm({ visible: false, onConfirm: null, label: "" });
                 onClose();
